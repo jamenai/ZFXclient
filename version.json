@@ -1,14 +1,24 @@
 {
-    "version": "0.1.15",
+    "version": "0.1.16",
     "lastUpdated": "November 7, 2026",
     "changes": [
-        "Add ZFX branding, a custom favicon, and updated project links",
-        "Replace the custom lobby dialog with a dedicated Vue view",
-        "Align Game and ZFX Settings dialogs and stabilize their shared header and navigation",
-        "Show implementation status for HomeView scenario, account, game menu, and custom lobby actions"
+        "Update native game patches for the current game bundle",
+        "Reconnect Vue Leaderboards and Logs to the current native request and table format",
+        "Add the Discord invite to HomeView, the sidebar, and README",
+        "Prevent nested scrolling in the What's New dialog"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.15",
+            "lastUpdated": "November 7, 2026",
+            "changes": [
+                "Add ZFX branding, a custom favicon, and updated project links",
+                "Replace the custom lobby dialog with a dedicated Vue view",
+                "Align Game and ZFX Settings dialogs and stabilize their shared header and navigation",
+                "Show implementation status for HomeView scenario, account, game menu, and custom lobby actions"
+            ]
+        },
         {
             "version": "0.1.14",
             "lastUpdated": "November 7, 2026",

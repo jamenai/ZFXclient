@@ -7,7 +7,7 @@
 </p>
 <p align="center">
   <a href="https://github.com/jamenai/ZFXclient"><img alt="GitHub repository" src="https://img.shields.io/badge/GitHub-ZFXclient-172b3a?logo=github&logoColor=white"></a>
-  <a href="https://discord.gg/Hzqm6NSRp"><img alt="ZFX Client Discord" src="https://img.shields.io/badge/Discord-ZFX%20Client-5865F2?logo=discord&logoColor=white"></a>
+  <a href="https://discord.gg/9Dr2GMUNhc"><img alt="ZFX Client Discord" src="https://img.shields.io/badge/Discord-ZFX%20Client-5865F2?logo=discord&logoColor=white"></a>
   <a href="https://github.com/jamenai/ZFXclient/actions/workflows/deploy_github_pages.yml"><img src="https://github.com/jamenai/ZFXclient/actions/workflows/deploy_github_pages.yml/badge.svg" alt="Build and Publish to GitHub Pages"></a>
   <a href="https://jamenai.github.io/ZFXclient/"><img src="https://github.com/jamenai/ZFXclient/actions/workflows/pages/pages-build-deployment/badge.svg" alt="pages-build-deployment"></a>
 </p>
@@ -81,4 +81,4 @@ $env:ZFXCLIENT_PORT=8080; npm run serve
 
 ## Community
 
-For community discussion, join the ZFX Client Discord: https://discord.gg/Hzqm6NSRp
+For community discussion, join the ZFX Client Discord: https://discord.gg/9Dr2GMUNhc

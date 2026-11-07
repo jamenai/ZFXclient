@@ -199,7 +199,15 @@ class ModUtils {
         this.postMinifyHandlers.push(handler);
     }
     executePostMinifyHandlers() {
-        this.postMinifyHandlers.forEach(handler => handler());
+        for (const handler of this.postMinifyHandlers) {
+            const originalScript = this.script;
+            try {
+                handler();
+            } catch (error) {
+                this.script = originalScript;
+                console.warn("[ZFX Client] Skipping incompatible post-minification patch:", error);
+            }
+        }
     }
     escapeRegExp = escapeRegExp
 }

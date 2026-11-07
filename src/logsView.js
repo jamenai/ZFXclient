@@ -147,7 +147,6 @@ const LogsView = defineComponent({
       visible.value = true;
       error.value = "";
       window.__fx.logsViewActive = true;
-      window.__fx.openGameMenuAction?.("logs");
       requestPage(0);
     }
     function page(delta) {

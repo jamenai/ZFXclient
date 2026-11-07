@@ -176,7 +176,7 @@ const VueSidebar = defineComponent({
           </button>
         </section>
       </nav>
-      <footer class="fx-vue-sidebar-footer"><span>●</span> v{{ version }}</footer>
+      <footer class="fx-vue-sidebar-footer"><a class="fx-vue-sidebar-discord" href="https://discord.gg/9Dr2GMUNhc" target="_blank" rel="noopener noreferrer" title="ZFX Client Discord" aria-label="Join the ZFX Client Discord"><span aria-hidden="true">D</span><b>Discord</b></a><span class="fx-vue-sidebar-version"><i>●</i> v{{ version }}</span></footer>
       <div class="fx-sidebar-mode-actions">
         <button type="button" class="fx-sidebar-button fx-sidebar-mode-action" @click="setMode(mode === 'expanded' ? 'collapsed' : 'expanded')">{{ mode === 'expanded' ? '‹' : '›' }} <span>{{ t(mode === 'expanded' ? 'sidebarModeCompact' : 'sidebarModeExpanded') }}</span></button>
         <button type="button" class="fx-sidebar-button fx-sidebar-mode-action" @click="setMode('hidden')">× <span>{{ t('sidebarModeHidden') }}</span></button>

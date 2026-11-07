@@ -1,24 +1,16 @@
 import { definePatch, insert } from "../modUtils.js";
 
-export default definePatch(({ safeDictionary: dict, modifyCode, waitForMinification, matchCode, matchRawCode, replaceOne, replaceRawCode }) => {
+export default definePatch((modUtils) => {
+	const { safeDictionary: dict, modifyCode, waitForMinification, matchCode, matchRawCode, replaceOne, replaceRawCode } = modUtils;
 
-	// Expose the game protocol and capture its formatted leaderboard table for Vue.
-	replaceRawCode(
-		"aTl=[new x(L(360),function(){aTm(1)}",
-		"window.__fx.leaderboardsAdapter=window.__fx.leaderboardsAdapter||{};window.__fx.leaderboardsAdapter.requestCategory=function(type){u.v(8,u.ua,new ub(21,{ur:type,us:0,ut:10}));};window.__fx.leaderboardsAdapter.requestRange=function(type,start,end){u.v(8,(u.a7I(10)?.a3U??u.ua),new ub(21,{ur:type,us:start,ut:end}));};window.__fx.leaderboardsAdapter.searchName=function(type,name,quantity){u.v(8,(u.a7I(10)?.a3U??u.ua),new ub(22,{ur:type,aT5:String(name||\"\").slice(0,20),aT6:Math.max(1,Math.floor(Number(quantity)||10))}));};window.__fx.leaderboardsAdapter.searchId=function(type,id,quantity){u.v(8,(u.a7I(10)?.a3U??u.ua),new ub(28,{ur:type,aT5:String(id||\"\").slice(0,5),aT6:Math.max(1,Math.floor(Number(quantity)||5))}));};window.__fx.leaderboardsAdapter.closeNative=function(count){for(var fxStep=0;fxStep<(count||1);fxStep++)u.a3O();};aTl=[new x(L(360),function(){aTm(1)}"
-	);
-	replaceRawCode(
-		"aTl=[new x(L(376),function(){aTm(5)}",
-		"window.__fx.logsAdapter=window.__fx.logsAdapter||{};window.__fx.logsAdapter.requestCategory=function(type,start,end){window.__fx.logsAdapter.active=true;window.__fx.logsAdapter.currentType=type;u.v(8,u.ua,new ub(21,{ur:type,us:start||0,ut:end||10}));};window.__fx.logsAdapter.requestRange=function(type,start,end){window.__fx.logsAdapter.active=true;window.__fx.logsAdapter.currentType=type;u.v(8,(u.a7I(10)?.a3U??u.ua),new ub(21,{ur:type,us:start,ut:end}));};window.__fx.logsAdapter.searchName=function(type,name,quantity){window.__fx.logsAdapter.active=true;window.__fx.logsAdapter.currentType=type;u.v(8,(u.a7I(10)?.a3U??u.ua),new ub(22,{ur:type,aT5:String(name||\"\").slice(0,20),aT6:Math.max(1,Math.floor(Number(quantity)||10))}));};window.__fx.logsAdapter.searchId=function(type,id,quantity){window.__fx.logsAdapter.active=true;window.__fx.logsAdapter.currentType=type;u.v(8,(u.a7I(10)?.a3U??u.ua),new ub(28,{ur:type,aT5:String(id||\"\").slice(0,5),aT6:Math.max(1,Math.floor(Number(quantity)||5))}));};window.__fx.logsAdapter.closeNative=function(count){window.__fx.logsAdapter.active=false;for(var fxStep=0;fxStep<(count||1);fxStep++)u.a3O();};aTl=[new x(L(376),function(){aTm(5)}"
-	);
-	replaceOne(
-		/function aD4\(data\)\{var aQN;var aTo;/g,
-		"function aD4(data){if(!data.aD5&&window.__fx.logsAdapter?.active)window.__fx.logsAdapter.currentType=data.ur;else if(!data.aD5&&window.__fx.leaderboardsAdapter)window.__fx.leaderboardsAdapter.currentType=data.ur;var aQN;var aTo;"
-	);
-	replaceOne(
-		/function uH\(sE,data,oM\)\{var fZ=data\.uI\.length;/g,
-		"function uH(sE,data,oM){var activeLogs=window.__fx.logsAdapter?.active;var activeAdapter=activeLogs?window.__fx.logsAdapter:window.__fx.leaderboardsAdapter;if(Number.isInteger(activeAdapter?.currentType)){var type=activeAdapter.currentType;activeAdapter.receiveTable?.({category:type,headers:data.uO,widths:data.uV,rows:data.uI.map(row=>row.map(cell=>({text:String(cell?.g1??\"\"),interactive:cell?.ea===1,id:cell?.uY??null,secondaryId:cell?.uZ??null})))});activeAdapter.currentType=null;}var fZ=data.uI.length;"
-	);
+	// The leaderboard selector is now constructed by dJ/aRE and its protocol
+	// methods live on b1.aUA. Install the Vue adapter from the stable overlay
+	// manager constructor instead of the removed aTl button array.
+	replaceOne(/function dJ\(\)\{this\.z=new aQz;this\.uZ=0;var aR0=new Array\(32\);/g, `$&window.__fx.leaderboardsAdapter=window.__fx.leaderboardsAdapter||{};window.__fx.leaderboardsAdapter.requestCategory=function(type){u.v(8,u.uZ,new ua(21,{uq:type,ur:0,us:10}))};window.__fx.leaderboardsAdapter.requestRange=function(type,start,end){u.v(8,u.uZ,new ua(21,{uq:type,ur:start,us:end}))};window.__fx.leaderboardsAdapter.searchName=function(type,name,quantity){u.v(8,u.uZ,new ua(22,{uq:type,aUD:String(name||"").slice(0,20),aUE:Math.max(1,Math.floor(Number(quantity)||10))}))};window.__fx.leaderboardsAdapter.searchId=function(type,id,quantity){u.v(8,u.uZ,new ua(28,{uq:type,aUD:String(id||"").slice(0,5),aUE:Math.max(1,Math.floor(Number(quantity)||5))}))};window.__fx.leaderboardsAdapter.closeNative=function(count){for(var fxStep=0;fxStep<(count||1);fxStep++)u.a4G()};window.__fx.logsAdapter=window.__fx.logsAdapter||{};window.__fx.logsAdapter.requestCategory=function(type,start,end){u.v(8,u.uZ,new ua(21,{uq:type,ur:start||0,us:end||10}))};window.__fx.logsAdapter.requestRange=function(type,start,end){u.v(8,u.uZ,new ua(21,{uq:type,ur:start,us:end}))};window.__fx.logsAdapter.searchName=function(type,name,quantity){u.v(8,u.uZ,new ua(22,{uq:type,aUD:String(name||"").slice(0,20),aUE:Math.max(1,Math.floor(Number(quantity)||10))}))};window.__fx.logsAdapter.searchId=function(type,id,quantity){u.v(8,u.uZ,new ua(28,{uq:type,aUD:String(id||"").slice(0,5),aUE:Math.max(1,Math.floor(Number(quantity)||5))}))};window.__fx.logsAdapter.closeNative=function(count){for(var fxStep=0;fxStep<(count||1);fxStep++)u.a4G()};`);
+	const tableBuilder = /aUw=new uG\(aRX\.xc,fc(?:,\{uQ:1\})?\)/g;
+	const tableBuilderCount = [...modUtils.script.matchAll(tableBuilder)].length;
+	if (tableBuilderCount === 0) throw new Error("Current native leaderboard table builder was not found.");
+	modUtils.script = modUtils.script.replace(tableBuilder, match => `Number.isInteger(data?.uq)&&Array.isArray(fc.uN)&&Array.isArray(fc.uH)&&(window.__fx.logsViewActive?window.__fx.logsAdapter:window.__fx.leaderboardsViewActive?window.__fx.leaderboardsAdapter:null)?.receiveTable?.({category:data.uq,headers:fc.uN,widths:fc.uU,rows:fc.uH.map(row=>row.map(cell=>({text:String(cell?.g1??""),interactive:cell?.ea===1,id:cell?.uX??null,secondaryId:cell?.uY??null})))}),${match}`);
 
 	// Player list and leaderboard filter tabs
 

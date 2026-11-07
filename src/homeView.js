@@ -19,7 +19,7 @@ const FxHomeView = defineComponent({
       accountId: "Account-ID",
       eyebrow: "DEIN SPIEL. DEIN CLIENT.", subtitle: "Dein Territorial.io-Spielbereich",
       multiplayer: "Mehrspieler", scenario: "Szenario", scenarioNote: "Noch nicht vollständig implementiert", menuNote: "(nativ)", accountNote: "(WIP)", account: "Konto", menu: "Spielmenü",
-      settings: "Einstellungen", customLobby: "Custom-Lobby beitreten oder erstellen", customLobbyNote: "Noch nicht vollständig implementiert",
+      settings: "Einstellungen", discord: "Discord", customLobby: "Custom-Lobby beitreten oder erstellen", customLobbyNote: "Noch nicht vollständig implementiert",
       online: "Startklar", player: "Spielerprofil", changeName: "Namen ändern", nameTitle: "Spielername ändern",
       nameNote: "Bis zu 20 Zeichen. Clan-Tags wie [TAG] kannst du im Namen mit angeben.", save: "Speichern", cancel: "Zurück",
       nameReconnect: "Name gespeichert. Lobby wird neu verbunden …",
@@ -29,7 +29,7 @@ const FxHomeView = defineComponent({
       accountId: "Account ID",
       eyebrow: "YOUR GAME. YOUR CLIENT.", subtitle: "Your Territorial.io home",
       multiplayer: "Multiplayer", scenario: "Custom scenario", scenarioNote: "Not fully implemented", menuNote: "(native)", accountNote: "(WIP)", account: "My account", menu: "Game menu",
-      settings: "Settings", customLobby: "Join or create a custom lobby", customLobbyNote: "Not fully implemented",
+      settings: "Settings", discord: "Discord", customLobby: "Join or create a custom lobby", customLobbyNote: "Not fully implemented",
       online: "Ready to play", player: "Player profile", changeName: "Change name", nameTitle: "Change player name",
       nameNote: "Up to 20 characters. You can include clan tags like [TAG] in your name.", save: "Save name", cancel: "Back",
       nameReconnect: "Name saved. Reconnecting to the lobby …",
@@ -171,6 +171,7 @@ const FxHomeView = defineComponent({
         </nav>
         <footer class="fx-home-footer">
           <button type="button" class="fx-home-secondary" @click="openSettings"><span>⚙</span>{{ labels.settings }}</button>
+          <a class="fx-home-secondary fx-home-discord" href="https://discord.gg/9Dr2GMUNhc" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">◉</span>{{ labels.discord }}</a>
           <button type="button" class="fx-home-secondary is-lobby" @click="openCustomLobby"><span>⌘</span><span class="fx-home-lobby-copy"><strong>{{ labels.customLobby }}</strong><small>{{ labels.customLobbyNote }}</small></span><b>›</b></button>
         </footer>
       </section>

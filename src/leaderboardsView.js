@@ -79,12 +79,7 @@ const LeaderboardsView = defineComponent({
         || "";
     }
     function ensureAdapter() {
-      const fx = window.__fx;
-      if (typeof fx?.leaderboardsAdapter?.requestCategory !== "function") {
-        // Initialize the game's request closure under the Vue dashboard.
-        fx?.openGameMenuAction?.("leaderboard");
-      }
-      return fx?.leaderboardsAdapter;
+      return window.__fx?.leaderboardsAdapter;
     }
     function request(action) {
       const adapter = ensureAdapter();
@@ -177,10 +172,7 @@ const LeaderboardsView = defineComponent({
       visible.value = true;
       error.value = "";
       window.__fx.leaderboardsViewActive = true;
-      if (typeof window.__fx?.leaderboardsAdapter?.requestCategory === "function") {
-        window.__fx.openGameMenuAction?.("leaderboard");
-        nativeTableOpen = false;
-      }
+      nativeTableOpen = false;
       const adapter = ensureAdapter();
       if (typeof adapter?.requestCategory === "function") fetchCategory(selectedCategory.value.id);
     }

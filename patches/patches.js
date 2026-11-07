@@ -52,6 +52,12 @@ export default (/** @type {ModUtils} */ modUtils) => {
 function applyPatches(/** @type {ModUtils} */ modUtils) {
     const { replace, replaceOne, replaceRawCode, safeDictionary, matchOne, matchRawCode, escapeRegExp } = modUtils;
 
+    // The current game lazily creates overlay 29, while several live lobby
+    // callbacks still call it as if it were always initialized.
+    replaceRequired(modUtils, /u\.a8B\(29\)\.aGo\(\)/g, "u.a8B(29)?.aGo()", "lazy lobby overlay refresh");
+    replaceRequired(modUtils, /u\.a8B\(29\)\.aHl\(\)/g, "u.a8B(29)?.aHl()", "lazy lobby overlay close");
+    replaceRequired(modUtils, /u\.a8B\(29\)\.aIN\(\)\.tU\(sE\)/g, "u.a8B(29)?.aIN()?.tU(sE)", "lazy lobby overlay message");
+
     // Constants for easy usage of otherwise long variable access expressions
     const dict = safeDictionary;
     const playerId = `${dict.game}.${dict.playerId}`;
@@ -176,27 +182,34 @@ function applyPatches(/** @type {ModUtils} */ modUtils) {
         `this\\.${menuStateMethod}=function\\((?<stateArgument>\\w+)[^)]*\\)\\{(?<setterBody>[^}]*?this\\.tZ\\(\\)[^}]*?this\\.(?<menuStateField>\\w+)===\\k<stateArgument>)`, "g"
     );
     const stateFieldMatches = [...modUtils.script.matchAll(menuStateFieldPattern)];
-    if (stateFieldMatches.length !== 1) throw new Error(`Expected one native menu state field, found ${stateFieldMatches.length}.`);
-    const { menuStateField } = stateFieldMatches[0].groups;
+    if (stateFieldMatches.length > 1) throw new Error(`Expected at most one native menu state field, found ${stateFieldMatches.length}.`);
+    const menuStateField = stateFieldMatches[0]?.groups.menuStateField;
+    const observeNativeLobby = menuStateField
+        ? `(()=>{let attempts=0;const install=()=>{if(window.__fx?.installNativeLobbyRouteObserver?.(${menuManager},${JSON.stringify(menuStateMethod)},${JSON.stringify(menuStateField)}))return;if(++attempts<120)setTimeout(install,250)};install()})();`
+        : `console.info("[ZFX Client] Native lobby route observer unavailable in this game version.");`;
     replaceOne(
         homeMethodPattern,
-        `$&,(()=>{let attempts=0;const install=()=>{if(window.__fx?.installNativeLobbyRouteObserver?.(${menuManager},${JSON.stringify(menuStateMethod)},${JSON.stringify(menuStateField)}))return;if(++attempts<120)setTimeout(install,250)};install()})();window.__fx.openHome=()=>{${socketManager}.${closeConnections}(3260);__fx.multiplayerResetUntil=Date.now()+1000;this.$<homeMethod>()}`
+        `$&,${observeNativeLobby}window.__fx.openHome=()=>{${socketManager}.${closeConnections}(3260);__fx.multiplayerResetUntil=Date.now()+1000;this.$<homeMethod>()}`
     );
     const accountMenuButtonsPattern = /for\(var (?<index>\w+)=0;\k<index><(?<buttons>\w+)\.length;\k<index>\+\+\)\k<buttons>\[\k<index>\]\.button\.style\.position="absolute";/g;
     const { buttons: accountMenuButtons } = matchOne(accountMenuButtonsPattern).groups;
     const homeNameInputPattern = /(?<nameInput>\w+)\s*=\s*new\s+\w+\(\s*(?<settingsBuffer>\w+)\.buffer\.data\[122\]\s*\)\s*;/g;
     const { nameInput, settingsBuffer } = matchOne(homeNameInputPattern).groups;
-    replaceOne(homeNameInputPattern, `$&window.__fx.getNativeHomeNameInput=()=>${nameInput}.e;window.__fx.getNativeAccountId=()=>${settingsBuffer}.buffer.data[105]?.value||"";window.__fx.getNativeGameLabel=id=>L(id);window.__fx.setNativeHomeName=value=>{var input=${nameInput}.e;if(!input)return false;input.value=String(value).slice(0,20);input.dispatchEvent(new Event("blur"));return true};window.__fx.gameSettingsAdapter={getSnapshot:function(){var langs=bA.data.aEe();var values={};[1,2,5,7,8,9,11,12,13,14,15,16].forEach(function(id){values[id]=bm.buffer.data[id]?.value;});var languageOptions=langs.map(function(entry){var parts=String(entry).split(":");return{value:parts[0],label:parts.slice(1).join(":")||parts[0]};});return{values:values,connection:aa.aIM,options:{language:languageOptions,resolution:[L(455),L(456),L(457),L(458)],minimumFont:[L(456),L(460),L(461)],textSpeed:[L(463),L(9),L(464)],connection:[L(473),L(474),L(475)]},labels:{information:L(452),informationNote:L(453),resolution:L(454),minimumFont:L(459),textSpeed:L(462),largeUi:L(465),placeBalance:L(466),hideZoom:L(467),font:L(468),messageBox:L(469),keepClosed:L(470),muted:L(471),connection:L(472),highlighting:L(476),intensity:L(477),shortcuts:L(478),reset:L(451),close:L(40)},shortcutGroups:(ba.aV2||[]).map(function(label,index){return{label:label,keys:[{index:index*2,value:ba.aDw[index*2]||""},{index:index*2+1,value:ba.aDw[index*2+1]||""}]};})};},setField:function(id,value){if(!bm.buffer.data[id])return false;bm.qo.qp(id,value);return true;},setConnection:function(value){aa.aIM=Number(value)||0;},setShortcut:function(index,value){ba.aV4(index,String(value||""));},resetShortcuts:function(){ba.aV1();},reset:function(){bm.qo.xw();}};`);
+    replaceOne(homeNameInputPattern, `$&window.__fx.getNativeHomeNameInput=()=>${nameInput}.e;window.__fx.getNativeAccountId=()=>${settingsBuffer}.buffer.data[105]?.value||"";window.__fx.getNativeGameLabel=id=>L(id);window.__fx.setNativeHomeName=value=>{var input=${nameInput}.e;if(!input)return false;input.value=String(value).slice(0,20);input.dispatchEvent(new Event("blur"));return true};window.__fx.gameSettingsAdapter={getSnapshot:function(){var langs=bA.data.aFZ();var values={};[1,2,5,7,8,9,11,12,13,14,15,16].forEach(function(id){values[id]=bm.buffer.data[id]?.value;});var languageOptions=langs.map(function(entry){var parts=String(entry).split(":");return{value:parts[0],label:parts.slice(1).join(":")||parts[0]};});return{values:values,connection:aa.aIM,options:{language:languageOptions,resolution:[L(455),L(456),L(457),L(458)],minimumFont:[L(456),L(460),L(461)],textSpeed:[L(463),L(9),L(464)],connection:[L(473),L(474),L(475)]},labels:{information:L(452),informationNote:L(453),resolution:L(454),minimumFont:L(459),textSpeed:L(462),largeUi:L(465),placeBalance:L(466),hideZoom:L(467),font:L(468),messageBox:L(469),keepClosed:L(470),muted:L(471),connection:L(472),highlighting:L(476),intensity:L(477),shortcuts:L(478),reset:L(451),close:L(40)},shortcutGroups:(ba.aV2||[]).map(function(label,index){return{label:label,keys:[{index:index*2,value:ba.aDw[index*2]||""},{index:index*2+1,value:ba.aDw[index*2+1]||""}]};})};},setField:function(id,value){if(!bm.buffer.data[id])return false;bm.qo.qp(id,value);return true;},setConnection:function(value){aa.aIM=Number(value)||0;},setShortcut:function(index,value){ba.aV4(index,String(value||""));},resetShortcuts:function(){ba.aV1();},reset:function(){bm.qo.xw();}};`);
     const { openMenuAction } = matchOne(
         /function (?<openMenuAction>\w+)\(\w+\)\{\w+\.\w+\.setState\(10\)/g
     ).groups;
     replaceOne(accountMenuButtonsPattern, `$&__fx.nativeHomeMenuButtons=${accountMenuButtons}.map(entry=>entry.button);__fx.openAccount=function(){${accountMenuButtons}[2].button.click()};__fx.openCustomScenario=function(){${accountMenuButtons}[1].button.click()};__fx.openGameMenu=function(){${accountMenuButtons}[3].button.click()};__fx.isMultiplayerConnected=()=>__fx.isSocketActive(0)&&${socketManager}.${isConnectedMethod}(0);__fx.reconnectMultiplayer=function(){if(!__fx.isMultiplayerConnected())return false;if(__fx.multiplayerStartPending)return true;__fx.multiplayerRetryAvailableUntil=0;${socketManager}.${closeConnections}(3260);__fx.multiplayerResetUntil=Date.now()+1000;__fx.multiplayerStartPending=true;setTimeout(()=>{__fx.multiplayerStartPending=false;__fx.startMultiplayer(true)},1050);return true};__fx.startMultiplayer=function(isRetry){if(__fx.multiplayerStartPending)return;if(!isRetry)__fx.multiplayerRetryAvailableUntil=Date.now()+10000;var wait=__fx.multiplayerResetUntil-Date.now();if(wait>0){__fx.multiplayerStartPending=true;setTimeout(()=>{__fx.multiplayerStartPending=false;__fx.startMultiplayer(isRetry)},wait+50);return;}if(__fx.isSocketActive(0)){if(${socketManager}.${isConnectedMethod}(0))${accountMenuButtons}[0].button.click();return;}${accountMenuButtons}[0].button.click()};__fx.openGameMenuAction=function(key){${openMenuAction}(3);__fx.gameMenuActions?.[key]?.()};`);
     const gameMenuActionsPattern = /(?<buttons>\w+)\s*=\s*\[new\s+x\(L\(481\),[\s\S]*?\](?=\s*,\s*\w+\s*=\s*\[)/g;
-    const { buttons: gameMenuButtons } = matchOne(gameMenuActionsPattern).groups;
+    const { buttons: gameMenuButtons } = gameMenuActionsPattern.exec(modUtils.script)?.groups ?? {};
+    if (gameMenuButtons === undefined) {
+        console.info("[ZFX Client] Native game menu actions are unavailable in this game version.");
+    } else {
     replaceOne(
         gameMenuActionsPattern,
         `$&,window.__fx.runSidebarGameMenuAction=(key,labelId)=>{var label=L(labelId);var item=${gameMenuButtons}.find(entry=>entry.button.textContent.includes(label));if(!item){console.error("[ZFX Client] Sidebar menu action is unavailable after a game update:",key);return false;}item.button.click();return true;};window.__fx.gameMenuActions={leaderboard:()=>__fx.runSidebarGameMenuAction("leaderboard",368),logs:()=>__fx.runSidebarGameMenuAction("logs",418),replays:()=>__fx.runSidebarGameMenuAction("replays",444),goldTransfer:()=>__fx.runSidebarGameMenuAction("goldTransfer",483),settings:()=>__fx.runSidebarGameMenuAction("settings",450)}`
     );
+    }
     const { viewportWidth, viewportHeight, dimension } = matchOne(
         /(?<viewportWidth>\w+)=(?<dimension>\w+)\(document\.documentElement\.clientWidth\)(?=,(?<viewportHeight>\w+)=\k<dimension>\(window\.visualViewport)/g
     ).groups;

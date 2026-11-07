@@ -111,6 +111,8 @@
 .fx-changelog[open] { display: grid; grid-template-columns: 48px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); align-items: start; gap: 16px; }
 .fx-changelog-mark { display: grid; place-items: center; width: 46px; height: 46px; border: 1px solid rgba(81, 223, 161, .28); border-radius: 14px; background: rgba(29, 148, 107, .16); color: #76dcb4; font-size: 1.6em; font-weight: 800; }
 .fx-changelog-content { min-width: 0; min-height: 0; max-height: 100%; overflow: auto; }
+.fx-changelog-content { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; }
+.fx-changelog-scroll { min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .fx-changelog-eyebrow { color: #76dcb4; font-size: .68em; font-weight: 800; letter-spacing: .14em; }
 .fx-changelog h2 { margin: 4px 0 2px; color: #f1f8fd; font-size: 1.3em; line-height: 1.25; }
 .fx-changelog-date { margin: 0; color: #8ea8ba; font-size: .84em; }
@@ -974,6 +976,8 @@ body:has(#fx-home-view:not(.is-name-view)) a[href*="instagram.com"] { visibility
 .fx-home-action b, .fx-home-secondary b { margin-left: auto; color: #7796ad; font-size: 1.35em; font-weight: 500; }
 .fx-home-footer { display: grid; gap: 8px; margin-top: 18px; }
 .fx-home-secondary { min-height: 43px; padding: 8px 12px; font-size: .85em; }
+.fx-home-discord { box-sizing: border-box; color: #eaf4fd; text-decoration: none; }
+.fx-home-discord:hover { color: #fff; }
 .fx-home-secondary > span { width: 23px; color: #9fc6df; text-align: center; font-size: 1.2em; }
 .fx-home-secondary.is-lobby { border-color: rgba(100, 174, 220, .22); background: rgba(30, 74, 101, .35); }
 .fx-home-secondary.is-lobby .fx-home-lobby-copy { display: grid; width: auto; min-width: 0; flex: 1; gap: 1px; text-align: left; }
@@ -3085,14 +3089,19 @@ html[data-fx-sidebar-hidden="true"] #fx-sidebar-restore {
 .fx-vue-sidebar .fx-sidebar-icon svg { display: block; width: 22px; height: 22px; }
 .fx-vue-sidebar .fx-sidebar-label { font-size: 17px; }
 .fx-vue-sidebar .fx-sidebar-button:hover, .fx-vue-sidebar .fx-sidebar-button.is-current { border-color: rgba(70, 242, 145, .7); background: linear-gradient(115deg, rgba(9, 115, 68, .82), rgba(9, 68, 58, .7)); }
-.fx-vue-sidebar-footer { padding: 8px 5px 2px; margin-top: auto; color: #a8bdd0; font-size: 11px; }
-.fx-vue-sidebar-footer span { margin-right: 6px; color: #4bf29a; }
+.fx-vue-sidebar-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 5px 2px; margin-top: auto; color: #a8bdd0; font-size: 11px; }
+.fx-vue-sidebar-footer .fx-vue-sidebar-version { white-space: nowrap; }
+.fx-vue-sidebar-footer .fx-vue-sidebar-version i { margin-right: 6px; color: #4bf29a; font-style: normal; }
+.fx-vue-sidebar-discord { display: inline-flex; align-items: center; gap: 7px; min-width: 0; color: #a8bdd0; text-decoration: none; }
+.fx-vue-sidebar-discord > span { display: grid; place-items: center; width: 24px; height: 24px; box-sizing: border-box; border: 1px solid rgba(126,155,180,.25); border-radius: 7px; background: rgba(88,101,242,.2); color: #c5cbff; font-size: 12px; font-weight: 800; }
+.fx-vue-sidebar-discord b { font-size: 11px; font-weight: 600; }
+.fx-vue-sidebar-discord:hover { color: #fff; }
 .fx-vue-sidebar .fx-sidebar-mode-actions { border-top-color: rgba(162, 190, 215, .2); }
 .fx-vue-sidebar .fx-sidebar-mode-action { font-size: 10px; }
 .fx-vue-sidebar.is-collapsed .fx-vue-sidebar-brand div, .fx-vue-sidebar.is-collapsed .fx-vue-sidebar-profile-copy,
 .fx-vue-sidebar.is-collapsed .fx-vue-sidebar-clan, .fx-vue-sidebar.is-collapsed .fx-vue-sidebar-summary,
 .fx-vue-sidebar.is-collapsed .fx-vue-sidebar-rating div,
-.fx-vue-sidebar.is-collapsed .fx-vue-sidebar-section h2, .fx-vue-sidebar.is-collapsed .fx-vue-sidebar-footer,
+.fx-vue-sidebar.is-collapsed .fx-vue-sidebar-section h2, .fx-vue-sidebar.is-collapsed .fx-vue-sidebar-version, .fx-vue-sidebar.is-collapsed .fx-vue-sidebar-discord b,
 .fx-vue-sidebar.is-collapsed .fx-sidebar-mode-action span { display: none; }
 .fx-vue-sidebar.is-collapsed .fx-vue-sidebar-brand { justify-content: center; padding: 4px 0 9px; }
 .fx-vue-sidebar.is-collapsed .fx-vue-sidebar-logo { width: 30px; height: 30px; flex-basis: 30px; }

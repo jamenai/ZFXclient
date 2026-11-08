@@ -39,9 +39,11 @@ const ChangelogView = defineComponent({
       <dialog ref="dialog" class="fx-changelog" aria-labelledby="fx-changelog-title" @cancel.prevent="dismiss">
         <div class="fx-changelog-mark" aria-hidden="true">Z</div>
         <div class="fx-changelog-content">
+          <header class="fx-changelog-heading">
           <span class="fx-changelog-eyebrow">ZFX CLIENT · RELEASE NOTES</span>
           <h2 id="fx-changelog-title">What's new in {{ version }}</h2>
           <p class="fx-changelog-date">{{ lastUpdated }}</p>
+          </header>
           <div class="fx-changelog-scroll">
             <ul class="fx-changelog-current-list"><li v-for="(change, index) in changes" :key="index">{{ change }}</li></ul>
             <section v-if="history.length" class="fx-changelog-history" aria-label="Previous release notes">

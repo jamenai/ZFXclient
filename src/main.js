@@ -38,6 +38,9 @@ import { createVueMyAccountView, myAccountAdapter } from "./myAccountView.js";
 import { initializeUpdatePromptView } from "./updatePromptView.js";
 import { getVar, getGameMapNames } from "./gameInterface.js";
 import { publishFxBridge } from "./fxBridge.js";
+import { createGameSdk } from "./gameSdk.js";
+
+const gameSdk = createGameSdk({ getMapNames: getGameMapNames });
 
 // Stable bridge used by injected game patches. Keep this surface explicit:
 // patched game code must not reach into individual FX modules directly.
@@ -70,8 +73,11 @@ const fxBridge = publishFxBridge(window, {
   selfTerritoryHighlight: { install: installSelfTerritoryHighlight },
   getGameVar: getVar,
   getGameMapNames,
+  gameSdk,
   myAccountAdapter,
 });
+
+gameSdk.lobby.subscribe(snapshot => lobbyReminders.setLobbySnapshot(snapshot));
 
 initializeChangelogView();
 const savedVersion = localStorage.getItem("fx_version");

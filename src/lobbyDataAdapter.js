@@ -1,14 +1,25 @@
 const EMPTY_SNAPSHOT = Object.freeze({
   source: "none",
   players: [],
-  chatChannel: "default",
+  chatChannel: "lobby",
   chatMessages: [],
+  upcomingGames: [],
   modes: [],
   currentMap: "",
   currentMapImage: "",
+  currentTeamCountLabel: "",
+    currentGameModeLabel: "",
+  currentGameModeKey: "",
   nextMap: "",
   nextMapImage: "",
+  nextGameEntryId: null,
+  rosterEntryId: null,
+  currentMapEntryId: null,
+  nextGameCountdownSeconds: null,
+  nextGamePlayerCount: null,
   nextTeamCountLabel: "",
+    nextGameModeLabel: "",
+  nextGameModeKey: "",
   readyCount: 0,
   playerCount: 0,
   progressPercent: null,
@@ -42,7 +53,33 @@ function normalizeSnapshot(snapshot, source, previousSnapshot = EMPTY_SNAPSHOT) 
   return {
     source,
     players,
-    chatChannel: String(snapshot?.chatChannel ?? "default"),
+    chatChannel: "lobby",
+    upcomingGames: Array.isArray(snapshot?.upcomingGames) ? snapshot.upcomingGames.map(game => ({
+      id: Number.isInteger(Number(game.id)) ? Number(game.id) : null,
+      countdownSeconds: game.countdownSeconds != null && Number.isFinite(Number(game.countdownSeconds)) ? Number(game.countdownSeconds) : null,
+      playerCount: game.playerCount != null && Number.isFinite(Number(game.playerCount)) ? Number(game.playerCount) : null,
+      readyCount: game.readyCount != null && Number.isFinite(Number(game.readyCount)) ? Number(game.readyCount) : null,
+      players: Array.isArray(game.players) ? game.players.map(player => {
+        const name = String(player.name ?? "");
+        const clan = player.clan || name.match(/\[([^\]]{1,16})\]/)?.[1] || null;
+        return normalizePlayer({
+          ...player,
+          clan,
+          rank: player.rank ?? (Number(player.rankCode) > 0 ? Number(player.rankCode) + 1 : null),
+          readiness: player.readiness ?? (player.ready === true ? "ready" : player.ready === false ? "not-ready" : "unknown"),
+        });
+      }) : null,
+      mapIndex: game.mapIndex != null && Number.isFinite(Number(game.mapIndex)) ? Number(game.mapIndex) : null,
+      mapName: String(game.mapName ?? ""),
+      mapImage: String(game.mapImage ?? ""),
+      mapSeed: game.mapSeed != null && Number.isFinite(Number(game.mapSeed)) ? Number(game.mapSeed) : null,
+      modeCode: game.modeCode != null && Number.isFinite(Number(game.modeCode)) ? Number(game.modeCode) : null,
+      modeKey: String(game.modeKey ?? "unknown"),
+      modeLabel: String(game.modeLabel ?? ""),
+      teamCountLabel: String(game.teamCountLabel ?? ""),
+      isContest: game.isContest === true,
+      selected: game.selected === true,
+    })) : [],
     chatMessages: Array.isArray(snapshot?.chatMessages) ? snapshot.chatMessages
       .map((message, index) => ({
         id: String(message.id ?? index),
@@ -53,6 +90,9 @@ function normalizeSnapshot(snapshot, source, previousSnapshot = EMPTY_SNAPSHOT) 
         segments: Array.isArray(message.segments) ? message.segments.map(segment => ({
           text: String(segment?.text ?? ""),
           color: typeof segment?.color === "string" ? segment.color : "",
+          resolvedPlayer: segment?.resolvedPlayer === true,
+          mentionId: segment?.mentionId != null && Number.isInteger(Number(segment.mentionId))
+            ? Number(segment.mentionId) : null,
         })) : [],
       }))
       .filter(message => message.text)
@@ -79,10 +119,22 @@ function normalizeSnapshot(snapshot, source, previousSnapshot = EMPTY_SNAPSHOT) 
     currentMap: String(snapshot?.currentMap ?? ""),
     currentMapImage: String(snapshot?.currentMapImage
       ?? (String(snapshot?.currentMap ?? "") === previousSnapshot?.currentMap ? previousSnapshot.currentMapImage : "") ?? ""),
+    currentTeamCountLabel: String(snapshot?.currentTeamCountLabel ?? ""),
+    currentGameModeLabel: String(snapshot?.currentGameModeLabel ?? ""),
+    currentGameModeKey: String(snapshot?.currentGameModeKey ?? ""),
     nextMap: String(snapshot?.nextMap ?? ""),
+    nextGameEntryId: snapshot?.nextGameEntryId != null && Number.isInteger(Number(snapshot.nextGameEntryId)) ? Number(snapshot.nextGameEntryId) : null,
+    rosterEntryId: snapshot?.rosterEntryId != null && Number.isInteger(Number(snapshot.rosterEntryId)) ? Number(snapshot.rosterEntryId) : null,
+    currentMapEntryId: snapshot?.currentMapEntryId != null && Number.isInteger(Number(snapshot.currentMapEntryId)) ? Number(snapshot.currentMapEntryId) : null,
+    nextGameCountdownSeconds: snapshot?.nextGameCountdownSeconds != null && Number.isFinite(Number(snapshot.nextGameCountdownSeconds))
+      ? Number(snapshot.nextGameCountdownSeconds) : null,
+    nextGamePlayerCount: snapshot?.nextGamePlayerCount != null && Number.isFinite(Number(snapshot.nextGamePlayerCount))
+      ? Number(snapshot.nextGamePlayerCount) : null,
     nextMapImage: String(snapshot?.nextMapImage
       ?? (String(snapshot?.nextMap ?? "") === previousSnapshot?.nextMap ? previousSnapshot.nextMapImage : "") ?? ""),
     nextTeamCountLabel: String(snapshot?.nextTeamCountLabel ?? ""),
+    nextGameModeLabel: String(snapshot?.nextGameModeLabel ?? ""),
+    nextGameModeKey: String(snapshot?.nextGameModeKey ?? ""),
     isContest: snapshot?.isContest === true || snapshot?.modes?.find(mode => mode.active)?.isContest === true,
     nextIsContest: typeof snapshot?.nextIsContest === "boolean" ? snapshot.nextIsContest : null,
     noFullsend: snapshot?.noFullsend === true,
@@ -151,15 +203,6 @@ export function createLobbyDataAdapter() {
     clearChatHistory() {
       chatHistoryByChannel.clear();
       snapshot = { ...snapshot, chatMessages: [] };
-      for (const listener of listeners) listener(snapshot);
-    },
-    switchChatChannel(channel) {
-      const chatChannel = String(channel ?? "default");
-      snapshot = {
-        ...snapshot,
-        chatChannel,
-        chatMessages: chatHistoryByChannel.get(chatChannel) ?? [],
-      };
       for (const listener of listeners) listener(snapshot);
     },
   };

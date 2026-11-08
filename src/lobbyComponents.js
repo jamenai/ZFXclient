@@ -1,40 +1,54 @@
 import { defineComponent } from "vue/dist/vue.esm-bundler.js";
 
+export const LobbyPlayerName = defineComponent({
+  props: { name: String, color: String },
+  emits: ["activate"],
+  template: `<button type="button" class="fx-custom-lobby-chat-player-name" :style="color ? { color } : null" @click.stop="$emit('activate', $event)">{{ name }}</button>`,
+});
+
+const GameModeBadge = defineComponent({
+  props: { modeKey: String, label: String, standalone: Boolean },
+  template: `
+    <span class="fx-custom-lobby-mode-emblem" :class="{ 'is-standalone': standalone }" :data-mode="modeKey || 'unknown'" role="img" :aria-label="label || ''" :title="label || ''">
+      <svg v-if="modeKey === 'team'" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1M16 5a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 5v1"/></svg>
+      <svg v-else-if="modeKey === 'battle-royale'" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 1v3m0 16v3M1 12h3m16 0h3"/></svg>
+      <svg v-else-if="modeKey === 'duel'" viewBox="0 0 24 24"><path d="m4 20 10-10m-6 0 6 6m-2-12 8 8m-5-9 6 6m-13 6-4 4m12-12 4-4"/></svg>
+      <svg v-else-if="modeKey === 'zombie'" viewBox="0 0 24 24"><path d="M12 3a8 8 0 0 0-5 14.2V21h3v-2h4v2h3v-3.8A8 8 0 0 0 12 3Z"/><circle cx="9" cy="11" r="1"/><circle cx="15" cy="11" r="1"/><path d="M10 15h4"/></svg>
+      <svg v-else viewBox="0 0 24 24"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15m6-12v15"/></svg>
+    </span>`,
+});
+
 export const MapHeader = defineComponent({
-  props: { map: String, mapImage: String, nextMap: String, nextMapImage: String, nextTeamCountLabel: String, isContest: Boolean, nextIsContest: null, noFullsend: Boolean, nextNoFullsend: Boolean, labels: Object, modes: Array, readyCount: Number, readyClans: Array, readyClanTotal: Number, teamCount: String, lobbyRating: Object, readyState: String, readyDisabled: Boolean },
-  emits: ["select-mode", "ready"],
+  components: { GameModeBadge },
+  props: { map: String, mapImage: String, nextMap: String, nextMapImage: String, nextTeamCountLabel: String, nextGameModeLabel: String, gameModeKey: String, nextGameModeKey: String, nextGameMeta: String, isContest: Boolean, nextIsContest: null, noFullsend: Boolean, nextNoFullsend: Boolean, labels: Object, entries: Array, currentMapEntryId: Number, currentMapSelected: Boolean, selectionDisabled: Boolean, entryTitle: Function, readyCount: Number, readyClans: Array, readyClanTotal: Number, teamCount: String, gameModeLabel: String, lobbyRating: Object },
+  emits: ["select-entry", "select-current"],
   template: `
     <header class="fx-custom-lobby-top">
-      <nav class="fx-custom-lobby-modes" :aria-label="labels.modes">
-        <button v-for="mode in modes" :key="mode.id" type="button"
-          class="fx-custom-lobby-mode" :class="{ 'is-active': mode.active }"
-          :data-mode="/team/i.test(mode.label) ? 'team' : /battle royale/i.test(mode.label) ? 'battle-royale' : /1v1/i.test(mode.label) ? 'duel' : /zombie/i.test(mode.label) ? 'zombie' : 'mode'"
-          @click="$emit('select-mode', mode)">
+      <nav class="fx-custom-lobby-modes fx-custom-lobby-entries" :aria-label="labels.upcomingGames">
+        <button v-for="entry in visibleEntries" :key="entry.id ?? entry.index" type="button"
+          class="fx-custom-lobby-mode fx-custom-lobby-entry" :class="{ 'is-active': entry.selected, 'is-contest': entry.isContest }" :data-mode="entry.modeKey"
+          :aria-pressed="entry.selected" @click="$emit('select-entry', entry)">
+          <img v-if="entry.mapImage" class="fx-custom-lobby-entry-map-image" :src="entry.mapImage" alt="" aria-hidden="true">
           <span class="fx-custom-lobby-mode-meta">
-            <span v-if="mode.clock" class="fx-custom-lobby-mode-clock"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></svg>{{ mode.clock }}</span>
-            <span class="fx-custom-lobby-mode-count-group">
-              <span v-if="mode.count" class="fx-custom-lobby-mode-count">{{ mode.count }}</span>
-              <span v-if="mode.teamCountLabel && /team/i.test(mode.label)" class="fx-custom-lobby-team-count">{{ mode.teamCountLabel }}</span>
-            </span>
+            <span v-if="entry.countdownSeconds != null" class="fx-custom-lobby-mode-clock">{{ formatCountdown(entry.countdownSeconds) }}</span>
+            <span class="fx-custom-lobby-mode-count-group"><span v-if="entry.playerCount != null" class="fx-custom-lobby-mode-count">{{ entry.playerCount }} {{ labels.players.toLowerCase() }}</span></span>
           </span>
-          <span class="fx-custom-lobby-mode-emblem" aria-hidden="true">
-            <svg v-if="/team/i.test(mode.label)" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M15 15.5a5 5 0 0 1 6.5 4.5"/></svg>
-            <svg v-else-if="/battle royale/i.test(mode.label)" viewBox="0 0 24 24"><path d="M12 2.5 20 6v5.2c0 5-3.4 8.2-8 10.3-4.6-2.1-8-5.3-8-10.3V6Z"/><circle cx="12" cy="11" r="3.2"/><path d="M12 6.5v1.3m0 6.4v1.3m-4.5-3.5h1.3m6.4 0h1.3"/></svg>
-            <svg v-else-if="/1v1/i.test(mode.label)" viewBox="0 0 24 24"><path d="m5 4 14 16M19 4 5 20"/><path d="m3.5 2.5 3 1-1 3m15-4-3 1 1 3M3.5 21.5l3-1-1-3m15 4-3-1 1-3"/><path d="M9 8h6M9 16h6"/></svg>
-            <svg v-else-if="/zombie/i.test(mode.label)" viewBox="0 0 24 24"><path d="M5 10a7 7 0 1 1 14 0v6a2 2 0 0 1-2 2h-1l-2 3h-4l-2-3H7a2 2 0 0 1-2-2Z"/><path d="M9 11h1m4 0h1m-6 4 2 1 2-1m-4 4v2m6-2v2"/><path d="m7 5-2-2m12 2 2-2"/></svg>
-            <svg v-else viewBox="0 0 24 24"><path d="m12 2 2.5 6.5L21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5L12 2Z"/><path d="m19 15 1.2 3.1L23 19.3l-2.8 1.1L19 23l-1.1-2.6-2.9-1.1 2.9-1.2L19 15Z"/></svg>
-          </span>
-          <strong class="fx-custom-lobby-mode-title">{{ mode.label }}</strong>
-          <span v-if="mode.map" class="fx-custom-lobby-mode-map">{{ mode.map }}</span>
+          <GameModeBadge :mode-key="entry.modeKey" :label="entry.modeLabel" />
+          <strong class="fx-custom-lobby-mode-title">{{ entryTitle(entry) }}<span v-if="entry.isContest" class="fx-custom-lobby-contest-badge">CONTEST</span><span v-if="entry.selected" class="fx-custom-lobby-entry-selected">✓ {{ labels.selected }}</span></strong>
+          <span class="fx-custom-lobby-entry-mode-label">{{ entry.modeLabel }}<span v-if="entry.teamCountLabel"> · {{ entry.teamCountLabel }}</span></span>
         </button>
+        <div v-if="!visibleEntries.length" class="fx-custom-lobby-entry-empty">{{ entries.length ? labels.noOtherUpcomingGames : labels.waitingForGames }}</div>
       </nav>
       <div class="fx-custom-lobby-map-cards">
       <section class="fx-custom-lobby-map-hero" :class="{ 'is-contest': isContest }">
         <img v-if="mapImage" class="fx-custom-lobby-map-image" :src="mapImage" alt="" aria-hidden="true">
         <div class="fx-custom-lobby-map-heading">
           <span>{{ labels.currentMap }}<b v-if="isContest" class="fx-custom-lobby-contest-badge">🏆 CONTEST</b></span>
-          <h1>{{ map || labels.title }}</h1>
-          <strong v-if="teamCount" class="fx-custom-lobby-map-team-count">{{ teamCount }}</strong>
+          <div class="fx-custom-lobby-map-title-row">
+            <GameModeBadge v-if="gameModeKey" :mode-key="gameModeKey" :label="gameModeLabel" standalone />
+            <h1>{{ map || labels.map }}</h1>
+          </div>
+          <strong v-if="gameModeLabel" class="fx-custom-lobby-map-mode-label">{{ gameModeLabel }}<span v-if="teamCount"> · {{ teamCount }}</span></strong>
           <section class="fx-custom-lobby-rating-card" :title="lobbyRating?.title || labels.lobbyRatingUnavailable">
             <img v-if="lobbyRating" :src="lobbyRating.image" alt="" aria-hidden="true">
             <div><span>{{ labels.lobbyRating }}</span><strong>{{ lobbyRating?.value || '—' }}<small v-if="lobbyRating"> / 10</small></strong><small>{{ lobbyRating?.meta || labels.lobbyRatingUnavailable }}</small></div>
@@ -59,18 +73,39 @@ export const MapHeader = defineComponent({
           <div><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0m2-9a3 3 0 1 0 0-6m1 9a5 5 0 0 1 3 4"/></svg><span>{{ labels.readyPlayers }}</span><strong>{{ readyCount }}</strong></div>
           <div v-if="teamCount"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20a6 6 0 0 1 12 0m1-4a4.5 4.5 0 0 1 5 4"/></svg><span>{{ labels.teams }}</span><strong>{{ teamCount }}</strong></div>
           <strong v-if="noFullsend" class="fx-custom-lobby-rules-badge">NO FULLSEND</strong>
-          <button type="button" class="fx-custom-lobby-ready" :class="'is-' + readyState" :aria-pressed="readyState === 'ready'" :disabled="readyDisabled" @click="$emit('ready')">{{ labels.readyAction }}</button>
+          <button type="button" class="fx-custom-lobby-entry-selection" :class="currentMapSelected ? 'is-selected' : 'is-not-selected'" :aria-pressed="currentMapSelected" :disabled="selectionDisabled" @click="$emit('select-current')">{{ currentMapSelected ? labels.leaveGame : labels.joinGame }}</button>
         </div>
       </section>
-      <article class="fx-custom-lobby-card fx-custom-lobby-next-card" :class="{ 'is-contest': nextIsContest === true, 'is-standard': nextIsContest === false }">
+      <article class="fx-custom-lobby-card fx-custom-lobby-next-card" :class="{ 'is-contest': Boolean(nextMap) && nextIsContest === true, 'is-standard': Boolean(nextMap) && nextIsContest === false, 'is-empty': !nextMap }">
         <img v-if="nextMapImage" class="fx-custom-lobby-next-image" :src="nextMapImage" alt="" aria-hidden="true">
-        <div class="fx-custom-lobby-next-heading"><span class="fx-custom-lobby-next-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg></span><span class="fx-custom-lobby-next-label">{{ labels.nextMap }}</span><b v-if="nextIsContest === true" class="fx-custom-lobby-contest-badge">CONTEST</b><b v-else-if="nextIsContest === false" class="fx-custom-lobby-next-standard">{{ labels.nextStandardGame }}</b><b v-else class="fx-custom-lobby-next-unknown">{{ labels.nextContestUnknown }}</b></div>
-        <strong class="fx-custom-lobby-next-title">{{ nextMap || "-" }}</strong>
-        <small v-if="nextTeamCountLabel" class="fx-custom-lobby-next-teams">{{ nextTeamCountLabel }}</small>
+        <div class="fx-custom-lobby-next-heading"><span class="fx-custom-lobby-next-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg></span><span class="fx-custom-lobby-next-label">{{ nextMap ? labels.selectedGame : labels.selectGame }}</span><b v-if="nextMap && nextIsContest === true" class="fx-custom-lobby-contest-badge">CONTEST</b><b v-else-if="nextMap && nextIsContest === false" class="fx-custom-lobby-next-standard">{{ labels.nextStandardGame }}</b><b v-else-if="nextMap" class="fx-custom-lobby-next-unknown">{{ labels.nextContestUnknown }}</b></div>
+        <div class="fx-custom-lobby-next-title-row">
+          <GameModeBadge v-if="nextGameModeKey" :mode-key="nextGameModeKey" :label="nextGameModeLabel" standalone />
+          <strong class="fx-custom-lobby-next-title">{{ nextMap || labels.noGameSelected }}</strong>
+        </div>
+        <small v-if="nextGameMeta" class="fx-custom-lobby-next-teams">{{ nextGameMeta }}</small>
+        <small v-if="nextGameModeLabel" class="fx-custom-lobby-next-mode-label">{{ nextGameModeLabel }}<span v-if="nextTeamCountLabel"> · {{ nextTeamCountLabel }}</span></small>
+        <small v-if="!nextMap" class="fx-custom-lobby-next-teams">{{ labels.chooseGameHint }}</small>
         <strong v-if="nextNoFullsend" class="fx-custom-lobby-rules-badge">NO FULLSEND</strong>
       </article>
       </div>
     </header>`,
+  methods: {
+    formatCountdown(value) {
+      const seconds = Math.max(0, Math.floor(Number(value) || 0));
+      return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+    },
+  },
+  computed: {
+    visibleEntries() {
+      const entries = this.entries || [];
+      if (!entries.length) return [];
+      const currentIndex = this.currentMapEntryId == null ? 0
+        : entries.findIndex(entry => Number(entry.id) === Number(this.currentMapEntryId));
+      const hiddenIndex = currentIndex >= 0 ? currentIndex : 0;
+      return entries.filter((_entry, index) => index !== hiddenIndex);
+    },
+  },
 });
 
 export const LobbyProgress = defineComponent({
@@ -78,23 +113,23 @@ export const LobbyProgress = defineComponent({
   template: `
     <section class="fx-custom-lobby-summary">
       <article class="fx-custom-lobby-progress-card">
-        <div class="fx-custom-lobby-progress-track"><div class="fx-custom-lobby-progress-fill" :style="{ width: (snapshot.progressPercent ?? 0) + '%' }"></div></div>
+        <div class="fx-custom-lobby-progress-track"><div class="fx-custom-lobby-progress-fill" :style="{ width: progressPercent + '%' }"></div></div>
         <strong class="fx-custom-lobby-progress-percent">{{ percentLabel }}</strong>
         <span class="fx-custom-lobby-progress-eta">{{ etaLabel }}</span>
       </article>
     </section>`,
   data() { return {
-    progressSamples: [], progressTimer: 0, currentTime: Date.now(),
+    countdownTimer: 0, currentTime: Date.now(), countdownEntryId: null,
+    countdownBaseline: null, countdownServerValue: null, countdownReceivedAt: 0,
     countdownSequence: null, audioContext: null, audioUnlockHandler: null,
   }; },
   mounted() {
-    this.recordProgressSample();
+    this.syncStartCountdown(true);
     this.audioUnlockHandler = () => this.unlockProgressAudio();
     document.addEventListener("pointerdown", this.audioUnlockHandler, { capture: true, passive: true });
     document.addEventListener("keydown", this.audioUnlockHandler, { capture: true });
     this.progressTimer = window.setInterval(() => {
       this.currentTime = Date.now();
-      this.recordProgressSample();
       this.tickProgressCountdown();
     }, 250);
   },
@@ -107,41 +142,33 @@ export const LobbyProgress = defineComponent({
     this.audioContext?.close().catch(() => {});
   },
   watch: {
-    "snapshot.progressPercent"() {
-      this.recordProgressSample();
+    "snapshot.nextGameEntryId"() { this.syncStartCountdown(true); },
+    "snapshot.nextGameCountdownSeconds"() {
+      this.syncStartCountdown(false);
       this.tickProgressCountdown();
     },
   },
   computed: {
     percentLabel() {
-      const value = this.snapshot.progressPercent ?? 0;
+      const value = this.progressPercent;
       return `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })}%`;
     },
-    etaSeconds() {
-      const percent = Number(this.snapshot.progressPercent);
-      const now = this.currentTime;
-      if (!Number.isFinite(percent) || percent >= 100) return null;
-      const samples = this.progressSamples;
-      const first = samples[0];
-      const last = samples[samples.length - 1];
-      const elapsedMinutes = first && last ? (last.time - first.time) / 60000 : 0;
-      const gained = first && last ? last.percent - first.percent : 0;
-      const rate = elapsedMinutes > 0 ? gained / elapsedMinutes : 0;
-      if (rate <= 0) return null;
-      const minutesRemaining = Math.max(0, (100 - percent) / rate - Math.max(0, (now - last.time) / 60000));
-      return Number.isFinite(minutesRemaining) ? Math.ceil(minutesRemaining * 60) : null;
+    remainingSeconds() {
+      if (!Number.isFinite(this.countdownServerValue)) return null;
+      return Math.max(0, this.countdownServerValue - Math.floor((this.currentTime - this.countdownReceivedAt) / 1000));
+    },
+    progressPercent() {
+      if (!Number.isFinite(this.countdownBaseline) || this.countdownBaseline <= 0 || this.remainingSeconds == null) return 0;
+      return Math.min(100, Math.max(0, (this.countdownBaseline - this.remainingSeconds) / this.countdownBaseline * 100));
     },
     etaLabel() {
-      const percent = Number(this.snapshot.progressPercent);
-      if (!Number.isFinite(percent)) return this.labels.etaUnavailable;
-      if (percent >= 100) return "100%";
-      const etaSeconds = this.etaSeconds;
-      if (!Number.isFinite(etaSeconds)) return this.labels.etaUnavailable;
-      let estimate;
-      if (etaSeconds < 60) estimate = `~${Math.max(1, etaSeconds)} s`;
-      else if (etaSeconds < 3600) estimate = `~${Math.ceil(etaSeconds / 60)} min`;
-      else estimate = `~${Math.floor(etaSeconds / 3600)} h ${Math.ceil((etaSeconds % 3600) / 60)} min`;
-      return estimate;
+      if (this.remainingSeconds == null) return this.labels.etaUnavailable;
+      if (this.remainingSeconds === 0) return this.labels.startingNow;
+      const seconds = this.remainingSeconds;
+      const time = seconds >= 3600
+        ? `${Math.floor(seconds / 3600)}:${String(Math.floor(seconds % 3600 / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`
+        : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+      return `${this.labels.startsIn} ${time}`;
     },
   },
   methods: {
@@ -173,14 +200,13 @@ export const LobbyProgress = defineComponent({
       } catch { /* Audio is optional. */ }
     },
     tickProgressCountdown() {
-      const percent = Number(this.snapshot.progressPercent);
-      if (!Number.isFinite(percent) || percent <= 80) {
+      const eta = this.remainingSeconds;
+      if (!Number.isFinite(eta) || eta > 5) {
         this.countdownSequence = null;
         return;
       }
       if (!this.countdownSequence) {
-        const eta = this.etaSeconds;
-        if (!Number.isFinite(eta) || eta > 5 || eta < 1) return;
+        if (eta < 1) return;
         this.countdownSequence = { nextSecond: Math.min(5, eta), nextAt: Date.now() };
       }
       if (this.countdownSequence.nextSecond < 1 || Date.now() < this.countdownSequence.nextAt) return;
@@ -189,20 +215,26 @@ export const LobbyProgress = defineComponent({
       this.countdownSequence.nextSecond--;
       this.countdownSequence.nextAt = Date.now() + 1000;
     },
-    recordProgressSample() {
-      const percent = Number(this.snapshot.progressPercent);
-      if (!Number.isFinite(percent)) return;
-      const time = Date.now();
-      const last = this.progressSamples[this.progressSamples.length - 1];
-      if (last && percent < last.percent) {
-        this.progressSamples = [];
+    syncStartCountdown(forceReset) {
+      const entryId = this.snapshot.nextGameEntryId ?? null;
+      const value = Number(this.snapshot.nextGameCountdownSeconds);
+      if (entryId !== this.countdownEntryId || forceReset) {
+        this.countdownEntryId = entryId;
+        this.countdownBaseline = Number.isFinite(value) ? value : null;
+        this.countdownServerValue = Number.isFinite(value) ? value : null;
+        this.countdownReceivedAt = Date.now();
+        this.countdownSequence = null;
+        return;
+      }
+      if (!Number.isFinite(value)) return;
+      if (Number.isFinite(this.countdownServerValue) && value > this.countdownServerValue + 3) {
+        this.countdownBaseline = value;
         this.countdownSequence = null;
       }
-      const currentLast = this.progressSamples[this.progressSamples.length - 1];
-      if (!currentLast || percent > currentLast.percent) {
-        this.progressSamples.push({ percent, time });
+      if (value !== this.countdownServerValue) {
+        this.countdownServerValue = value;
+        this.countdownReceivedAt = Date.now();
       }
-      this.progressSamples = this.progressSamples.filter(sample => time - sample.time <= 30 * 60 * 1000);
     },
   },
 });
@@ -218,10 +250,10 @@ export const PlayerList = defineComponent({
         <button type="button" data-tab="chat" :class="{ 'is-active': activeTab === 'chat' }" :aria-selected="activeTab === 'chat'" @click="$emit('select-tab', 'chat')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-5.5A7.5 7.5 0 1 1 20 11.5Z"/><path d="M8 10h8M8 14h5"/></svg>{{ labels.chat }}</button>
         <button type="button" data-tab="players" :class="{ 'is-active': activeTab === 'players' }" :aria-selected="activeTab === 'players'" @click="$emit('select-tab', 'players')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 21v-2a7 7 0 0 1 14 0v2Z"/></svg>{{ labels.players }} <span class="fx-custom-lobby-tab-count">{{ playerCountLabel }}</span></button>
         <button type="button" data-tab="clans" :class="{ 'is-active': activeTab === 'clans' }" :aria-selected="activeTab === 'clans'" @click="$emit('select-tab', 'clans')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8 20 6v5.2c0 5-3.4 8.2-8 10-4.6-1.8-8-5-8-10V6Z"/><path d="M8 12h8M12 8v8"/></svg>{{ labels.clans }} <span class="fx-custom-lobby-tab-count">{{ clanCount }}</span></button>
-        <button v-if="teamMode" type="button" data-tab="team" :class="{ 'is-active': activeTab === 'team' }" :aria-selected="activeTab === 'team'" @click="$emit('select-tab', 'team')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M15 15.5a5 5 0 0 1 6.5 4.5"/></svg>{{ labels.team }} <span class="fx-custom-lobby-tab-count">{{ teamCount }}</span></button>
-        <button v-if="teamMode" type="button" data-tab="calls" :class="{ 'is-active': activeTab === 'calls' }" :aria-selected="activeTab === 'calls'" @click="$emit('select-tab', 'calls')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v5m0 8v5M3 12h5m8 0h5"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>{{ labels.calls }}</button>
+        <button type="button" data-tab="team" :class="{ 'is-active': activeTab === 'team' }" :aria-selected="activeTab === 'team'" @click="$emit('select-tab', 'team')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M15 15.5a5 5 0 0 1 6.5 4.5"/></svg>{{ labels.team }} <span class="fx-custom-lobby-tab-count">{{ teamCount }}</span></button>
+        <button type="button" data-tab="calls" :class="{ 'is-active': activeTab === 'calls' }" :aria-selected="activeTab === 'calls'" @click="$emit('select-tab', 'calls')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v5m0 8v5M3 12h5m8 0h5"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>{{ labels.calls }}</button>
       </nav>
-      <div v-if="activeTab === 'players' || (activeTab === 'team' && teamMode)" class="fx-custom-lobby-roster-view">
+      <div v-if="activeTab === 'players' || activeTab === 'team'" class="fx-custom-lobby-roster-view">
         <div class="fx-custom-lobby-player-header">
           <input type="search" :value="query" :placeholder="labels.search" :aria-label="labels.search" @input="$emit('update:query', $event.target.value)">
           <label class="fx-custom-lobby-sort"><span>{{ labels.sort }}</span><select :value="sortBy" :aria-label="labels.sort" @change="$emit('update:sort', $event.target.value)"><option value="rank-desc">{{ labels.sortRankDesc }}</option><option value="rank-asc">{{ labels.sortRankAsc }}</option><option value="name">{{ labels.sortName }}</option></select></label>
@@ -291,20 +323,29 @@ export const PlayerList = defineComponent({
           </table>
         </div>
       </section>
-      <section v-else-if="activeTab === 'calls' && teamMode" class="fx-custom-lobby-calls-view">
-        <div class="fx-custom-lobby-call-actions">
-          <button type="button" :disabled="!teamClan" @click="$emit('send-join', 'cont')">{{ labels.joinCont }}</button>
-          <button type="button" :disabled="!teamClan" @click="$emit('send-join', 'current')">{{ labels.join }}</button>
-          <button type="button" :disabled="!teamClan || !nextMap || !nextTeamCount" @click="$emit('send-join', 'next')">{{ labels.joinNext.replace('{map}', nextMap || labels.nextGame).replace('{count}', (nextTeamCount || '').replace(/\s*teams?$/i, '') || '?') }}</button>
-        </div>
-        <div class="fx-custom-lobby-call-compass" role="group" :aria-label="labels.spawnDirections">
-          <button v-for="direction in spawnDirections" :key="direction.key" type="button" :class="{ 'is-center': direction.key === 'center' }" :style="{ gridColumn: direction.column, gridRow: direction.row }" :disabled="!teamClan || !currentMap" :aria-label="labels[direction.labelKey]" :title="labels[direction.labelKey]" @click="$emit('send-call', direction.key)"><span>{{ direction.icon }}</span></button>
-        </div>
-        <form class="fx-custom-lobby-call-message" @submit.stop.prevent="sendTeamMessage">
-          <input v-model="teamMessage" type="text" :maxlength="110" :placeholder="labels.teamMessagePlaceholder" :aria-label="labels.teamMessagePlaceholder" :disabled="!teamClan" @keydown.stop @keyup.stop @keypress.stop>
-          <button type="submit" :disabled="!teamClan || !teamMessage.trim()">{{ labels.send }}</button>
-          <span v-if="teamMessageStatus" role="status">{{ teamMessageStatus }}</span>
-        </form>
+      <section v-else-if="activeTab === 'calls'" class="fx-custom-lobby-calls-view">
+        <section class="fx-custom-lobby-call-section fx-custom-lobby-call-spawn-section">
+          <header class="fx-custom-lobby-call-heading"><h3>{{ labels.spawnDirections }}</h3><p>{{ labels.spawnCallHint }}</p></header>
+          <div class="fx-custom-lobby-call-compass" role="group" :aria-label="labels.spawnDirections">
+            <button v-for="direction in spawnDirections" :key="direction.key" type="button" :class="{ 'is-center': direction.key === 'center' }" :style="{ gridColumn: direction.column, gridRow: direction.row }" :disabled="!teamClan || !currentMap" :aria-label="labels[direction.labelKey]" :title="labels[direction.labelKey]" @click="$emit('send-call', direction.key)"><span>{{ direction.icon }}</span></button>
+          </div>
+        </section>
+        <section class="fx-custom-lobby-call-section fx-custom-lobby-call-message-section">
+          <header class="fx-custom-lobby-call-heading"><h3>{{ labels.team }}</h3><p>{{ labels.teamMessagePlaceholder }}</p></header>
+          <form class="fx-custom-lobby-call-message" @submit.stop.prevent="sendTeamMessage">
+            <input v-model="teamMessage" type="text" :maxlength="110" :placeholder="labels.teamMessagePlaceholder" :aria-label="labels.teamMessagePlaceholder" :disabled="!teamClan" @keydown.stop @keyup.stop @keypress.stop>
+            <button type="submit" :disabled="!teamClan || !teamMessage.trim()">{{ labels.send }}</button>
+            <span v-if="teamMessageStatus" role="status">{{ teamMessageStatus }}</span>
+          </form>
+          <div class="fx-custom-lobby-call-join-group">
+            <header class="fx-custom-lobby-call-join-heading"><h3>{{ labels.join }}</h3></header>
+            <div class="fx-custom-lobby-call-actions">
+              <button type="button" :disabled="!teamClan" @click="$emit('send-join', 'cont')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11v2h4l12 5V6l-12 5H3Z"/><path d="m7 13 2 7h3l-2-6M21 9l-2 1m2 5-2-1"/></svg><span>{{ labels.joinCont }}</span></button>
+              <button type="button" :disabled="!teamClan" @click="$emit('send-join', 'current')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11v2h4l12 5V6l-12 5H3Z"/><path d="m7 13 2 7h3l-2-6M21 9l-2 1m2 5-2-1"/></svg><span>{{ labels.join }}</span></button>
+              <button type="button" :disabled="!teamClan || !nextMap || !nextTeamCount" @click="$emit('send-join', 'next')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11v2h4l12 5V6l-12 5H3Z"/><path d="m7 13 2 7h3l-2-6M21 9l-2 1m2 5-2-1"/></svg><span>{{ labels.joinNext.replace('{map}', nextMap || labels.nextGame).replace('{count}', (nextTeamCount || '').replace(/\s*teams?$/i, '') || '?') }}</span></button>
+            </div>
+          </div>
+        </section>
       </section>
       <LobbyChat v-else ref="lobbyChat" :labels="labels" :messages="chatMessages" :status="chatStatus" @send="sendChat" />
     </section>`,
@@ -345,26 +386,36 @@ export const PlayerList = defineComponent({
 });
 
 export const LobbyChat = defineComponent({
+  components: { LobbyPlayerName },
   props: { labels: Object, messages: Array, status: String },
   emits: ["send"],
-  data() { return { message: "", activationTimer: 0, activationStartedAt: 0, stickToChatBottom: true, senderMenu: null }; },
+  data() { return { message: "", activationTimer: 0, stickToChatBottom: true, senderMenu: null }; },
   mounted() {
-    this.activationStartedAt = Date.now();
-    const tryActivate = () => {
-      const activate = window.__fx?.setNativeLobbyChatMode;
+    // The native client needs one initial request to populate its single
+    // lobby-wide chat list. Keep it enabled across tab changes; never toggle it
+    // off when leaving this Vue tab.
+    const activationStartedAt = Date.now();
+    const tryActivateLobbyChat = () => {
+      const fx = window.__fx;
+      if (fx?.lobbyChatChannelRequested) {
+        this.activationTimer = 0;
+        return;
+      }
+      const activate = fx?.setNativeLobbyChatMode;
       if (typeof activate === "function") {
+        fx.lobbyChatChannelRequested = true;
         this.activationTimer = 0;
-        if (window.__fx?.lobbyChatActivationStatus !== "sent:0") activate(0);
+        activate(0);
         return;
       }
-      if (Date.now() - this.activationStartedAt >= 60000) {
+      if (Date.now() - activationStartedAt >= 60000) {
         this.activationTimer = 0;
-        console.warn("[ZFX Client LobbyChat] Native chat activation bridge did not become available.");
+        console.warn("[ZFX Client LobbyChat] Native lobby chat subscription is unavailable.");
         return;
       }
-      this.activationTimer = window.setTimeout(tryActivate, 250);
+      this.activationTimer = window.setTimeout(tryActivateLobbyChat, 250);
     };
-    tryActivate();
+    tryActivateLobbyChat();
     this.$nextTick(() => {
       const list = this.$refs.messages;
       if (list) list.scrollTop = list.scrollHeight;
@@ -379,9 +430,17 @@ export const LobbyChat = defineComponent({
       this.senderMenu = {
         senderId: entry.senderId,
         senderName: entry.senderName,
+        senderColor: entry.senderColor || "",
         x: Math.max(8, Math.min(event.clientX, window.innerWidth - 176)),
         y: Math.max(8, Math.min(event.clientY, window.innerHeight - 54)),
       };
+    },
+    openMentionMenu(event, segment) {
+      this.openSenderMenu(event, {
+        senderId: segment?.mentionId,
+        senderName: String(segment?.text ?? "").replace(/^@/, ""),
+        senderColor: segment?.color,
+      });
     },
     insertMention() {
       if (!this.senderMenu) return;
@@ -421,19 +480,18 @@ export const LobbyChat = defineComponent({
   template: `
     <section class="fx-custom-lobby-chat-view" :aria-label="labels.chat">
       <div ref="messages" class="fx-custom-lobby-chat-messages" aria-live="polite">
-        <p v-for="entry in messages" :key="entry.id"><button v-if="entry.senderName" type="button" class="fx-custom-lobby-chat-sender" :style="entry.senderColor ? { color: entry.senderColor } : null" @click.stop="openSenderMenu($event, entry)">{{ entry.senderName }}:</button><template v-if="entry.segments && entry.segments.length"><span v-for="(segment, index) in entry.segments" :key="index" :style="segment.color ? { color: segment.color } : null">{{ segment.text }}</span></template><template v-else>{{ entry.text }}</template></p>
+        <p v-for="entry in messages" :key="entry.id"><template v-if="entry.senderName"><LobbyPlayerName :name="entry.senderName" :color="entry.senderColor" @activate="openSenderMenu($event, entry)" />:</template><template v-if="entry.segments && entry.segments.length"><template v-for="(segment, index) in entry.segments" :key="index"><LobbyPlayerName v-if="segment.resolvedPlayer" :name="segment.text" :color="segment.color" @activate="openMentionMenu($event, segment)" /><span v-else :style="segment.color ? { color: segment.color } : null">{{ segment.text }}</span></template></template><template v-else>{{ entry.text }}</template></p>
         <span v-if="!messages.length" class="fx-custom-lobby-chat-empty">{{ labels.chatEmpty }}</span>
       </div>
       <Teleport to="body">
         <div v-if="senderMenu" class="fx-custom-lobby-chat-menu-backdrop" @click="senderMenu = null" @keydown.esc="senderMenu = null">
           <div class="fx-custom-lobby-chat-context-menu" role="menu" :style="{ left: senderMenu.x + 'px', top: senderMenu.y + 'px' }" @click.stop>
-            <strong>{{ senderMenu.senderName }}</strong>
-            <button type="button" role="menuitem" @click="insertMention">@ {{ labels.mention }}</button>
+            <strong :style="senderMenu.senderColor ? { color: senderMenu.senderColor } : null">{{ senderMenu.senderName }}</strong>
+            <button type="button" role="menuitem" :disabled="senderMenu.senderId == null" @click="insertMention">@ {{ labels.mention }}</button>
           </div>
         </div>
       </Teleport>
       <span v-if="status" class="fx-custom-lobby-chat-status">{{ status }}</span>
-      <span class="fx-custom-lobby-chat-command-hint">/diag · /help</span>
       <form class="fx-custom-lobby-chat-compose" @submit.stop.prevent="submit">
         <input ref="chatInput" v-model="message" type="text" :placeholder="labels.chatPlaceholder" :aria-label="labels.chatPlaceholder" @keydown.stop @keyup.stop @keypress.stop>
         <button type="button" class="fx-custom-lobby-chat-clear" :disabled="!message" :aria-label="labels.clear" :title="labels.clear" @click="clearDraft">×</button>
@@ -443,6 +501,9 @@ export const LobbyChat = defineComponent({
   beforeUpdate() {
     const list = this.$refs.messages;
     this.stickToChatBottom = !list || list.scrollHeight - list.scrollTop - list.clientHeight < 32;
+  },
+  beforeUnmount() {
+    if (this.activationTimer) window.clearTimeout(this.activationTimer);
   },
   updated() {
     const list = this.$refs.messages;
@@ -466,7 +527,7 @@ export const ClanOverview = defineComponent({
             <span class="fx-custom-lobby-clan-ready-label">{{ labels.ready }}</span>
           </div>
         </header>
-        <div class="fx-custom-lobby-clan-members"><button v-for="player in members" :key="player.id || player.name" type="button" class="fx-custom-lobby-clan-member" :title="player.title || player.name" :style="player.color ? { color: player.color } : null" @click.stop.prevent="$emit('select-player', player, $event)"><i class="fx-custom-lobby-status-dot" :class="'is-' + player.readiness"></i>{{ player.name }}</button></div>
+        <div class="fx-custom-lobby-clan-members"><button v-for="player in members" :key="player.id || player.name" type="button" class="fx-custom-lobby-clan-member" :title="player.title || player.name" :style="player.color ? { color: player.color } : null" @click.stop.prevent="$emit('select-player', player, $event)"><i class="fx-custom-lobby-status-dot" :class="'is-' + player.readiness"></i>{{ player.name }}</button><p v-if="!clan" class="fx-custom-lobby-clan-empty">{{ labels.noClan }}</p><p v-else-if="!members.length" class="fx-custom-lobby-clan-empty">{{ labels.noClanMembers }}</p></div>
       </article>
     </aside>`,
 });

@@ -5,7 +5,8 @@ import { createApp, h } from "vue/dist/vue.esm-bundler.js";
 import { createMemoryHistory, createRouter, RouterView } from "vue-router";
 import { createLobbyDataAdapter } from "./lobbyDataAdapter.js";
 import { calculateLobbyRating } from "./lobbyRating.js";
-import { ClanOverview, LobbyProgress, MapHeader, PlayerList } from "./lobbyComponents.js";
+import { getMapName } from "./lobbyFilters.js";
+import { ClanOverview, LobbyPlayerName, LobbyProgress, MapHeader, PlayerList } from "./lobbyComponents.js";
 
 const APP_ID = "fx-app-mount";
 const LOBBY_VIEW_MIGRATION_KEY = "fx_custom_lobby_view_enabled_v1";
@@ -120,11 +121,18 @@ function cleanText(element) {
   return element?.textContent?.replace(/\s+/g, " ").trim() ?? "";
 }
 
-function resolveLobbyChatMentions(text) {
-  return String(text ?? "").replace(/@([a-zA-Z0-9_-]{5})(?=$|[\s:!.?,)])/g, (token, shortId) => {
-    const playerName = window.__fx?.resolveLobbyChatMention?.(shortId);
-    return playerName ? `@${playerName}` : token;
-  });
+function resolveLobbyChatMentionAccountId(shortId, playerName) {
+  const nativeId = window.__fx?.resolveLobbyChatMentionId?.(shortId);
+  if (nativeId != null && Number.isInteger(Number(nativeId))) return Number(nativeId);
+
+  const players = window.__fx?.gameSdk?.lobby?.getSnapshot?.()?.players;
+  if (!Array.isArray(players)) return null;
+  const normalizedName = String(playerName ?? "").trim().toLocaleLowerCase();
+  const player = players.find(candidate =>
+    String(candidate?.name ?? candidate?.username ?? "").trim().toLocaleLowerCase() === normalizedName
+  );
+  const playerId = Number(player?.id ?? player?.accountId);
+  return Number.isInteger(playerId) ? playerId : null;
 }
 
 function resolveLobbyChatSegments(text) {
@@ -138,8 +146,10 @@ function resolveLobbyChatSegments(text) {
     const playerName = window.__fx?.resolveLobbyChatMention?.(match[1]);
     if (playerName) {
       segments.push({
-        text: `@${playerName}`,
+        text: playerName,
+        resolvedPlayer: true,
         color: window.__fx?.resolveLobbyChatMentionColor?.(match[1]) || "",
+        mentionId: resolveLobbyChatMentionAccountId(match[1], playerName),
       });
     } else segments.push({ text: match[0] });
     previousEnd = match.index + match[0].length;
@@ -151,19 +161,24 @@ function resolveLobbyChatSegments(text) {
 function formatLobbyNotification(text) {
   const source = String(text ?? "").trim();
   const isFollowerNotice = /\b(?:are|is)\s+in\s+the\s+lobby\b|\bjoined\s+the\s+lobby\b|\b(?:sind|ist)\s+in\s+der\s+lobby\b/i.test(source);
+  const makeBody = body => {
+    const bodySegments = resolveLobbyChatSegments(body);
+    return { body: bodySegments.map(segment => segment.text).join(""), bodySegments };
+  };
   const senderMatch = source.match(/^@([a-zA-Z0-9_-]{5})(?::\s*|\s+|$)([\s\S]*)$/);
   if (senderMatch) {
     const senderName = window.__fx?.resolveLobbyChatMention?.(senderMatch[1]);
     if (senderName) {
       return {
         senderName,
+        senderId: resolveLobbyChatMentionAccountId(senderMatch[1], senderName),
         senderColor: window.__fx?.resolveLobbyChatMentionColor?.(senderMatch[1]) || "",
-        body: resolveLobbyChatMentions(senderMatch[2].trim()),
+        ...makeBody(senderMatch[2].trim()),
         kind: isFollowerNotice ? "followers" : "default",
       };
     }
   }
-  return { senderName: "", senderColor: "", body: resolveLobbyChatMentions(source), kind: isFollowerNotice ? "followers" : "default" };
+  return { senderName: "", senderId: null, senderColor: "", ...makeBody(source), kind: isFollowerNotice ? "followers" : "default" };
 }
 
 function getLobbyList(scope) {
@@ -275,10 +290,35 @@ function getPlayerClan(name) {
     : null;
 }
 
+function normalizeLobbyPlayerName(name) {
+  return String(name ?? "").replace(/^\s*\[[^\]]{1,16}\]\s*/, "").trim().toLocaleLowerCase();
+}
+
+function getSelfLobbyPlayer(players) {
+  if (!Array.isArray(players)) return null;
+  const playerId = window.__fx?.getGameVar?.("playerId");
+  const rawName = window.__fx?.getGameVar?.("rawPlayerNames")?.[playerId] ?? "";
+  const ownName = normalizeLobbyPlayerName(rawName);
+  return players.find(player => player.self)
+    ?? players.find(player => playerId != null && String(player.id) === String(playerId))
+    ?? players.find(player => ownName && normalizeLobbyPlayerName(player.name) === ownName)
+    ?? null;
+}
+
 function getClanChartColor(tag) {
-  let hash = 0;
-  for (const character of String(tag)) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
-  return "hsl(" + (hash % 360) + " 78% 62%)";
+  let hash = 0x811c9dc5;
+  const normalizedTag = String(tag ?? "").trim().normalize("NFKC").toLocaleUpperCase();
+  for (const character of normalizedTag) {
+    hash ^= character.codePointAt(0);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  hash ^= hash >>> 16;
+  hash = Math.imul(hash, 0x7feb352d) >>> 0;
+  hash ^= hash >>> 15;
+  const hue = hash % 360;
+  const saturation = 68 + ((hash >>> 9) % 18);
+  const lightness = 54 + ((hash >>> 17) % 10);
+  return `hsl(${hue} ${saturation}% ${lightness}%)`;
 }
 
 function getModeLabel(button) {
@@ -393,16 +433,16 @@ const getLobbyLabels = (language = window.__fx?.getGameLanguage?.() || "en") => 
   const selectedLanguage = String(language || "en");
   const german = selectedLanguage.toLowerCase().startsWith("de");
   return german ? {
-    title: "Lobby-Übersicht", currentMap: "Aktuelle Karte", nextMap: "Nächstes Spiel", modes: "Spielmodi", clans: "Clans",
+    title: "Lobby-Übersicht", currentMap: "Aktuelle Karte", nextMap: "Ausgewähltes Spiel", selectedGame: "Ausgewähltes Spiel", selectGame: "Spiel auswählen", noGameSelected: "Kein Spiel ausgewählt", chooseGameHint: "Wähle oben ein anstehendes Spiel aus.", modes: "Spielmodi", upcomingGames: "Anstehende Spiele", noOtherUpcomingGames: "Keine weiteren anstehenden Spiele", gameEntry: "Spiel", map: "Karte", modeTeamGame: "Team", modeTeams: "Teams", modeBattleRoyale: "Battle Royale", modeDuel: "1v1", modeZombie: "Zombie", modeUnknown: "Spielmodus", selected: "Ausgewählt", joinGame: "Beitreten", leaveGame: "Verlassen", joinSelected: "Ausgewählt · beitreten", waitingForGames: "Warte auf anstehende Spiele …", unknownPlayer: "Unbekannter Spieler", clans: "Clans",
     lobbyRating: "Lobby-Rating", lobbyRatingUnavailable: "Warte auf bereite Spieler mit Rang",
-    teams: "Teams", readyPlayers: "Bereite Spieler", quickFilters: "Schnellfilter", lobbyInfo: "Lobby-Info", lobbyViews: "Lobby-Bereiche",
+    teams: "Teams", currentPlayer: "Du spielst als", gameMode: "Spielmodus", readyPlayers: "Bereite Spieler", quickFilters: "Schnellfilter", lobbyInfo: "Lobby-Info", lobbyViews: "Lobby-Bereiche",
     overview: "Übersicht", topReadyPlayers: "Top 3 bereite Spieler", noReadyPlayers: "Keine bereiten Spieler",
     topReadyClan: "Top-Clan (bereit)",
     overviewLeadersNote: "Beste Weltränge unter den bereiten Spielern",
-    progress: "Lobby-Fortschritt", players: "Spieler", team: "Team", search: "Spieler suchen …",
-    etaUnavailable: "Warte auf steigenden Prozentwert …",
+    progress: "Spielstart", players: "Spieler", team: "Team", search: "Spieler suchen …",
+    etaUnavailable: "Warte auf Startzeit …", startsIn: "Start in", startingNow: "Spiel startet jetzt",
     readyClansByClan: "Bereite Spieler nach Clan", noReadyClanPlayers: "Keine bereiten Clan-Spieler", others: "Andere",
-    all: "Alle", ready: "Bereit", notReady: "Nicht bereit", clan: "Clan", followed: "Following", noClans: "Keine Clans in der Lobby",
+    all: "Alle", ready: "Bereit", notReady: "Nicht bereit", clan: "Clan", followed: "Following", noClans: "Keine Clans in der Lobby", noClanMembers: "Keine Mitglieder des eigenen Clans in der Lobby",
     onlyReadyClans: "Nur Clans mit Bereiten", noReadyClans: "Keine Clans mit bereiten Spielern",
     readinessFilters: "Bereitschaftsfilter", affiliationFilters: "Zugehörigkeitsfilter", resetFilters: "Filter zurücksetzen",
     rank: "Rang", status: "Status", online: "Online", noPlayers: "Keine Spieler gefunden",
@@ -416,16 +456,16 @@ const getLobbyLabels = (language = window.__fx?.getGameLanguage?.() || "en") => 
     playersCount: "Spieler", noClan: "Kein eigener Clan erkannt", lobbyUnavailable: "Lobby wird geladen …",
     chatUnavailable: "Lobby-Chat konnte nicht geöffnet werden",
   } : {
-    title: "Lobby overview", currentMap: "Current map", nextMap: "Next game", modes: "Game modes", clans: "Clans",
+    title: "Lobby overview", currentMap: "Current map", nextMap: "Your selection", selectedGame: "Your selection", selectGame: "Select game", noGameSelected: "No game selected", chooseGameHint: "Choose an upcoming game above.", modes: "Game modes", upcomingGames: "Upcoming games", noOtherUpcomingGames: "No other upcoming games", gameEntry: "Game", map: "Map", modeTeamGame: "Team", modeTeams: "Teams", modeBattleRoyale: "Battle Royale", modeDuel: "1v1", modeZombie: "Zombie", modeUnknown: "Game mode", selected: "Selected", joinGame: "Join", leaveGame: "Leave", joinSelected: "Selected · join", waitingForGames: "Waiting for upcoming games …", unknownPlayer: "Unknown player", clans: "Clans",
     lobbyRating: "Lobby rating", lobbyRatingUnavailable: "Waiting for ready players with rank data",
-    teams: "Teams", readyPlayers: "Ready players", quickFilters: "Quick filters", lobbyInfo: "Lobby info", lobbyViews: "Lobby views",
+    teams: "Teams", currentPlayer: "Playing as", gameMode: "Game mode", readyPlayers: "Ready players", quickFilters: "Quick filters", lobbyInfo: "Lobby info", lobbyViews: "Lobby views",
     overview: "Overview", topReadyPlayers: "Top 3 ready players", noReadyPlayers: "No ready players",
     topReadyClan: "Top ready clan",
     overviewLeadersNote: "Highest global ranks among ready players",
-    progress: "Lobby progress", players: "Players", team: "Team", search: "Search players …",
-    etaUnavailable: "Waiting for the percentage to increase …",
+    progress: "Game start", players: "Players", team: "Team", search: "Search players …",
+    etaUnavailable: "Waiting for start time …", startsIn: "Starts in", startingNow: "Starting now",
     readyClansByClan: "Ready players by clan", noReadyClanPlayers: "No ready clan players", others: "Others",
-    all: "All", ready: "Ready", notReady: "Not ready", clan: "Clan", followed: "Following", noClans: "No clans in this lobby",
+    all: "All", ready: "Ready", notReady: "Not ready", clan: "Clan", followed: "Following", noClans: "No clans in this lobby", noClanMembers: "No members of your clan are in this lobby",
     onlyReadyClans: "Only clans with ready players", noReadyClans: "No clans with ready players",
     readinessFilters: "Readiness filters", affiliationFilters: "Affiliation filters", resetFilters: "Reset filters",
     rank: "Rank", status: "Status", online: "Online", noPlayers: "No players found",
@@ -443,7 +483,7 @@ const getLobbyLabels = (language = window.__fx?.getGameLanguage?.() || "en") => 
 
 const LobbyView = defineComponent({
   name: "LobbyView",
-  components: { MapHeader, LobbyProgress, PlayerList, ClanOverview },
+  components: { MapHeader, LobbyProgress, PlayerList, ClanOverview, LobbyPlayerName },
   setup() {
     const shell = document.getElementById("fx-game-shell");
     const labels = getLobbyLabels();
@@ -556,10 +596,11 @@ const LobbyView = defineComponent({
     }
     refreshLobbyLanguage();
     const activeTab = ref("overview");
+    let hasOpenedPlayersTab = false;
+    const currentSelectionOverride = ref(undefined);
+    let currentSelectionOverrideTimer = 0;
     const playerContextMenu = ref(null);
     const playerListComponent = ref(null);
-    const selfReadiness = ref("not-ready");
-    let optimisticReadinessUntil = 0;
     const active = ref(false);
     let nativeNotificationObserver = null;
     const hiddenNativeNotifications = new Map();
@@ -653,12 +694,10 @@ const LobbyView = defineComponent({
       }
       const sortedClanCounts = [...counts.entries()].sort(([tagA, countA], [tagB, countB]) =>
         countB - countA || tagA.localeCompare(tagB));
-      const visibleClanCounts = sortedClanCounts.slice(0, 8);
-      const otherCount = untaggedCount
-        + sortedClanCounts.slice(8).reduce((sum, [, count]) => sum + count, 0);
+      const otherCount = untaggedCount;
       const chartCounts = otherCount > 0
-        ? [...visibleClanCounts, [othersSliceId, otherCount]]
-        : visibleClanCounts;
+        ? [...sortedClanCounts, [othersSliceId, otherCount]]
+        : sortedClanCounts;
       const total = chartCounts.reduce((sum, [, count]) => sum + count, 0);
       const circumference = 2 * Math.PI * 16;
       let offset = 0;
@@ -683,39 +722,100 @@ const LobbyView = defineComponent({
       ? clanGroups.value.filter(clan => clan.readyCount > 0)
       : clanGroups.value);
     const playerCountLabel = computed(() => `${snapshot.value.readyCount}/${snapshot.value.playerCount}`);
-    const ownClan = computed(() => {
-      const self = snapshot.value.players.find(player => player.self);
-      const names = window.__fx?.getGameVar?.("rawPlayerNames");
+    const currentPlayerName = computed(() => {
+      const self = getSelfLobbyPlayer(snapshot.value.players);
+      const nativeIdentity = window.__fx?.getNativeOwnPlayerIdentity?.();
       const playerId = window.__fx?.getGameVar?.("playerId");
-      return self?.clan ?? getPlayerClan(self?.name ?? names?.[playerId] ?? "");
+      const rawPlayerName = window.__fx?.getGameVar?.("rawPlayerNames")?.[playerId];
+      const homeName = window.__fx?.getNativeHomeNameInput?.()?.value;
+      const accountName = window.__fx?.myAccountAdapter?.getSnapshot?.()?.accountName;
+      return self?.name || rawPlayerName || nativeIdentity?.username || homeName || accountName || labels.unknownPlayer;
     });
-    const activeMode = computed(() => snapshot.value.modes.find(mode => mode.active));
-    const isTeamMode = ref(false);
-    watch(activeMode, mode => {
-      if (mode) isTeamMode.value = /team/i.test(String(mode.label ?? ""));
-    }, { immediate: true });
-    const clanPlayers = computed(() => ownClan.value
+    const ownClan = computed(() => {
+      const ownName = window.__fx?.getGameVar?.("rawPlayerNames")?.[window.__fx?.getGameVar?.("playerId")] ?? "";
+      const ownIdentity = window.__fx?.getNativeOwnPlayerIdentity?.();
+      const nativeHomeName = window.__fx?.getNativeHomeNameInput?.()?.value ?? "";
+      const ownAccountId = window.__fx?.getNativeAccountId?.();
+      const accountProfile = window.__fx?.myAccountAdapter?.getSnapshot?.();
+      const accountClan = accountProfile?.primaryClan?.tag || accountProfile?.clanLeadership?.clan
+        || accountProfile?.secondaryClan?.tag || "";
+      const self = getSelfLobbyPlayer(snapshot.value.players);
+      return self?.clan || getPlayerClan(self?.name) || ownIdentity?.clan
+        || getPlayerClan(ownIdentity?.username) || getPlayerClan(accountProfile?.accountName)
+        || String(accountClan).replace(/^\[|\]$/g, "").trim().toLocaleUpperCase()
+        || getPlayerClan(nativeHomeName)
+        || snapshot.value.players.find(player => ownAccountId != null && String(player.id) === String(ownAccountId))?.clan
+        || getPlayerClan(ownName) || null;
+    });
+    const getClanDiagnostics = () => {
+      const playerId = window.__fx?.getGameVar?.("playerId");
+      const rawPlayerName = window.__fx?.getGameVar?.("rawPlayerNames")?.[playerId] ?? null;
+      const nativeHomeName = window.__fx?.getNativeHomeNameInput?.()?.value ?? null;
+      const nativeAccountId = window.__fx?.getNativeAccountId?.() ?? null;
+      const nativeIdentity = window.__fx?.getNativeOwnPlayerIdentity?.() ?? null;
+      const accountProfile = window.__fx?.myAccountAdapter?.getSnapshot?.() ?? null;
+      const self = getSelfLobbyPlayer(snapshot.value.players);
+      return {
+        playerId,
+        rawPlayerName,
+        nativeHomeName,
+        nativeAccountId,
+        nativeIdentity,
+        accountProfile: accountProfile ? {
+          accountName: accountProfile.accountName,
+          primaryClan: accountProfile.primaryClan?.tag,
+          secondaryClan: accountProfile.secondaryClan?.tag,
+          leadershipClan: accountProfile.clanLeadership?.clan,
+        } : null,
+        detectedSelf: self ? { id: self.id, name: self.name, clan: self.clan } : null,
+        ownClan: ownClan.value,
+        clans: clanGroups.value.map(group => ({ tag: group.tag, count: group.players.length })),
+        lobbyPlayers: snapshot.value.players.map(player => ({ id: player.id, name: player.name, clan: player.clan, self: player.self })),
+      };
+    };
+    const nextGameMeta = computed(() => {
+      const entries = snapshot.value.upcomingGames ?? [];
+      const selectedEntry = entries.find(entry => entry.selected);
+      const values = [];
+      if (selectedEntry?.playerCount != null) values.push(`${selectedEntry.playerCount} ${labels.players.toLowerCase()}`);
+      if (selectedEntry?.countdownSeconds != null) {
+        const seconds = Math.max(0, Math.floor(selectedEntry.countdownSeconds));
+        values.push(`${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`);
+      }
+      return values.join(" · ");
+    });
+    const isTeamMode = computed(() => /team/i.test(String(snapshot.value.currentTeamCountLabel ?? "")));
+    const ownClanPlayers = computed(() => ownClan.value
       ? snapshot.value.players.filter(player => player.clan === ownClan.value)
       : []);
-    const teamCount = computed(() => `${clanPlayers.value.filter(player => player.readiness === "ready").length}/${clanPlayers.value.length}`);
+    const clanOverviewGroup = computed(() => ownClan.value
+      ? clanGroups.value.find(group => group.tag === ownClan.value) ?? null
+      : null);
+    const clanPlayers = computed(() => clanOverviewGroup.value?.players ?? []);
+    const teamCount = computed(() => `${ownClanPlayers.value.filter(player => player.readiness === "ready").length}/${ownClanPlayers.value.length}`);
     const filteredTeamPlayers = computed(() => filteredPlayers.value
       .filter(player => ownClan.value && player.clan === ownClan.value));
-    watch(isTeamMode, isTeam => {
-      if (!isTeam && ["team", "calls"].includes(activeTab.value)) activeTab.value = "players";
-    });
     const clanReadyCount = computed(() => clanPlayers.value.filter(player => player.readiness === "ready").length);
+    const currentMapEntry = computed(() => {
+      const entries = snapshot.value.upcomingGames ?? [];
+      return entries.find(entry => entry.id === snapshot.value.currentMapEntryId) ?? entries[0] ?? null;
+    });
+    const currentMapEntrySelected = computed(() => currentMapEntry.value
+      ? currentSelectionOverride.value !== undefined
+        ? currentSelectionOverride.value === currentMapEntry.value.id
+        : currentMapEntry.value.selected === true
+      : false);
 
     let nativeRoot = null;
     let savedStyles = null;
     let observer = null;
     let frame = 0;
     let unsubscribe = () => {};
+    let unsubscribeGameSdk = () => {};
     let unsubscribeLobbyChat = () => {};
     let missingLobbyTimer = 0;
     let readinessRefreshTimer = 0;
     let ratingRefreshTimer = 0;
-    let optimisticMode = null;
-    let optimisticModeUntil = 0;
 
     function refreshLobbyRating(players = snapshot.value.players) {
       const sidebarRating = window.__fx?.vueSidebarApi?.getLobbyRating?.();
@@ -817,7 +917,6 @@ const LobbyView = defineComponent({
         return;
       }
       if (nativeRoot !== root) {
-        if (nativeRoot) adapter.clearChatHistory();
         restoreNativeRoot();
         nativeRoot = root;
         savedStyles = ["visibility", "pointer-events"].map(property => [
@@ -830,33 +929,60 @@ const LobbyView = defineComponent({
 
       const ownPlayerId = window.__fx?.getGameVar?.("playerId");
       const ownPlayerName = window.__fx?.getGameVar?.("rawPlayerNames")?.[ownPlayerId];
-      const players = found.rows.map((row, index) => {
+      const ownIdentity = window.__fx?.getNativeOwnPlayerIdentity?.();
+      const sdkLobbySnapshot = window.__fx?.gameSdk?.lobby?.getSnapshot?.();
+      const hasDecodedRoster = sdkLobbySnapshot?.rosterEntryId != null
+        && sdkLobbySnapshot.entries?.some(entry => entry.id === sdkLobbySnapshot.rosterEntryId)
+        && Array.isArray(sdkLobbySnapshot.players);
+      const readinessByName = hasDecodedRoster
+        ? new Map(sdkLobbySnapshot.players.map(player => [normalizeLobbyPlayerName(player.name), player.ready ? "ready" : "not-ready"]))
+        : null;
+      const nativePlayers = found.rows.map((row, index) => {
         const rawText = cleanText(row);
-        const name = row.dataset.fxAccountName || rawText.replace(/^[🟢⚪]\s*/u, "");
+        // The native rank/follow patch decorates the inner name span, while
+        // getLobbyList returns its outer row. Read metadata from either node.
+        const metadata = row.dataset.fxAccountName || row.dataset.fxRank || row.dataset.fxRankText
+          ? row : row.querySelector("[data-fx-account-name], [data-fx-rank], [data-fx-rank-text]") ?? row;
+        const name = metadata.dataset.fxAccountName || row.dataset.fxAccountName
+          || rawText.replace(/^[🟢⚪]\s*/u, "");
         if (!row.dataset.fxLobbyPlayer) row.dataset.fxLobbyPlayer = "true";
-        if (!row.dataset.fxAccountName) row.dataset.fxAccountName = name;
+        if (!metadata.dataset.fxAccountName) metadata.dataset.fxAccountName = name;
         const senderId = window.__fx?.getLobbyChatSenderIdByName?.(name) ?? null;
-        if (!row.dataset.fxLobbyReady) {
-          row.dataset.fxLobbyReady = /^[🟢]/u.test(rawText) ? "ready"
-            : /^[⚪]/u.test(rawText) ? "not-ready" : "unknown";
-        }
+        const readinessMark = rawText.codePointAt(0);
+        if (readinessMark === 0x1F7E2) row.dataset.fxLobbyReady = "ready";
+        else if (readinessMark === 0x26AA) row.dataset.fxLobbyReady = "not-ready";
+        else if (!row.dataset.fxLobbyReady) row.dataset.fxLobbyReady = "unknown";
         return {
-          id: row.dataset.fxPlayerId || `${name}-${index}`,
+          id: metadata.dataset.fxPlayerId || row.dataset.fxPlayerId || `${name}-${index}`,
           senderId,
           name,
-          clan: getPlayerClan(name),
+          clan: metadata.dataset.fxClan || row.dataset.fxClan
+            || getPlayerClan(name) || getPlayerClan(rawText),
           readiness: row.dataset.fxLobbyReady || "unknown",
-          rank: Number(row.dataset.fxRank) || null,
-          rankText: row.dataset.fxRankText || "",
-          followed: row.dataset.fxFollowed === "true" || row.classList.contains("fx-followed-player"),
-          self: row.dataset.fxSelf === "true"
+          nativeReadiness: readinessMark === 0x1F7E2 || readinessMark === 0x26AA,
+          rank: Number(metadata.dataset.fxRank) || null,
+          rankText: metadata.dataset.fxRankText || "",
+          followed: metadata.dataset.fxFollowed === "true" || metadata.classList.contains("fx-followed-player"),
+          self: metadata.dataset.fxSelf === "true" || row.dataset.fxSelf === "true"
+            || String(metadata.dataset.fxPlayerId || row.dataset.fxPlayerId || "") === String(ownPlayerId ?? "")
+            || (ownIdentity?.id != null
+              && String(metadata.dataset.fxPlayerId || row.dataset.fxPlayerId || "") === String(ownIdentity.id))
+            || (typeof ownIdentity?.username === "string"
+              && normalizeLobbyPlayerName(ownIdentity.username) === normalizeLobbyPlayerName(name))
             || (typeof ownPlayerName === "string"
-              && ownPlayerName.trim().toLocaleLowerCase() === name.trim().toLocaleLowerCase()),
-          color: window.__fx?.getLobbyChatSenderColor?.(senderId) || row.style.color,
-          title: row.title,
-          nativeElement: row,
+              && normalizeLobbyPlayerName(ownPlayerName) === normalizeLobbyPlayerName(name)),
+          color: window.__fx?.getLobbyChatSenderColor?.(senderId) || metadata.style.color || row.style.color,
+          title: metadata.title || row.title,
+          nativeElement: metadata,
         };
       });
+      const players = readinessByName
+        ? nativePlayers.map(player => ({
+          ...player,
+          readiness: player.nativeReadiness ? player.readiness
+            : readinessByName.get(normalizeLobbyPlayerName(player.name)) ?? player.readiness,
+        }))
+        : nativePlayers;
       active.value = true;
       const nextSnapshot = adapter.publish(readNativeSummary(root, {
         players,
@@ -875,6 +1001,13 @@ const LobbyView = defineComponent({
 
     function readNativeSummary(root, snapshot) {
       void loadPersistentMapImages();
+      const sdkLobby = window.__fx?.gameSdk?.lobby?.getSnapshot?.();
+      const upcomingGames = Array.isArray(sdkLobby?.entries) ? sdkLobby.entries : [];
+      const rosterEntry = upcomingGames.find(game => game.id === sdkLobby?.rosterEntryId)
+        ?? upcomingGames[0]
+        ?? null;
+      const selectedNextEntry = upcomingGames.find(game => game.selected) ?? null;
+      const currentMapEntry = rosterEntry ?? upcomingGames[0] ?? null;
       const enhancedModes = Array.from(root.querySelectorAll(".fx-lobby-mode-tab"));
       const modeButtons = enhancedModes.length ? enhancedModes
         : Array.from(root.children[1]?.querySelectorAll("button") ?? []);
@@ -896,51 +1029,50 @@ const LobbyView = defineComponent({
         isContest: button.textContent.includes("🏆")
           || button.querySelector('[aria-label*="contest" i], [title*="contest" i]') !== null
           || /🏆|contest/i.test(contestText),
-        active: button.dataset.fxLobbyModeActive === "true"
+          active: button.dataset.fxLobbyModeActive === "true"
           || button.getAttribute("aria-pressed") === "true"
-          || button.classList.contains("active") || button.classList.contains("selected")
-          || (Date.now() < optimisticModeUntil && String(index) === optimisticMode),
+          || button.classList.contains("active") || button.classList.contains("selected"),
         nativeElement: button,
       }; });
       const selectedMode = modes.find(mode => mode.active);
       const mapNames = findMapNames(root);
       const room = window.__fx?.lobbyReminders?.getSelectedGame?.();
       const rawNames = window.__fx?.getGameVar?.("rawPlayerNames");
-      const roomChatMessages = Array.isArray(room?.chatLog)
-        ? room.chatLog.filter(message => message?.id === 0 && typeof message.s === "string")
-          .flatMap((message, index) => {
-            const playerName = window.__fx?.getLobbyChatSenderName?.(message.uY);
-            if (!playerName) return [];
-            const segments = resolveLobbyChatSegments(message.s);
-            return [{
-            id: `room:${room.selectedIndex ?? 0}:${index}`,
-            senderId: Number.isInteger(Number(message.uY)) ? Number(message.uY) : null,
-            senderName: playerName,
-            senderColor: window.__fx?.getLobbyChatSenderColor?.(message.uY) || "",
-            text: segments.map(segment => segment.text).join(""),
-            segments,
-            }];
-          }).slice(-60)
-        : snapshot?.chatMessages ?? [];
-      logLobbyDiagnostic("room-chat-log", `${room?.selectedIndex ?? "none"}:${Array.isArray(room?.chatLog)}:${room?.chatLog?.length ?? -1}:${roomChatMessages.length}`, {
-        selectedRoomIndex: room?.selectedIndex ?? null,
-        hasLogArray: Array.isArray(room?.chatLog),
-        roomLogLength: room?.chatLog?.length ?? null,
-        sampleIds: Array.isArray(room?.chatLog) ? room.chatLog.slice(-5).map(message => message?.id ?? null) : [],
-        displayedMessageCount: roomChatMessages.length,
-      });
-      const roomMap = Number(room?.map);
-      const roomMode = Number(room?.mode);
-      const roomNextMap = Number(room?.nextMap);
-      const roomNextMode = Number(room?.nextMode);
-      const currentMap = Number.isInteger(roomMap) ? window.__fx?.getGameMapNames?.()?.[roomMap] || "" : mapNames[0] || snapshot?.currentMap || "";
-      const currentTeamCountLabel = Number.isInteger(roomMode) && roomMode >= 0 && roomMode <= 6 ? `${roomMode + 2} Teams` : "";
-      const nextMap = Number.isInteger(roomNextMap) ? window.__fx?.getGameMapNames?.()?.[roomNextMap] || "" : mapNames[1] || snapshot?.nextMap || "";
-      const nextTeamCountLabel = Number.isInteger(roomNextMode) && roomNextMode >= 0 && roomNextMode <= 6 ? `${roomNextMode + 2} Teams` : "";
-      const isContest = selectedMode?.isContest === true || room?.isContest === true;
-      const nextIsContest = typeof room?.nextIsContest === "boolean" ? room.nextIsContest : null;
-      const noFullsend = roomMode === 10;
-      const nextNoFullsend = roomNextMode === 10;
+      const roomMap = room?.map == null ? NaN : Number(room.map);
+      const roomMode = room?.mode == null ? NaN : Number(room.mode);
+      const selectedMapIndex = currentMapEntry?.mapIndex != null ? Number(currentMapEntry.mapIndex)
+        : currentMapEntry ? NaN : roomMap;
+      const selectedModeCode = currentMapEntry?.modeCode != null ? Number(currentMapEntry.modeCode)
+        : currentMapEntry ? NaN : roomMode;
+      const currentMap = Number.isInteger(selectedMapIndex)
+        ? window.__fx?.getGameMapNames?.()?.[selectedMapIndex] || getMapName(selectedMapIndex)
+        : snapshot?.currentMap || mapNames[0] || "";
+      const currentTeamCountLabel = Number.isInteger(selectedModeCode) && selectedModeCode >= 0 && selectedModeCode <= 6 ? `${selectedModeCode + 2} Teams` : "";
+      const currentModeKey = selectedModeCode >= 0 && selectedModeCode <= 6 ? "team"
+        : selectedModeCode === 7 || selectedModeCode === 10 ? "battle-royale"
+          : selectedModeCode === 8 ? "duel" : selectedModeCode === 9 ? "zombie" : "unknown";
+      const currentGameModeLabel = currentModeKey === "team" ? labels.modeTeamGame
+        : currentModeKey === "battle-royale" ? labels.modeBattleRoyale
+          : currentModeKey === "duel" ? labels.modeDuel : currentModeKey === "zombie" ? labels.modeZombie
+            : currentMapEntry ? "" : selectedMode?.label || "";
+      const nextMapIndex = selectedNextEntry?.mapIndex == null ? NaN : Number(selectedNextEntry.mapIndex);
+      const nextMap = selectedNextEntry
+        ? selectedNextEntry.mapName || (Number.isInteger(nextMapIndex)
+          ? window.__fx?.getGameMapNames?.()?.[nextMapIndex] || getMapName(nextMapIndex) : `${labels.gameEntry} #${selectedNextEntry.id}`)
+        : "";
+      const nextModeCode = selectedNextEntry?.modeCode == null ? NaN : Number(selectedNextEntry.modeCode);
+      const nextTeamCountLabel = Number.isInteger(nextModeCode) && nextModeCode >= 0 && nextModeCode <= 6 ? `${nextModeCode + 2} Teams` : "";
+      const nextModeKey = nextModeCode >= 0 && nextModeCode <= 6 ? "team"
+        : nextModeCode === 7 || nextModeCode === 10 ? "battle-royale"
+          : nextModeCode === 8 ? "duel" : nextModeCode === 9 ? "zombie" : "unknown";
+      const nextGameModeLabel = nextModeKey === "team" ? labels.modeTeamGame
+        : nextModeKey === "battle-royale" ? labels.modeBattleRoyale
+          : nextModeKey === "duel" ? labels.modeDuel : nextModeKey === "zombie" ? labels.modeZombie : "";
+      const isContest = currentMapEntry ? currentMapEntry.isContest === true
+        : selectedMode?.isContest === true || room?.isContest === true;
+      const nextIsContest = selectedNextEntry ? selectedNextEntry.isContest === true : null;
+      const noFullsend = selectedModeCode === 10;
+      const nextNoFullsend = nextModeCode === 10;
       const capturedMapImage = findMapImage(root);
       const currentMapImage = capturedMapImage
         || (snapshot?.currentMap === currentMap ? snapshot?.currentMapImage : "")
@@ -948,34 +1080,74 @@ const LobbyView = defineComponent({
       if (currentMapImage) rememberMapImage(currentMap, currentMapImage);
       const nextMapImage = mapImageCache.get(mapImageCacheKey(nextMap))
         || (mapImageCacheKey(nextMap) === mapImageCacheKey(currentMap) ? currentMapImage : "");
+      const gameMapNames = window.__fx?.getGameMapNames?.();
+      const entryCards = upcomingGames.map(entry => {
+        const mapName = entry.mapName || (entry.mapIndex != null && Number.isInteger(Number(entry.mapIndex))
+          ? String(gameMapNames?.[Number(entry.mapIndex)] || getMapName(Number(entry.mapIndex))) : "");
+        const modeCode = entry.modeCode == null ? NaN : Number(entry.modeCode);
+        const modeKey = modeCode >= 0 && modeCode <= 6 ? "team"
+          : modeCode === 7 || modeCode === 10 ? "battle-royale"
+            : modeCode === 8 ? "duel" : modeCode === 9 ? "zombie" : "unknown";
+        const teamCountLabel = modeKey === "team" ? `${modeCode + 2} ${labels.modeTeams}` : "";
+        const modeLabel = modeKey === "team" ? labels.modeTeamGame
+          : modeKey === "battle-royale" ? labels.modeBattleRoyale
+            : modeKey === "duel" ? labels.modeDuel : modeKey === "zombie" ? labels.modeZombie : labels.modeUnknown;
+        const isDisplayedEntry = entry.id === selectedNextEntry?.id;
+        return {
+          ...entry,
+          mapName,
+          mapImage: mapImageCache.get(mapImageCacheKey(mapName))
+            || (entry.id === currentMapEntry?.id ? currentMapImage : isDisplayedEntry ? nextMapImage : ""),
+          modeKey,
+          modeLabel,
+          teamCountLabel,
+        };
+      });
       const progressText = cleanText(root.children[5]);
-      const progressMatch = progressText.match(/(\d+(?:[.,]\d+)?)\s*%/);
       const readinessTexts = [progressText,
         ...Array.from(root.children[6]?.querySelectorAll("button, [role='button']") ?? [])
           .flatMap(button => [cleanText(button), button.getAttribute("aria-label"), button.title])
           .filter(Boolean),
       ];
       const readinessMatch = readinessTexts.map(text => text.match(/(\d+)\s*\/\s*(\d+)/)).find(Boolean);
-      const readyCount = readinessMatch ? Number(readinessMatch[1]) : snapshot?.readyCount;
-      const playerCount = readinessMatch ? Number(readinessMatch[2]) : snapshot?.playerCount;
+      const rosterMatchesEntry = rosterEntry && sdkLobby?.rosterEntryId === rosterEntry.id
+        && Array.isArray(sdkLobby.players);
+      const readyCount = rosterMatchesEntry ? sdkLobby.readyCount
+        : readinessMatch ? Number(readinessMatch[1]) : snapshot?.readyCount;
+      const playerCount = rosterMatchesEntry ? sdkLobby.playerCount
+        : readinessMatch ? Number(readinessMatch[2]) : snapshot?.playerCount;
       return {
         ...snapshot,
+        upcomingGames: entryCards,
+        currentMapEntryId: currentMapEntry?.id ?? null,
+        rosterEntryId: sdkLobby?.rosterEntryId ?? null,
+        nextGameEntryId: rosterEntry?.id ?? null,
+        nextGameCountdownSeconds: rosterEntry?.countdownSeconds ?? null,
+        nextGamePlayerCount: rosterEntry?.playerCount ?? null,
         modes: modes.length ? modes : snapshot?.modes ?? [],
-        chatChannel: selectedMode?.id ?? snapshot?.chatChannel ?? "default",
+        // The game now has one lobby-wide chat shared by all game modes.
+        chatChannel: "lobby",
         currentMap,
         currentMapImage,
+        currentTeamCountLabel,
+        currentGameModeLabel,
+        currentGameModeKey: currentModeKey,
         nextMap,
         nextMapImage,
-        chatMessages: roomChatMessages,
+        // Chat is lobby-wide; never replace its feed with the selected game's
+        // room-local chat log.
+        chatMessages: snapshot?.chatMessages ?? [],
         isContest,
         nextIsContest,
         noFullsend,
         nextNoFullsend,
         modes: modes.map(mode => ({ ...mode, teamCountLabel: /team/i.test(mode.label) ? currentTeamCountLabel : "" })),
         nextTeamCountLabel,
+        nextGameModeLabel,
+        nextGameModeKey: selectedNextEntry ? nextModeKey : "",
         readyCount,
         playerCount,
-        progressPercent: progressMatch ? Number(progressMatch[1].replace(",", ".")) : snapshot?.progressPercent ?? null,
+        progressPercent: null,
       };
     }
 
@@ -1009,12 +1181,6 @@ const LobbyView = defineComponent({
       });
     }
 
-    function nativeReadyButton() {
-      const footer = nativeRoot?.children[6];
-      return Array.from(footer?.querySelectorAll("button, [role='button']") ?? [])
-        .find(button => cleanText(button).toLocaleLowerCase().includes(labels.readyAction.toLocaleLowerCase()));
-    }
-
     function findNativeChatTab(root) {
       return Array.from(root?.querySelectorAll("button, [role='button'], [role='tab']") ?? [])
         .find(button => [cleanText(button), button.getAttribute("aria-label"), button.title]
@@ -1031,13 +1197,13 @@ const LobbyView = defineComponent({
     }
 
     function selectLobbyTab(tab) {
-      const previousTab = activeTab.value;
+      if (tab === "players" && !hasOpenedPlayersTab) {
+        readyFilter.value = "ready";
+        hasOpenedPlayersTab = true;
+      }
       activeTab.value = tab;
       // Keep the native roster mounted for live player/readiness data. FX chat
       // receives messages from the socket feed and does not switch native tabs.
-      if (["chat", "calls"].includes(previousTab) && !["chat", "calls"].includes(tab)) {
-        window.__fx?.setNativeLobbyChatMode?.(1);
-      }
       if (tab !== "chat") findNativePlayerTab(nativeRoot)?.click();
       [80, 220].forEach(delay => window.setTimeout(scheduleRead, delay));
     }
@@ -1130,21 +1296,46 @@ const LobbyView = defineComponent({
       notificationIndex.value = Math.min(lobbyNotifications.value.length - 1, notificationIndex.value + 1);
     }
 
-    function selectMode(mode) {
-      mode.nativeElement?.click();
-      optimisticMode = String(mode.id);
-      optimisticModeUntil = Date.now() + 1200;
-      adapter.switchChatChannel(optimisticMode);
-      const refresh = () => {
-        if (!nativeRoot?.isConnected) return;
-        const current = adapter.getSnapshot();
-        adapter.publish({
-          ...readNativeSummary(nativeRoot, current),
-          chatMessages: current.chatMessages,
-        }, current.source);
-      };
-      window.setTimeout(refresh, 180);
-      window.setTimeout(refresh, 420);
+    function selectUpcomingGame(entry) {
+      const selected = window.__fx?.gameSdk?.lobby?.selectEntry?.(entry?.id);
+      if (!selected) console.warn("[ZFX Client LobbyView] Could not select upcoming game entry:", entry?.id);
+      return Boolean(selected);
+    }
+
+    function toggleCurrentMapEntry() {
+      const entry = currentMapEntry.value;
+      const lobby = window.__fx?.gameSdk?.lobby;
+      if (!entry || typeof lobby?.selectEntry !== "function") {
+        console.warn("[ZFX Client LobbyView] Current-map selection is unavailable:", {
+          entryId: entry?.id ?? null,
+          currentMapEntryId: snapshot.value.currentMapEntryId,
+          lobbySdkAvailable: Boolean(lobby),
+        });
+        return false;
+      }
+      const wasSelected = currentMapEntrySelected.value;
+      const changed = wasSelected ? lobby.deselectEntry?.() : lobby.selectEntry(entry.id);
+      if (!changed) {
+        console.warn("[ZFX Client LobbyView] Could not toggle current-map selection:", {
+          entryId: entry.id,
+          selected: wasSelected,
+          selectedEntryId: lobby.getSnapshot?.()?.selectedEntryId ?? null,
+        });
+        return false;
+      }
+      currentSelectionOverride.value = wasSelected ? null : entry.id;
+      if (currentSelectionOverrideTimer) window.clearTimeout(currentSelectionOverrideTimer);
+      currentSelectionOverrideTimer = window.setTimeout(() => {
+        currentSelectionOverride.value = undefined;
+        currentSelectionOverrideTimer = 0;
+      }, 2500);
+      return true;
+    }
+
+    function getEntryTitle(entry) {
+      if (entry.mapName) return entry.mapName;
+      if (entry.mapIndex != null) return `${labels.map} ${entry.mapIndex}`;
+      return `${labels.gameEntry} #${entry.id}`;
     }
 
     function readNativeChatMessages(root) {
@@ -1165,56 +1356,7 @@ const LobbyView = defineComponent({
       return entries.slice(-60).map((text, index) => ({ id: `${index}:${text}`, text }));
     }
 
-    function appendChatNotice(text) {
-      const current = adapter.getSnapshot();
-      adapter.publish({
-        ...current,
-        chatMessages: [...current.chatMessages, {
-          id: `diagnostic:${Date.now()}:${Math.random().toString(36).slice(2)}`,
-          text: `[Diagnose] ${text}`,
-        }].slice(-60),
-      }, current.source);
-    }
-
-    function runChatCommand(message) {
-      const command = message.trim().toLowerCase();
-      if (command === "/help") {
-        appendChatNotice("Verfügbar: /diag zeigt Socketpakete, Chatdecoder, Feed und Lobbyadapter.");
-        return true;
-      }
-      if (command !== "/diag" && command !== "/diagnose") return false;
-
-      const activateChat = window.__fx?.setNativeLobbyChatMode;
-      if (activeTab.value === "chat" && typeof activateChat === "function"
-        && window.__fx?.lobbyChatActivationStatus !== "sent:0") activateChat(0);
-      const diagnostics = window.__fx?.lobbyChatFeed?.getDiagnostics?.();
-      const room = window.__fx?.lobbyReminders?.getSelectedGame?.();
-      const rooms = window.__fx?.lobbyReminders?.getRoomChatSummary?.() ?? [];
-      if (!diagnostics) {
-        appendChatNotice("Socketdiagnose ist nicht verfügbar. Prüfe, ob der aktuelle Build geladen wurde.");
-        return true;
-      }
-      const packets = Object.entries(diagnostics.packetCounts ?? {})
-        .sort(([a], [b]) => Number(a) - Number(b))
-        .map(([type, count]) => `${type}:${count}`).join(", ") || "keine";
-      appendChatNotice([
-        `Socketpakete: ${packets}`,
-        `Aktivierungs-Bridge: ${typeof activateChat === "function" ? "verfügbar" : "fehlt"}; Status: ${window.__fx?.lobbyChatActivationStatus ?? "kein Aufruf"}`,
-        `Chatmodus-Befehle: ${diagnostics.chatModeCommandCount} (letzter Modus: ${diagnostics.lastChatModeCommand ?? "keiner"})`,
-        `Raumchat-Einträge dekodiert: ${diagnostics.decodedEntryCount}`,
-        `Nachrichten im Feed: ${diagnostics.publishedMessageCount} (gepuffert: ${diagnostics.bufferedMessageCount})`,
-        `Ansicht-Abonnenten: ${diagnostics.subscriberCount}; Adapter-Nachrichten: ${adapter.getSnapshot().chatMessages.length}`,
-        `Ausgewähltes Raumlog: ${Array.isArray(room?.chatLog) ? room.chatLog.length : "nicht verfügbar"}; Räume: ${rooms.map(item => `${item.index}${item.selected ? "*" : ""}=${item.chatLogLength ?? "?"}`).join(", ") || "nicht verfügbar"}`,
-      ].join(" | "));
-      return true;
-    }
-
     function sendMessage(message, callback) {
-      if (runChatCommand(message)) {
-        chatStatus.value = "";
-        callback(true);
-        return;
-      }
       const sendLobbyMessage = window.__fx?.sendLobbyMessage;
       if (typeof sendLobbyMessage !== "function") {
         chatStatus.value = labels.chatUnavailable;
@@ -1232,39 +1374,41 @@ const LobbyView = defineComponent({
       }
     }
 
-    function sendSpawnCall(direction) {
-      if (!isTeamMode.value || !ownClan.value || !snapshot.value.currentMap) return;
+    function sendClanLobbyMessage(clanTag, message) {
+      const clan = String(clanTag ?? "").trim();
+      const text = String(message ?? "").trim();
+      if (!clan || !text) return false;
       const sendClanMessage = window.__fx?.sendClanMessage;
-      if (typeof sendClanMessage !== "function") {
-        console.warn("[ZFX Client LobbyView] Clan message bridge is unavailable.");
-        return;
+      if (typeof sendClanMessage === "function") return sendClanMessage(clan, text) === true;
+      const sendLobbyMessage = window.__fx?.sendLobbyMessage;
+      return typeof sendLobbyMessage === "function" && sendLobbyMessage(`@[${clan}] ${text}`) === true;
+    }
+
+    function sendSpawnCall(direction) {
+      if (!ownClan.value || !snapshot.value.currentMap) return;
+      if (!sendClanLobbyMessage(ownClan.value, `spawn call: ${direction}`)) {
+        console.warn("[ZFX Client LobbyView] Could not send spawn call through lobby chat.");
       }
-      sendClanMessage(ownClan.value, `spawn call: ${direction}`);
     }
 
     function sendJoinCall(kind) {
-      if (!isTeamMode.value || !ownClan.value) return;
-      const sendClanMessage = window.__fx?.sendClanMessage;
-      if (typeof sendClanMessage !== "function") {
-        console.warn("[ZFX Client LobbyView] Clan message bridge is unavailable.");
-        return;
-      }
-      if (kind === "current") return sendClanMessage(ownClan.value, "join");
-      if (kind === "cont") return sendClanMessage(ownClan.value, "join cont");
+      if (!ownClan.value) return;
+      if (kind === "current") return sendClanLobbyMessage(ownClan.value, "join");
+      if (kind === "cont") return sendClanLobbyMessage(ownClan.value, "join cont");
       const nextMap = String(snapshot.value.nextMap || "").trim();
       const teamCount = String(snapshot.value.nextTeamCountLabel || "").match(/\d+/)?.[0] || "";
       if (kind === "next" && nextMap && teamCount) {
-        sendClanMessage(ownClan.value, `join ${nextMap} ${teamCount} teams`);
+        return sendClanLobbyMessage(ownClan.value, `join ${nextMap} ${teamCount} teams`);
       }
+      return false;
     }
 
     function sendTeamMessage(message, callback) {
-      const sendClanMessage = window.__fx?.sendClanMessage;
-      if (!isTeamMode.value || !ownClan.value || typeof sendClanMessage !== "function") {
+      if (!ownClan.value) {
         callback(false);
         return;
       }
-      try { callback(sendClanMessage(ownClan.value, message) === true); }
+      try { callback(sendClanLobbyMessage(ownClan.value, message)); }
       catch (error) {
         console.warn("[ZFX Client LobbyView] Clan message send failed:", error);
         callback(false);
@@ -1275,8 +1419,71 @@ const LobbyView = defineComponent({
       refreshLobbyLanguage(event.detail?.language);
     }
 
+    function getLobbyChatDebugSnapshot() {
+      const current = adapter.getSnapshot();
+      return {
+        active: active.value,
+        tab: activeTab.value,
+        channel: current.chatChannel,
+        adapterMessages: current.chatMessages.length,
+        adapterTail: current.chatMessages.slice(-8).map(message => ({
+          id: message.id, senderId: message.senderId, senderName: message.senderName, text: message.text,
+        })),
+        feed: window.__fx?.lobbyChatFeed?.getDiagnostics?.() ?? null,
+        native: window.__fx?.getNativeLobbyChatState?.() ?? null,
+        subscriptionRequested: window.__fx?.lobbyChatChannelRequested === true,
+        subscriptionStatus: window.__fx?.lobbyChatActivationStatus ?? null,
+      };
+    }
+
+    function debugLobbyChat() {
+      const state = getLobbyChatDebugSnapshot();
+      console.groupCollapsed("[ZFX Client LobbyChat] debug snapshot");
+      console.log("Native queue:", state.native);
+      console.log("Socket feed:", state.feed);
+      console.log("Vue adapter:", {
+        active: state.active,
+        tab: state.tab,
+        channel: state.channel,
+        messageCount: state.adapterMessages,
+        tail: state.adapterTail,
+      });
+      console.log("Feed subscription:", {
+        requested: state.subscriptionRequested,
+        status: state.subscriptionStatus,
+      });
+      console.groupEnd();
+      return state;
+    }
+
+    function replayNativeLobbyChat() {
+      const native = window.__fx?.getNativeLobbyChatState?.();
+      if (!native?.available) {
+        console.warn("[ZFX Client LobbyChat] Native chat queue is not available yet.");
+        return debugLobbyChat();
+      }
+      let replayed = 0;
+      for (const message of native.messages ?? []) {
+        const text = String(message?.text ?? "").trim();
+        if (message?.id !== 0 || !text) continue;
+        const exists = adapter.getSnapshot().chatMessages.some(entry =>
+          entry.senderId === message.senderId && entry.text === text);
+        if (exists) continue;
+        window.__fx?.lobbyChatFeed?.publish?.({
+          id: `native-replay:${native.sequence}:${message.index}:${message.senderId}`,
+          senderId: message.senderId,
+          text,
+        });
+        replayed++;
+      }
+      console.info(`[ZFX Client LobbyChat] replayed ${replayed} native messages into the Vue feed.`);
+      return debugLobbyChat();
+    }
+
     onMounted(() => {
       console.log("[ZFX Client LobbyView] Vue route mounted; waiting for native lobby data.");
+      window.__fx.debugLobbyChat = debugLobbyChat;
+      window.__fx.replayNativeLobbyChat = replayNativeLobbyChat;
       nativePropagandaObserver = new MutationObserver(migrateNativePropaganda);
       nativePropagandaObserver.observe(document.body, { childList: true, subtree: true });
       migrateNativePropaganda();
@@ -1309,18 +1516,30 @@ const LobbyView = defineComponent({
       unsubscribe = adapter.subscribe(value => {
         snapshot.value = value;
         refreshLobbyRating(value.players);
-        const self = value.players.find(player => player.self);
-        if (self && ["ready", "not-ready"].includes(self.readiness)
-          && Date.now() >= optimisticReadinessUntil) selfReadiness.value = self.readiness;
+        if (currentSelectionOverride.value !== undefined) {
+          const selectedId = value.upcomingGames.find(entry => entry.selected)?.id ?? null;
+          if (selectedId === currentSelectionOverride.value) {
+            currentSelectionOverride.value = undefined;
+            if (currentSelectionOverrideTimer) window.clearTimeout(currentSelectionOverrideTimer);
+            currentSelectionOverrideTimer = 0;
+          }
+        }
       });
+      window.__fx.getCustomLobbyClanDiagnostics = getClanDiagnostics;
+      unsubscribeGameSdk = window.__fx?.gameSdk?.lobby?.subscribe?.(() => {
+        if (nativeRoot?.isConnected) readLobby();
+      }) ?? (() => {});
       unsubscribeLobbyChat = window.__fx?.lobbyChatFeed?.subscribe?.(message => {
         const current = adapter.getSnapshot();
         const socketPlayerName = window.__fx?.getLobbyChatSenderName?.(message.senderId);
-        const playerName = socketPlayerName;
-        if (!playerName) return;
+        const sdkPlayer = window.__fx?.gameSdk?.lobby?.getSnapshot?.()?.players
+          ?.find(player => Number(player.id) === Number(message.senderId));
+        const playerName = socketPlayerName || sdkPlayer?.name
+          || (message.senderId != null ? `Player ${message.senderId}` : labels.unknownPlayer);
         const segments = resolveLobbyChatSegments(message.text);
         adapter.publish({
           ...current,
+          chatChannel: "lobby",
           chatMessages: [...current.chatMessages, {
             ...message,
             senderName: playerName,
@@ -1345,7 +1564,9 @@ const LobbyView = defineComponent({
         attributeFilter: ["data-fx-account-name", "data-fx-lobby-ready", "data-fx-rank", "data-fx-rank-text", "data-fx-followed", "data-fx-lobby-mode-active"],
       });
       readinessRefreshTimer = window.setInterval(() => {
-        if (active.value && activeTab.value === "chat" && nativeRoot?.isConnected) scheduleRead();
+        // Native own-account identity may arrive after the initial roster render.
+        // Re-read the existing rows so the own-clan overview can resolve then.
+        if (active.value && nativeRoot?.isConnected) scheduleRead();
       }, 1000);
       ratingRefreshTimer = window.setInterval(() => refreshLobbyRating(), 1000);
       refreshLobbyRating();
@@ -1356,6 +1577,7 @@ const LobbyView = defineComponent({
       observer?.disconnect();
       if (readinessRefreshTimer) window.clearInterval(readinessRefreshTimer);
       if (ratingRefreshTimer) window.clearInterval(ratingRefreshTimer);
+      if (currentSelectionOverrideTimer) window.clearTimeout(currentSelectionOverrideTimer);
       if (frame) cancelAnimationFrame(frame);
       if (missingLobbyTimer) window.clearTimeout(missingLobbyTimer);
       window.removeEventListener("fx-bot-protection-state", handleBotProtectionState);
@@ -1363,10 +1585,14 @@ const LobbyView = defineComponent({
       window.removeEventListener("fx-lobby-notification", handleLobbyNotification);
       window.removeEventListener("fx-game-language-change", handleGameLanguageChange);
       if (window.__fx?.showPropagandaInVue === showPropagandaInVue) delete window.__fx.showPropagandaInVue;
+      if (window.__fx?.debugLobbyChat === debugLobbyChat) delete window.__fx.debugLobbyChat;
+      if (window.__fx?.replayNativeLobbyChat === replayNativeLobbyChat) delete window.__fx.replayNativeLobbyChat;
       nativePropagandaObserver?.disconnect();
       nativePropagandaObserver = null;
       closePropagandaMessage();
       unsubscribe();
+      if (window.__fx?.getCustomLobbyClanDiagnostics === getClanDiagnostics) delete window.__fx.getCustomLobbyClanDiagnostics;
+      unsubscribeGameSdk();
       unsubscribeLobbyChat();
       restoreNativeRoot();
       adapter.clear();
@@ -1377,10 +1603,12 @@ const LobbyView = defineComponent({
       lobbyNotifications, notificationIndex, notificationPanelOpen, currentLobbyNotification,
       propagandaDialog, propagandaMessage, closePropagandaMessage,
       previousLobbyNotification, nextLobbyNotification,
-      ownClan, clanPlayers, clanReadyCount, teamCount, clanCount, playerCountLabel, onlyReadyClans, visibleClanGroups, chatStatus, activeMode, isTeamMode,
+      ownClan, currentPlayerName, clanOverviewGroup, clanPlayers, clanReadyCount, teamCount, clanCount, playerCountLabel, onlyReadyClans, visibleClanGroups, chatStatus, nextGameMeta, isTeamMode,
+      currentMapEntry,
+      currentMapSelected: currentMapEntrySelected,
       playerContextMenu, playerListComponent, mentionPlayerFromContextMenu,
-      selfReadiness,
-      selectMode,
+      selectUpcomingGame,
+      getEntryTitle,
       selectPlayer: openPlayerContextMenu,
       setSort: value => { sortBy.value = ["rank-desc", "rank-asc", "name"].includes(value) ? value : "rank-asc"; },
       setReadyFilter: value => { readyFilter.value = readyFilter.value === value ? "all" : value; },
@@ -1392,14 +1620,7 @@ const LobbyView = defineComponent({
       sendJoin: sendJoinCall,
       sendTeamMessage,
       selectLobbyTab,
-      setReady: () => {
-        const button = nativeReadyButton();
-        if (!button) return;
-        const nextReadiness = selfReadiness.value === "ready" ? "not-ready" : "ready";
-        optimisticReadinessUntil = Date.now() + 1400;
-        selfReadiness.value = nextReadiness;
-        button.click();
-      },
+      toggleCurrentMapEntry,
     };
   },
   template: `
@@ -1410,7 +1631,7 @@ const LobbyView = defineComponent({
         <p>{{ propagandaMessage?.text }}</p>
         <footer><button type="button" @click="closePropagandaMessage">{{ labels.dismiss }}</button></footer>
       </dialog>
-      <aside v-if="notificationPanelOpen && currentLobbyNotification" class="fx-lobby-notifications" aria-live="polite" aria-label="Lobby-Benachrichtigungen">
+      <aside v-if="notificationPanelOpen && currentLobbyNotification" class="fx-lobby-notifications" aria-live="polite" aria-label="Lobby-Benachrichtigungen" @pointerdown.stop @mousedown.stop @click.stop>
         <div class="fx-lobby-notification-controls">
           <button type="button" :disabled="notificationIndex <= 0" aria-label="Vorherige Meldung" @click="previousLobbyNotification">◀</button>
           <strong>{{ notificationIndex + 1 }} / {{ lobbyNotifications.length }}</strong>
@@ -1419,8 +1640,8 @@ const LobbyView = defineComponent({
         </div>
         <article class="fx-lobby-notification" :class="{ 'is-followers': currentLobbyNotification.kind === 'followers' }">
           <span class="fx-lobby-notification-category">{{ currentLobbyNotification.category }}</span>
-          <strong v-if="currentLobbyNotification.senderName" class="fx-lobby-notification-sender" :style="currentLobbyNotification.senderColor ? { color: currentLobbyNotification.senderColor } : null">{{ currentLobbyNotification.senderName }}</strong>
-          <p>{{ currentLobbyNotification.body || currentLobbyNotification.text }}</p>
+          <LobbyPlayerName v-if="currentLobbyNotification.senderName" class="fx-lobby-notification-sender" :name="currentLobbyNotification.senderName" :color="currentLobbyNotification.senderColor" @activate="openPlayerContextMenu({ name: currentLobbyNotification.senderName, senderId: currentLobbyNotification.senderId, color: currentLobbyNotification.senderColor }, $event)" />
+          <p><template v-if="currentLobbyNotification.bodySegments?.length"><template v-for="(segment, index) in currentLobbyNotification.bodySegments" :key="index"><LobbyPlayerName v-if="segment.resolvedPlayer" :name="segment.text" :color="segment.color" @activate="openPlayerContextMenu({ name: segment.text, senderId: segment.mentionId, color: segment.color }, $event)" /><span v-else :style="segment.color ? { color: segment.color } : null">{{ segment.text }}</span></template></template><template v-else>{{ currentLobbyNotification.body || currentLobbyNotification.text }}</template></p>
         </article>
       </aside>
       <div v-if="playerContextMenu" class="fx-custom-lobby-chat-menu-backdrop" @click="playerContextMenu = null" @keydown.esc="playerContextMenu = null">
@@ -1430,11 +1651,14 @@ const LobbyView = defineComponent({
         </div>
       </div>
       </Teleport>
-      <MapHeader :map="snapshot.currentMap" :map-image="snapshot.currentMapImage" :next-map="snapshot.nextMap" :next-map-image="snapshot.nextMapImage" :next-team-count-label="snapshot.nextTeamCountLabel" :is-contest="snapshot.isContest" :next-is-contest="snapshot.nextIsContest" :no-fullsend="snapshot.noFullsend" :next-no-fullsend="snapshot.nextNoFullsend" :labels="labels" :modes="snapshot.modes" :ready-count="snapshot.readyCount" :ready-clans="readyClanSlices" :ready-clan-total="readyClanTotal" :team-count="activeMode?.teamCountLabel || ''" :lobby-rating="lobbyRating" :ready-state="selfReadiness" :ready-disabled="!snapshot.playerCount" @select-mode="selectMode" @ready="setReady" />
+      <MapHeader :map="snapshot.currentMap" :map-image="snapshot.currentMapImage" :next-map="snapshot.nextMap" :next-map-image="snapshot.nextMapImage" :next-team-count-label="snapshot.nextTeamCountLabel" :next-game-mode-label="snapshot.nextGameModeLabel" :game-mode-key="snapshot.currentGameModeKey" :next-game-mode-key="snapshot.nextGameModeKey" :next-game-meta="nextGameMeta" :is-contest="snapshot.isContest" :next-is-contest="snapshot.nextIsContest" :no-fullsend="snapshot.noFullsend" :next-no-fullsend="snapshot.nextNoFullsend" :labels="labels" :entries="snapshot.upcomingGames" :current-map-entry-id="snapshot.currentMapEntryId" :current-map-selected="currentMapSelected" :selection-disabled="!currentMapEntry" :entry-title="getEntryTitle" :ready-count="snapshot.readyCount" :ready-clans="readyClanSlices" :ready-clan-total="readyClanTotal" :team-count="snapshot.currentTeamCountLabel" :game-mode-label="snapshot.currentGameModeLabel" :lobby-rating="lobbyRating" @select-entry="selectUpcomingGame" @select-current="toggleCurrentMapEntry" />
       <LobbyProgress :snapshot="snapshot" :labels="labels" />
       <main class="fx-custom-lobby-content">
         <PlayerList ref="playerListComponent" :players="filteredPlayers" :all-players="snapshot.players" :clans="visibleClanGroups" :labels="labels" :count="snapshot.playerCount" :player-count-label="playerCountLabel" :query="query" :sort-by="sortBy" :ready-filter="readyFilter" :affiliation-filter="affiliationFilter" :active-tab="activeTab" :chat-messages="snapshot.chatMessages" :chat-status="chatStatus" :team-mode="isTeamMode" :team-players="filteredTeamPlayers" :team-clan="ownClan" :team-count="teamCount" :clan-count="clanCount" :top-ready-clan="topReadyClan" :only-ready-clans="onlyReadyClans" :current-map="snapshot.currentMap" :next-map="snapshot.nextMap" :next-team-count="snapshot.nextTeamCountLabel" @update:query="query = $event" @update:sort="setSort" @update:ready-filter="setReadyFilter" @update:affiliation-filter="setAffiliationFilter" @reset-filter-groups="resetFilterGroups" @reset-filters="resetFilters" @filter-ready-clans="onlyReadyClans = $event" @select-player="selectPlayer" @select-tab="selectLobbyTab" @send-chat="sendChat" @send-call="sendCall" @send-join="sendJoin" @send-team-message="sendTeamMessage" />
-        <ClanOverview :clan="ownClan" :ready-count="clanReadyCount" :member-count="clanPlayers.length" :members="clanPlayers" :labels="labels" @select-player="selectPlayer" />
+        <aside class="fx-custom-lobby-side-stack">
+          <article class="fx-custom-lobby-current-player-card"><span class="fx-custom-lobby-current-player-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg></span><div><span>{{ labels.currentPlayer }}</span><strong :title="currentPlayerName">{{ currentPlayerName }}</strong></div></article>
+          <ClanOverview :clan="clanOverviewGroup?.tag || ownClan" :ready-count="clanOverviewGroup?.readyCount ?? clanReadyCount" :member-count="clanPlayers.length" :members="clanPlayers" :labels="labels" @select-player="selectPlayer" />
+        </aside>
       </main>
     </section>`,
 });

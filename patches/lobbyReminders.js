@@ -1,6 +1,6 @@
 import { definePatch, insert } from "../modUtils.js";
 
-export default definePatch(({ matchCode, insertCode, modifyCode, matchRawCode, replaceRawCode, replaceOne, waitForMinification }) => {
+export default definePatch(({ matchCode, insertCode, modifyCode, matchRawCode, replaceRawCode, replaceOne }) => {
 
     replaceRawCode(
         "function aEP(){var s1=bm.buffer.data[12].value;",
@@ -9,8 +9,30 @@ export default definePatch(({ matchCode, insertCode, modifyCode, matchRawCode, r
 
     replaceRawCode(
         `var packetType=reader.readBits(6);if(packetType===0){`,
-        `if(!window.__fx.setNativeLobbyChatMode)window.__fx.setNativeLobbyChatMode=function(mode){var token=window.__fx.lobbyChatActivationToken=(window.__fx.lobbyChatActivationToken||0)+1;var started=Date.now();window.__fx.lobbyChatActivationStatus="requested:"+mode;var sendMode=()=>{if(token!==window.__fx.lobbyChatActivationToken)return;var manager=b1;if(!manager||!manager.z||!manager.aGx||!manager.aGx.aGy||!manager.z.ef(manager.z.f7)){window.__fx.lobbyChatActivationStatus="waiting:"+mode;if(mode===0&&Date.now()-started<60000){setTimeout(sendMode,250);return;}window.__fx.lobbyChatActivationStatus="inactive:"+mode;return;}window.__fx.lobbyChatActivationStatus="sent:"+mode;__fx.lobbyChatFeed?.observeChatModeCommand(mode);manager.aGx.aGy(mode);};sendMode();};if(!window.__fx.getLobbyChatSenderName)window.__fx.getLobbyChatSenderName=function(senderId){var player=bq&&bq.lj&&bq.z&&bq.lj.aFe?bq.lj.aFe(bq.z.tM[0],senderId):null;if(!player&&bq&&bq.vg&&Array.isArray(bq.vg.aFE)){for(var index=bq.vg.aFE.length-1;index>=0;index--){if(bq.vg.aFE[index].uY===senderId){player=bq.vg.aFE[index];break;}}}return player&&player.username||null;};if(!window.__fx.getLobbyChatSenderColor)window.__fx.getLobbyChatSenderColor=function(senderId){var player=bq&&bq.lj&&bq.z&&bq.lj.aFe?bq.lj.aFe(bq.z.tM[0],senderId):null;if(!player&&bq&&bq.vg&&Array.isArray(bq.vg.aFE)){for(var index=bq.vg.aFE.length-1;index>=0;index--){if(bq.vg.aFE[index].uY===senderId){player=bq.vg.aFE[index];break;}}}return player&&bq.lj&&bq.lj.vm?bq.lj.vm(player.vn):null;};if(!window.__fx.resolveLobbyChatMention)window.__fx.resolveLobbyChatMention=function(shortId){var userId=bJ.f0.f1(shortId,5);var player=bq&&bq.vg&&bq.vg.aFe?bq.vg.aFe(userId):null;if(!player&&bq&&bq.vg&&Array.isArray(bq.vg.aFE)){for(var index=bq.vg.aFE.length-1;index>=0;index--){if(bq.vg.aFE[index].uY===userId){player=bq.vg.aFE[index];break;}}}if(!player&&bq&&bq.vg&&bq.vg.aFK)player=bq.vg.aFK(userId,shortId,1,999999,999999,0,0,0,0,1);return player&&player.username||null;};if(!window.__fx.resolveLobbyChatMentionColor)window.__fx.resolveLobbyChatMentionColor=function(shortId){var userId=bJ.f0.f1(shortId,5);var player=bq&&bq.vg&&bq.vg.aFe?bq.vg.aFe(userId):null;if(!player&&bq&&bq.vg&&Array.isArray(bq.vg.aFE)){for(var index=bq.vg.aFE.length-1;index>=0;index--){if(bq.vg.aFE[index].uY===userId){player=bq.vg.aFE[index];break;}}}if(!player&&bq&&bq.vg&&bq.vg.aFK)player=bq.vg.aFK(userId,shortId,1,999999,999999,0,0,0,0,1);return player&&bq.lj&&bq.lj.vm?bq.lj.vm(player.vn):null;};var packetType=reader.readBits(6);__fx.lobbyChatFeed?.observeSocketPacket(packetType);if(packetType===0){`
+        `if(!window.__fx.setNativeLobbyChatMode)window.__fx.setNativeLobbyChatMode=function(mode){var token=window.__fx.lobbyChatActivationToken=(window.__fx.lobbyChatActivationToken||0)+1;var started=Date.now();window.__fx.lobbyChatActivationStatus="requested:"+mode;var sendMode=()=>{if(token!==window.__fx.lobbyChatActivationToken)return;var manager=b1;if(!manager||!manager.z||!manager.aGx||!manager.aGx.aGy||!manager.z.ef(manager.z.f7)){window.__fx.lobbyChatActivationStatus="waiting:"+mode;if(mode===0&&Date.now()-started<60000){setTimeout(sendMode,250);return;}window.__fx.lobbyChatActivationStatus="inactive:"+mode;return;}window.__fx.lobbyChatActivationStatus="sent:"+mode;__fx.lobbyChatFeed?.observeChatModeCommand(mode);manager.aGx.aGy(mode);};sendMode();};if(!window.__fx.getLobbyChatSenderName)window.__fx.getLobbyChatSenderName=function(senderId){var player=bq&&bq.wZ&&bq.wZ.aGc?bq.wZ.aGc(senderId):null;if(!player&&bq&&bq.wZ&&Array.isArray(bq.wZ.aGC)){for(var index=bq.wZ.aGC.length-1;index>=0;index--){if(bq.wZ.aGC[index].uX===senderId){player=bq.wZ.aGC[index];break;}}}return player&&player.username||null;};if(!window.__fx.getLobbyChatSenderColor)window.__fx.getLobbyChatSenderColor=function(senderId){var player=bq&&bq.wZ&&bq.wZ.aGc?bq.wZ.aGc(senderId):null;if(!player&&bq&&bq.wZ&&Array.isArray(bq.wZ.aGC)){for(var index=bq.wZ.aGC.length-1;index>=0;index--){if(bq.wZ.aGC[index].uX===senderId){player=bq.wZ.aGC[index];break;}}}return player&&bq.lj&&bq.lj.wg?bq.lj.wg(player.wh):null;};if(!window.__fx.resolveLobbyChatMentionId)window.__fx.resolveLobbyChatMentionId=function(shortId){return bJ.f0.f1(shortId,5);};if(!window.__fx.resolveLobbyChatMention)window.__fx.resolveLobbyChatMention=function(shortId){var userId=bJ.f0.f1(shortId,5);var player=bq&&bq.wZ&&bq.wZ.aGc?bq.wZ.aGc(userId):null;if(!player&&bq&&bq.wZ&&Array.isArray(bq.wZ.aGC)){for(var index=bq.wZ.aGC.length-1;index>=0;index--){if(bq.wZ.aGC[index].uX===userId){player=bq.wZ.aGC[index];break;}}}if(!player&&bq&&bq.wZ&&bq.wZ.aGK)player=bq.wZ.aGK(userId,shortId,1,999999,999999,0,0,0,0,1);return player&&player.username||null;};if(!window.__fx.resolveLobbyChatMentionColor)window.__fx.resolveLobbyChatMentionColor=function(shortId){var userId=bJ.f0.f1(shortId,5);var player=bq&&bq.wZ&&bq.wZ.aGc?bq.wZ.aGc(userId):null;if(!player&&bq&&bq.wZ&&Array.isArray(bq.wZ.aGC)){for(var index=bq.wZ.aGC.length-1;index>=0;index--){if(bq.wZ.aGC[index].uX===userId){player=bq.wZ.aGC[index];break;}}}if(!player&&bq&&bq.wZ&&bq.wZ.aGK)player=bq.wZ.aGK(userId,shortId,1,999999,999999,0,0,0,0,1);return player&&bq.lj&&bq.lj.wg?bq.lj.wg(player.wh):null;};var packetType=reader.readBits(6);__fx.lobbyChatFeed?.observeSocketPacket(packetType);if(packetType===0){`
     );
+
+    // The native chat selector sends action 0 through aGm.aGn. Waiting for an
+    // already-active chat socket is circular because this request initializes it.
+    replaceOne(
+        /!manager\|\|!manager\.z\|\|!manager\.aGx\|\|!manager\.aGx\.aGy\|\|!manager\.z\.ef\(manager\.z\.f7\)/g,
+        "!manager||!manager.aGm||!manager.aGm.aGn"
+    );
+    replaceOne(
+        /window\.__fx\.lobbyChatActivationStatus="sent:"\+mode;__fx\.lobbyChatFeed\?\.observeChatModeCommand\(mode\);manager\.aGx\.aGy\(mode\);/g,
+        `manager.aGm.aGn(mode);window.__fx.lobbyChatActivationStatus="sent:"+mode;__fx.lobbyChatFeed?.observeChatModeCommand(mode);`
+    );
+
+    // Make the native shared chat queue inspectable from DevTools. This also
+    // confirms whether the game received a message before Vue renders it.
+    try {
+        replaceOne(
+            /(__fx\.lobbyChatFeed\?\.observeSocketPacket\(\w+\);)/g,
+            `if(!window.__fx.getNativeLobbyChatState)window.__fx.getNativeLobbyChatState=function(){var state=bq&&bq.z;var messages=state&&Array.isArray(state.tN)?state.tN:[];return {available:!!state,sequence:state&&state.tO,count:messages.length,messages:messages.slice(-30).map(function(message,index){return {index:index,id:message&&message.id,senderId:message&&message.uX,text:message&&message.s};})};};$1`
+        );
+    } catch (error) {
+        console.warn("[ZFX Client] Native chat diagnostics hook unavailable:", error);
+    }
 
     // Mirror the original lobby notification queue into an event the custom
     // lobby can render with its own styling.
@@ -23,24 +45,25 @@ export default definePatch(({ matchCode, insertCode, modifyCode, matchRawCode, r
     // Keep the queue intact for Vue, but close both native notification panels
     // whenever the custom lobby is active.
     const nativeLobbyNotification = `window.__fx&&window.__fx.settings&&window.__fx.settings.customLobbyView===true&&window.__fx.getGameVar("gameState")!==1`;
-    replaceRawCode(
-        `aH3.show(aH4[aH5]);`,
-        `(${nativeLobbyNotification})?(aH3.vx(),aH3=null):aH3.show(aH4[aH5]);`,
-        { aH3: "aH3", aH4: "aH4", aH5: "aH5" }
-    );
-    replaceRawCode(
-        `aH3.show();`,
-        `(${nativeLobbyNotification})?(aH3.vx(),aH3=null):aH3.show();`,
-        { aH3: "aH3", show: "show" }
-    );
+    // This UI-only hook changes between native game builds. Keep it optional:
+    // a missing notification panel must not prevent the WebSocket chat hook below.
+    try {
+        replaceOne(
+            /aH3\.show\(aH4\[aH5\]\);/g,
+            `(${nativeLobbyNotification})?(aH3.vx(),aH3=null):aH3.show(aH4[aH5]);`
+        );
+        replaceOne(
+            /aH3\.show\(\);/g,
+            `(${nativeLobbyNotification})?(aH3.vx(),aH3=null):aH3.show();`
+        );
+    } catch (error) {
+        console.warn("[ZFX Client] Native lobby notification hook unavailable:", error);
+    }
 
-    // Tap only the incoming room-chat packet parser. The surrounding room lookup,
-    // chat-id update and room refresh make this push unique to socket room chat.
-    waitForMinification(() => replaceOne(
-        /tP\.push\(aHs\)/g,
-        `tP.push(aHs);__fx.lobbyChatFeed?.observeSocketEntry(aHs);if(aHs&&aHs.id===0&&typeof aHs.s==="string")__fx.lobbyChatFeed?.publish({id:"room:"+tL+":"+(tP.length-1),text:aHs.s,senderId:aHs.uY})`
-    ));
-
+    // These legacy lobby reminder hooks depend on constructor details that
+    // have changed in the current native build. They are optional and must not
+    // roll back the independent WebSocket chat hook above.
+    try {
     matchCode(`function LobbyRoom() {
         this.lobbyRoomState = 0;
         this.lobbyRoomMap = 0;
@@ -96,4 +119,7 @@ export default definePatch(({ matchCode, insertCode, modifyCode, matchRawCode, r
         var timeNow = performance.now();
         /*...*/
     }`, `__fx.lobbyReminders.setSound(function () { notificationSound.play(); });`)
+    } catch (error) {
+        console.warn("[ZFX Client] Legacy lobby reminder hooks unavailable:", error);
+    }
 })

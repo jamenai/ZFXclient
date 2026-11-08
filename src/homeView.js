@@ -40,7 +40,30 @@ const FxHomeView = defineComponent({
     const nativeHomeButtonVisibility = new WeakMap();
     const nativeNameInputVisibility = new WeakMap();
 
+    function hasVisibleNativeHomeControls() {
+      const buttons = Array.isArray(window.__fx?.nativeHomeMenuButtons) ? window.__fx.nativeHomeMenuButtons : [];
+      const controls = [...buttons, window.__fx?.getNativeHomeNameInput?.()].filter(Boolean);
+      return controls.some(element => {
+        if (!element.isConnected || !element.getClientRects().length) return false;
+        const style = getComputedStyle(element);
+        if (style.display === "none" || Number(style.opacity) <= 0) return false;
+        const visibilityMap = buttons.includes(element) ? nativeHomeButtonVisibility : nativeNameInputVisibility;
+        const sharedVisibilityMap = window.__fx?.nativeHomeControlVisibility;
+        const originalVisibility = visibilityMap.has(element)
+          ? visibilityMap.get(element)
+          : sharedVisibilityMap?.has(element)
+            ? sharedVisibilityMap.get(element)?.[0]
+            : element.style.visibility;
+        return originalVisibility !== "hidden";
+      });
+    }
+
     function setNativeHomeButtonsHidden(hidden) {
+      const bridgeSetter = window.__fx?.setNativeHomeControlsHidden;
+      if (typeof bridgeSetter === "function") {
+        bridgeSetter(hidden);
+        return;
+      }
       for (const button of window.__fx?.nativeHomeMenuButtons || []) {
         if (!button) continue;
         if (!nativeHomeButtonVisibility.has(button)) nativeHomeButtonVisibility.set(button, button.style.visibility);
@@ -52,6 +75,8 @@ const FxHomeView = defineComponent({
         nameInput.style.visibility = hidden ? "hidden" : nativeNameInputVisibility.get(nameInput);
       }
     }
+
+    if (window.__fx?.settings?.customHomeView !== false) setNativeHomeButtonsHidden(true);
 
     function refresh() {
       const game = window.__fx;
@@ -67,9 +92,13 @@ const FxHomeView = defineComponent({
       accountId.value = String(game?.getNativeAccountId?.() || "").trim();
       try { clan.value = game?.leaderboardFilter?.parseClanFromPlayerName?.(name) || tag?.[1]?.toUpperCase() || ""; }
       catch { clan.value = tag?.[1]?.toUpperCase() || ""; }
-      const onHomeScreen = Number(game?.nativeMenuState) === 5 && Number(game?.getGameVar?.("gameState")) !== 1;
+      const hasNativeMenuState = game?.nativeMenuState != null && Number.isFinite(Number(game.nativeMenuState));
+      const onHomeScreen = (hasNativeMenuState
+        ? Number(game.nativeMenuState) === 5
+        : hasVisibleNativeHomeControls()) && Number(game?.getGameVar?.("gameState")) !== 1;
       visible.value = game?.settings?.customHomeView !== false && onHomeScreen;
-      setNativeHomeButtonsHidden(visible.value);
+      const customLobbyVisible = game?.isCustomLobbyViewVisible?.() === true;
+      setNativeHomeButtonsHidden(visible.value || customLobbyVisible);
     }
 
     function openNameEditor() {

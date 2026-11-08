@@ -2,6 +2,7 @@ import ModUtils from "../modUtils.js";
 import customLobby from "./customLobby.js";
 import duplicateIpHighlight from "./duplicateIpHighlight.js";
 import followedAccounts from "./followedAccounts.js";
+import gameSdk from "./gameSdk.js";
 import highlightSpawnpoints from "./highlightSpawnpoints.js";
 import hoveringTooltip from "./hoveringTooltip.js";
 import leaderboard from "./leaderboard.js";
@@ -27,6 +28,7 @@ export const patchRegistry = [
     ["customLobby.js", customLobby],
     ["duplicateIpHighlight.js", duplicateIpHighlight],
     ["followedAccounts.js", followedAccounts],
+    ["gameSdk.js", gameSdk],
     ["highlightSpawnpoints.js", highlightSpawnpoints],
     ["hoveringTooltip.js", hoveringTooltip],
     ["leaderboard.js", leaderboard],

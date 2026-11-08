@@ -1,14 +1,24 @@
 {
-    "version": "0.1.16",
-    "lastUpdated": "November 7, 2026",
+    "version": "0.1.17",
+    "lastUpdated": "November 8, 2026",
     "changes": [
-        "Update native game patches for the current game bundle",
-        "Reconnect Vue Leaderboards and Logs to the current native request and table format",
-        "Add the Discord invite to HomeView, the sidebar, and README",
-        "Prevent nested scrolling in the What's New dialog"
+        "Add a WebSocket-backed Game SDK and document the native packet types",
+        "Improve lobby chat player mentions and add reusable player context menus",
+        "Restore lobby Calls actions and refine the Calls layout",
+        "Show the active player in the lobby and stabilize the Vue HomeView over the native map"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.16",
+            "lastUpdated": "November 7, 2026",
+            "changes": [
+                "Update native game patches for the current game bundle",
+                "Reconnect Vue Leaderboards and Logs to the current native request and table format",
+                "Add the Discord invite to HomeView, the sidebar, and README",
+                "Prevent nested scrolling in the What's New dialog"
+            ]
+        },
         {
             "version": "0.1.15",
             "lastUpdated": "November 7, 2026",

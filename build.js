@@ -177,7 +177,7 @@ async function patchGameCode(buildTimestamp) {
 		matchDictionaryExpression(expression);
 	});
 
-	modUtils.executePostMinifyHandlers();
+	modUtils.executePostMinifyHandlers({ continueOnError: true });
 	script = modUtils.script;
 
 	// the dictionary should maybe get embedded into one of the files in the bundle

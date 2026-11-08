@@ -198,13 +198,14 @@ class ModUtils {
     waitForMinification(/** @type {Function} */ handler) {
         this.postMinifyHandlers.push(handler);
     }
-    executePostMinifyHandlers() {
+    executePostMinifyHandlers({ continueOnError = false } = {}) {
         for (const handler of this.postMinifyHandlers) {
             const originalScript = this.script;
             try {
                 handler();
             } catch (error) {
                 this.script = originalScript;
+                if (!continueOnError) throw error;
                 console.warn("[ZFX Client] Skipping incompatible post-minification patch:", error);
             }
         }

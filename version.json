@@ -1,12 +1,19 @@
 {
-    "version": "0.1.18",
+    "version": "0.1.19",
     "lastUpdated": "November 8, 2026",
     "changes": [
-        "Use each native lobby entry's map preview and key cached images by map index and seed",
-        "Hide duplicate native HomeView controls while keeping the native map background visible"
+        "Improve build reliability when native game patch anchors change"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.18",
+            "lastUpdated": "November 8, 2026",
+            "changes": [
+                "Use each native lobby entry's map preview and key cached images by map index and seed",
+                "Hide duplicate native HomeView controls while keeping the native map background visible"
+            ]
+        },
         {
             "version": "0.1.17",
             "lastUpdated": "November 8, 2026",

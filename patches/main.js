@@ -49,8 +49,8 @@ export const patchRegistry = [
     ["titanChatButton.js", titanChatButton],
 ];
 
-/** @param {ModUtils} modUtils @param {[string, (modUtils: ModUtils) => unknown][]} registry */
-export function applyPatchRegistry(modUtils, registry = patchRegistry) {
+/** @param {ModUtils} modUtils @param {[string, (modUtils: ModUtils) => unknown][]} registry @param {{ continueOnError?: boolean }} [options] */
+export function applyPatchRegistry(modUtils, registry = patchRegistry, options = {}) {
     const names = new Set();
     for (const [name, patch] of registry) {
         if (names.has(name)) throw new Error(`Duplicate game patch registration: ${name}`);
@@ -61,20 +61,26 @@ export function applyPatchRegistry(modUtils, registry = patchRegistry) {
         // rest of the client. Apply each patch atomically so an obsolete hook
         // neither leaves a half-patched game script nor blocks the build.
         const originalScript = modUtils.script;
-        const originalDictionary = { ...modUtils.dictionary };
-        const originalHandlers = [...modUtils.postMinifyHandlers];
+        const originalDictionary = modUtils.dictionary ? { ...modUtils.dictionary } : null;
+        const handlers = Array.isArray(modUtils.postMinifyHandlers) ? modUtils.postMinifyHandlers : null;
+        const originalHandlers = handlers ? [...handlers] : null;
         try {
             patch(modUtils);
         } catch (error) {
-            modUtils.script = originalScript;
-            for (const key of Object.keys(modUtils.dictionary)) delete modUtils.dictionary[key];
-            Object.assign(modUtils.dictionary, originalDictionary);
-            modUtils.postMinifyHandlers.splice(0, modUtils.postMinifyHandlers.length, ...originalHandlers);
+            if (originalScript !== undefined) modUtils.script = originalScript;
+            if (originalDictionary && modUtils.dictionary) {
+                for (const key of Object.keys(modUtils.dictionary)) delete modUtils.dictionary[key];
+                Object.assign(modUtils.dictionary, originalDictionary);
+            }
+            if (originalHandlers && Array.isArray(modUtils.postMinifyHandlers)) {
+                modUtils.postMinifyHandlers.splice(0, modUtils.postMinifyHandlers.length, ...originalHandlers);
+            }
+            if (!options.continueOnError) throw error;
             console.warn(`[ZFX Client] Skipping incompatible game patch ${name}:`, error);
         }
     }
 }
 
 export default function applyPatches(/** @type {ModUtils} */ modUtils) {
-    applyPatchRegistry(modUtils);
+    applyPatchRegistry(modUtils, patchRegistry, { continueOnError: true });
 }

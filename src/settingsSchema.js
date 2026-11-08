@@ -38,6 +38,8 @@ const defaultValues = Object.freeze({
   customHomeView: true,
   showClanLobbyDashboard: true,
   lobbyFontScale: 100,
+  uiTransparency: 15,
+  uiSkin: "zfx",
   mutePingAll: false,
   mutePingEveryone: false,
   mutePingRoom: false,
@@ -63,6 +65,8 @@ schemaEntries.selfTerritoryOutlineWidth = { type: "number", min: 1, max: 6 };
 schemaEntries.selfTerritoryGlow = { type: "number", min: 0, max: 12 };
 schemaEntries.startingPercentage = { type: "number", min: 0, max: 100 };
 schemaEntries.lobbyFontScale = { type: "number", min: 75, max: 300 };
+schemaEntries.uiTransparency = { type: "number", min: 0, max: 45 };
+schemaEntries.uiSkin = { type: "string", values: ["zfx", "blue", "violet", "amber", "rose"] };
 schemaEntries.densityDisplayStyle = { type: "string", values: ["percentage", "absoluteQuotient"] };
 for (const definition of Object.values(schemaEntries)) Object.freeze(definition);
 Object.freeze(schemaEntries.densityDisplayStyle.values);

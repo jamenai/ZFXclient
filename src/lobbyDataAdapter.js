@@ -32,7 +32,8 @@ function normalizePlayer(player) {
     name: String(player.name ?? ""),
     clan: player.clan ? String(player.clan).toLocaleUpperCase() : null,
     readiness: ["ready", "not-ready"].includes(player.readiness) ? player.readiness : "unknown",
-    rank: Number.isFinite(Number(player.rank)) && Number(player.rank) > 0 ? Number(player.rank) : null,
+    rank: Number.isFinite(Number(player.rank)) && Number(player.rank) > 0 ? Number(player.rank)
+      : Number.isFinite(Number(player.rankCode)) && Number(player.rankCode) >= 0 ? Number(player.rankCode) + 1 : null,
     rankText: String(player.rankText ?? ""),
     followed: player.followed === true,
     self: player.self === true,
@@ -66,7 +67,8 @@ function normalizeSnapshot(snapshot, source, previousSnapshot = EMPTY_SNAPSHOT) 
         return normalizePlayer({
           ...player,
           clan,
-          rank: player.rank ?? (Number(player.rankCode) > 0 ? Number(player.rankCode) + 1 : null),
+          rank: player.rank ?? (Number.isFinite(Number(player.rankCode)) && Number(player.rankCode) >= 0
+            ? Number(player.rankCode) + 1 : null),
           readiness: player.readiness ?? (player.ready === true ? "ready" : player.ready === false ? "not-ready" : "unknown"),
         });
       }) : null,

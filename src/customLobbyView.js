@@ -800,7 +800,7 @@ const LobbyView = defineComponent({
       } : null;
       lobbyRating.value = sidebarRating ?? visibleSidebarRating ?? calculateLobbyRating(
         players.filter(player => player.readiness === "ready").map(player => player.rank),
-        key => labels[key] ?? key,
+        key => window.__fx?.translateFX?.(key) ?? labels[key] ?? key,
       );
     }
 
@@ -868,6 +868,7 @@ const LobbyView = defineComponent({
         readiness: player.ready ? "ready" : "not-ready",
         ready: player.ready === true,
         rankCode: player.rankCode,
+        rankText: player.rankText,
         self: (ownId != null && String(ownId) === String(player.id))
           || (identity?.username && normalizeLobbyPlayerName(identity.username) === normalizeLobbyPlayerName(player.name)),
         color: window.__fx?.getLobbyChatSenderColor?.(player.id) || "",
@@ -1863,25 +1864,29 @@ export function initializeCustomLobbyView() {
       && lobbyRootStyle?.display !== "none"
       && lobbyRootStyle?.visibility !== "hidden"
       && Number(lobbyRootStyle?.opacity ?? 1) > 0);
-    // Some game builds return from a match without changing their menu-state
-    // field. After a confirmed native match start, a finite game-state exit is
-    // sufficient to restore the lobby unless the game explicitly returned Home.
-    if (nativeMatchActive && Number.isFinite(gameState) && gameState !== 1) {
+    // Native menu state 5 is the home screen. Saving settings reloads the app
+    // while this state is active, so the lobby route must not become the
+    // router's default during that reload. Reaching it explicitly also ends
+    // the in-game overlay, including from a post-match results screen.
+    if (nativeMenuState === 5 && gameState !== 1) {
       nativeMatchActive = false;
-      if (nativeMenuState === 5) return "/classic";
+      previousGameState = gameState;
+      return "/classic";
+    }
+    // The native results screen uses a non-playing game state too. Only state
+    // 0 means the player actually left that screen for the lobby; state 2 is
+    // the post-match screen and must remain available for screenshots/replays.
+    if (nativeMatchActive && gameState === 0) {
+      nativeMatchActive = false;
       nativeLobbyBackgroundImage = captureGameCanvasImage() || nativeLobbyBackgroundImage;
       window.__fx?.onGameReturnedToLobby?.();
       return "/lobby";
     }
+    // A game-state transition can mean a victory/peace results screen, where
+    // users may want to take a screenshot or watch the replay. Stay on the
+    // native in-game view until the native menu explicitly returns to lobby.
     if (nativeMatchActive) return "/game";
     if (multiplayerLobbyRequested && window.__fx?.settings?.customLobbyView !== false) return "/lobby";
-    // Native menu state 5 is the home screen. Saving settings reloads the app
-    // while this state is active, so the lobby route must not become the
-    // router's default during that reload.
-    if (nativeMenuState === 5 && gameState !== 1) {
-      previousGameState = gameState;
-      return "/classic";
-    }
     // The visible native lobby is the strongest signal. Menu/game state can
     // lag during startup, which used to route to the empty in-game view.
     const nativeLobbyConfirmed = nativeMenuState === 0 || nativeLobbyVisible;

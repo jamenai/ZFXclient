@@ -151,7 +151,9 @@ export function createGameSdk({ getMapNames = () => null } = {}) {
       id: Number.isInteger(Number(player?.uX)) ? Number(player.uX) : null,
       name: String(player?.username ?? ""),
       ready: index < safeReadyCount,
-      rankCode: Number.isFinite(Number(player?.wh)) ? Number(player.wh) : null,
+      rankCode: Number.isFinite(Number(player?.a6r)) && Number(player.a6r) >= 0 && Number(player.a6r) !== 1234566
+        ? Number(player.a6r) : null,
+      rankText: String(window.__fx?.getNativeLobbyPlayerRankText?.(player) ?? ""),
       colorCode: Number.isFinite(Number(player?.color)) ? Number(player.color) : null,
     }));
     roster = Object.freeze({

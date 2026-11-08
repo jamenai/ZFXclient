@@ -156,6 +156,12 @@ const fxText = {
     unknownPlayer: "Unknown player",
     lobbyFontScale: "Lobby UI font size",
     lobbyFontScaleNote: "Adjusts the text size in the lobby. Save settings to apply.",
+    uiAppearance: "UI appearance",
+    uiTransparency: "UI transparency",
+    uiTransparencyNote: "Controls transparency of the main ZFX panels. 0% is opaque; higher values show more of the map behind them.",
+    uiSkin: "Accent color",
+    uiSkinNote: "Changes the primary accent color across ZFX views.",
+    uiSkinZfx: "ZFX green", uiSkinBlue: "Ocean blue", uiSkinViolet: "Violet", uiSkinAmber: "Amber", uiSkinRose: "Rose",
     searchLobbyPlayers: "Search lobby players...",
     filterReadiness: "Filter players by readiness",
     filterFollowed: "Filter followed players",
@@ -247,6 +253,12 @@ const fxText = {
     customHomeViewNote: "Ersetzt das Startmenü des Spiels durch die neue Vue-Startseite des ZFX Clients.",
     lobbyFontScale: "Schriftgr\u00f6\u00dfe der Lobby",
     lobbyFontScaleNote: "Passt die Textgr\u00f6\u00dfe in der Lobby an. Zum \u00dcbernehmen Einstellungen speichern.",
+    uiAppearance: "Oberfl\u00e4che",
+    uiTransparency: "Transparenz der UI",
+    uiTransparencyNote: "Legt die Transparenz der wichtigsten ZFX-Fl\u00e4chen fest. 0 % ist deckend; h\u00f6here Werte zeigen mehr von der Karte dahinter.",
+    uiSkin: "Akzentfarbe",
+    uiSkinNote: "\u00c4ndert die prim\u00e4re Akzentfarbe der ZFX-Ansichten.",
+    uiSkinZfx: "ZFX-Gr\u00fcn", uiSkinBlue: "Ozeanblau", uiSkinViolet: "Violett", uiSkinAmber: "Bernstein", uiSkinRose: "Ros\u00e9",
     enhancedLobbyLayoutNote: "Erg\u00e4nzt Spielersuche und Bereitschaftsfilter, eine kompakte Liste mit sechs Spalten und einen flacheren Lobby-Kopfbereich.",
     showClanLobbyDashboard: "Clan-Lobby-Dashboard",
     showClanLobbyDashboardNote: "Zeigt Clanmitglieder in dieser Lobby und ihren Bereitschaftsstatus. Ein erkennbarer Clan-Tag ist erforderlich.",
@@ -660,6 +672,28 @@ const settingsManager = new (function () {
       step: 5,
     },
     {
+      for: "uiTransparency",
+      type: "rangeInput",
+      label: __fx.translateFX("uiTransparency"),
+      note: __fx.translateFX("uiTransparencyNote"),
+      min: 0,
+      max: 45,
+      step: 5,
+    },
+    {
+      for: "uiSkin",
+      type: "selectMenu",
+      label: __fx.translateFX("uiSkin"),
+      tooltip: __fx.translateFX("uiSkinNote"),
+      options: [
+        { value: "zfx", label: __fx.translateFX("uiSkinZfx") },
+        { value: "blue", label: __fx.translateFX("uiSkinBlue") },
+        { value: "violet", label: __fx.translateFX("uiSkinViolet") },
+        { value: "amber", label: __fx.translateFX("uiSkinAmber") },
+        { value: "rose", label: __fx.translateFX("uiSkinRose") },
+      ],
+    },
+    {
       for: "highlightDuplicateIps",
       type: "checkbox",
       label: "Duplicate IP highlighting",
@@ -671,6 +705,7 @@ const settingsManager = new (function () {
       label: "Same clan highlighting",
       note: "Highlights you and every player in the lobby's team list who has the same clan tag as you in red. When duplicate IP highlighting is also on players matching both get a red outline around their IP color.",
     },
+    SectionHeader(__fx.translateFX("uiAppearance")),
     CategoryHeader("Notifications"),
     SectionHeader("Popups"),
     {
@@ -867,6 +902,19 @@ const settingsManager = new (function () {
       "--fx-lobby-font-scale",
       String(Math.max(0.75, Math.min(3, Number(settings.lobbyFontScale ?? 100) / 100)))
     );
+    const uiSkins = {
+      zfx: ["#57dba1", "87,219,161"],
+      blue: ["#65c7ff", "101,199,255"],
+      violet: ["#b89aff", "184,154,255"],
+      amber: ["#ffc46b", "255,196,107"],
+      rose: ["#ff8eaa", "255,142,170"],
+    };
+    const [accent, accentRgb] = uiSkins[settings.uiSkin] || uiSkins.zfx;
+    const transparency = Math.max(0, Math.min(45, Number(settings.uiTransparency ?? 15)));
+    document.documentElement.style.setProperty("--fx-ui-accent", accent);
+    document.documentElement.style.setProperty("--fx-ui-accent-rgb", accentRgb);
+    document.documentElement.style.setProperty("--fx-ui-panel-alpha", String(.98 - transparency / 150));
+    document.documentElement.style.setProperty("--fx-ui-backdrop-alpha", String(.88 - transparency / 100));
     if (settings.customBackgroundUrl !== "") {
       document.body.style.backgroundImage =
         "url(" + settings.customBackgroundUrl + ")";

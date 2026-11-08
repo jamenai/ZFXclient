@@ -1,11 +1,20 @@
 {
-    "version": "0.1.19",
+    "version": "0.1.20",
     "lastUpdated": "November 8, 2026",
     "changes": [
-        "Improve build reliability when native game patch anchors change"
+        "Add UI transparency and accent-color skin settings",
+        "Improve lobby rank data and translated rating labels",
+        "Smooth HomeView navigation and preserve post-match results"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.19",
+            "lastUpdated": "November 8, 2026",
+            "changes": [
+                "Improve build reliability when native game patch anchors change"
+            ]
+        },
         {
             "version": "0.1.18",
             "lastUpdated": "November 8, 2026",

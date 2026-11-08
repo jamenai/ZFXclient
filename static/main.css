@@ -1,3 +1,10 @@
+:root {
+	--fx-ui-accent: #57dba1;
+	--fx-ui-accent-rgb: 87, 219, 161;
+	--fx-ui-panel-alpha: .83;
+	--fx-ui-backdrop-alpha: .85;
+}
+
 .scrollable {
 	overflow-y: auto;
 }
@@ -911,6 +918,10 @@ body:has(#fx-home-view:not(.is-name-view)) :is(a, [role="link"], img):not(#fx-ho
 	pointer-events: auto;
 	font-size: clamp(14px, 1vw, 17px);
 }
+
+.fx-home-transition-leave-active { transition: opacity 180ms ease, transform 180ms ease, filter 180ms ease; }
+.fx-home-transition-leave-to { opacity: 0; transform: translateY(8px) scale(.985); filter: blur(3px); }
+#fx-home-view.is-leaving { pointer-events: none; }
 
 .fx-home-orb {
 	position: absolute;
@@ -4254,3 +4265,46 @@ label.checkbox .checkmark:after {
 .fx-my-account-saved-row strong { font-size: .92em; }
 .fx-my-account-profile-copy strong,
 .fx-my-account-id-card strong { font-size: 1.06em; }
+
+/* User-selected ZFX surface transparency and accent palette. */
+#fx-custom-lobby-view {
+	background-image: linear-gradient(145deg, rgba(6, 15, 29, var(--fx-ui-backdrop-alpha, .85)), rgba(9, 20, 35, var(--fx-ui-backdrop-alpha, .85))),
+		linear-gradient(145deg, rgba(6, 15, 29, var(--fx-ui-panel-alpha, .83)), rgba(9, 20, 35, var(--fx-ui-panel-alpha, .83))),
+		var(--fx-custom-lobby-map-background, linear-gradient(145deg, #06101d, #091423));
+	background-position: center, center, center;
+	background-size: cover, cover, cover;
+	background-repeat: no-repeat;
+}
+.fx-settings-dialog,
+.fx-game-settings-dialog,
+.fx-leaderboards-dashboard,
+.fx-logs-dashboard,
+.fx-replay-view,
+.fx-my-account-dialog,
+.fx-home-name-card {
+	background: linear-gradient(145deg, rgba(14, 31, 49, var(--fx-ui-panel-alpha, .83)), rgba(7, 19, 34, var(--fx-ui-panel-alpha, .83)));
+}
+.fx-settings-content input[type="checkbox"],
+.fx-settings-content input[type="range"] { accent-color: var(--fx-ui-accent, #57dba1); }
+.fx-settings-tabs button.is-active {
+	border-color: rgba(var(--fx-ui-accent-rgb, 87, 219, 161), .3);
+	background: linear-gradient(105deg, rgba(var(--fx-ui-accent-rgb, 87, 219, 161), .2), rgba(var(--fx-ui-accent-rgb, 87, 219, 161), .08));
+	color: color-mix(in srgb, var(--fx-ui-accent, #57dba1) 58%, white);
+}
+.fx-leaderboards-nav-item.is-active,
+.fx-custom-lobby-workspace-tabs button.is-active,
+.fx-custom-lobby-mode.is-active,
+.fx-custom-lobby-filters button.is-active {
+	border-color: rgba(var(--fx-ui-accent-rgb, 87, 219, 161), .42) !important;
+	background: linear-gradient(120deg, rgba(var(--fx-ui-accent-rgb, 87, 219, 161), .24), rgba(var(--fx-ui-accent-rgb, 87, 219, 161), .1)) !important;
+	color: color-mix(in srgb, var(--fx-ui-accent, #57dba1) 38%, white) !important;
+}
+.fx-settings-close-bottom,
+.fx-game-settings-footer button,
+.fx-home-action.is-primary,
+.fx-custom-lobby-entry-selection.is-selected,
+.fx-custom-lobby-actions button.is-primary {
+	border-color: rgba(var(--fx-ui-accent-rgb, 87, 219, 161), .38) !important;
+	background: linear-gradient(105deg, rgba(var(--fx-ui-accent-rgb, 87, 219, 161), .26), rgba(var(--fx-ui-accent-rgb, 87, 219, 161), .12)) !important;
+	color: #eefcf6 !important;
+}

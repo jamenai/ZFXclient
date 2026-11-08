@@ -51,16 +51,26 @@ export function calculateLobbyRating(ranks, translate) {
   const medianRank = Math.round(median(validRanks));
   const format = value => new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value);
   const formattedRating = new Intl.NumberFormat(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(rating);
-  const tierName = translate(tier.key);
+  const isGerman = (window.__fx?.getGameLanguage?.() || navigator.language || "en").toLowerCase().startsWith("de");
+  const tierFallbacks = isGerman
+    ? { sidebarRankObsidian: "Obsidian", sidebarRankDiamond: "Diamant", sidebarRankPlatinum: "Platin", sidebarRankGold: "Gold", sidebarRankSilver: "Silber", sidebarRankBronze: "Bronze" }
+    : { sidebarRankObsidian: "Obsidian", sidebarRankDiamond: "Diamond", sidebarRankPlatinum: "Platinum", sidebarRankGold: "Gold", sidebarRankSilver: "Silver", sidebarRankBronze: "Bronze" };
+  const translateOrFallback = (key, fallback) => {
+    const value = translate?.(key);
+    return typeof value === "string" && value !== key ? value : fallback;
+  };
+  const tierName = translateOrFallback(tier.key, tierFallbacks[tier.key]);
   const stylesheet = document.querySelector('link[rel="stylesheet"][href*="main.css"]');
   return {
     value: formattedRating,
     tier: tierName,
     image: new URL(`rank-badges/${tier.icon}`, stylesheet?.href ?? window.location.href).href,
-    meta: translate("sidebarReadySkillMeta")
+    meta: translateOrFallback("sidebarReadySkillMeta", isGerman ? "{tier} · Median #{rank}" : "{tier} · median #{rank}")
       .replace("{tier}", tierName)
       .replace("{rank}", new Intl.NumberFormat().format(medianRank)),
-    title: translate("sidebarReadySkillTitle")
+    title: translateOrFallback("sidebarReadySkillTitle", isGerman
+      ? `Geschätztes Lobby-Rating ${formattedRating}/10 (${tierName}) aus ${validRanks.length} bereiten Spielern. Median-Weltrang: #${medianRank}`
+      : `Estimated ${tierName} lobby rating ${formattedRating}/10 from ${validRanks.length} ready players. Median global rank: #${medianRank}`)
       .replace("{count}", String(validRanks.length))
       .replace("{tier}", tierName)
       .replace("{rating}", formattedRating)

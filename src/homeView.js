@@ -6,6 +6,7 @@ const FxHomeView = defineComponent({
   components: { ZfxLogoMark },
   setup() {
     const visible = ref(false);
+    const leaving = ref(false);
     const nameEditorOpen = ref(false);
     const nameDraft = ref("");
     const nameStatus = ref("");
@@ -37,6 +38,8 @@ const FxHomeView = defineComponent({
       nameMissing: "The game's name field is not available right now.", nameEmpty: "Enter a name first.",
     });
     let timer = 0;
+    let navigationPending = false;
+    let navigationTimeout = 0;
     const nativeHomeButtonVisibility = new WeakMap();
     const nativeNameInputVisibility = new WeakMap();
     const hiddenNativeHomeExtras = new Map();
@@ -158,7 +161,13 @@ const FxHomeView = defineComponent({
       const onHomeScreen = (hasNativeMenuState
         ? Number(game.nativeMenuState) === 5
         : hasVisibleNativeHomeControls()) && Number(game?.getGameVar?.("gameState")) !== 1;
-      visible.value = game?.settings?.customHomeView !== false && onHomeScreen;
+      if (!onHomeScreen) {
+        navigationPending = false;
+        leaving.value = false;
+        if (navigationTimeout) window.clearTimeout(navigationTimeout);
+        navigationTimeout = 0;
+      }
+      if (!navigationPending) visible.value = game?.settings?.customHomeView !== false && onHomeScreen;
       const customLobbyVisible = game?.isCustomLobbyViewVisible?.() === true;
       setNativeHomeButtonsHidden(visible.value || customLobbyVisible);
       setNativeHomeExtrasHidden(game?.settings?.customHomeView !== false);
@@ -210,12 +219,31 @@ const FxHomeView = defineComponent({
       window.setTimeout(refresh, 80);
     }
 
-    const startMultiplayer = () => window.__fx?.startMultiplayer?.();
-    const openScenario = () => window.__fx?.openCustomScenario?.();
-    const openAccount = () => window.__fx?.openVueMyAccount?.();
-    const openGameMenu = () => window.__fx?.openGameMenu?.();
-    const openSettings = () => window.__fx?.openVueSettings?.();
-    const openCustomLobby = () => window.__fx?.customLobby?.showJoinPrompt?.();
+    function navigateFromHome(action) {
+      if (navigationPending) return;
+      navigationPending = true;
+      leaving.value = true;
+      visible.value = false;
+      // Let Vue paint the leaving state before the native screen starts changing.
+      window.requestAnimationFrame(() => {
+        try { action?.(); }
+        finally {
+          navigationTimeout = window.setTimeout(() => {
+            navigationPending = false;
+            leaving.value = false;
+            navigationTimeout = 0;
+            refresh();
+          }, 4000);
+        }
+      });
+    }
+
+    const startMultiplayer = () => navigateFromHome(() => window.__fx?.startMultiplayer?.());
+    const openScenario = () => navigateFromHome(() => window.__fx?.openCustomScenario?.());
+    const openAccount = () => navigateFromHome(() => window.__fx?.openVueMyAccount?.());
+    const openGameMenu = () => navigateFromHome(() => window.__fx?.openGameMenu?.());
+    const openSettings = () => navigateFromHome(() => window.__fx?.openVueSettings?.());
+    const openCustomLobby = () => navigateFromHome(() => window.__fx?.customLobby?.showJoinPrompt?.());
 
     onMounted(() => {
       refresh();
@@ -231,6 +259,7 @@ const FxHomeView = defineComponent({
     });
     onBeforeUnmount(() => {
       if (timer) window.clearInterval(timer);
+      if (navigationTimeout) window.clearTimeout(navigationTimeout);
       nativeHomeExtrasObserver?.disconnect();
       setNativeHomeButtonsHidden(false);
       setNativeHomeExtrasHidden(false);
@@ -239,14 +268,15 @@ const FxHomeView = defineComponent({
     });
 
     return {
-      visible, nameEditorOpen, nameDraft, nameStatus, nameHistory, accountId, fullPlayerName, profileName, clan, labels,
+      visible, leaving, nameEditorOpen, nameDraft, nameStatus, nameHistory, accountId, fullPlayerName, profileName, clan, labels,
       startMultiplayer, openScenario, openAccount, openGameMenu, openSettings, openCustomLobby,
       openNameEditor, saveName, selectHistoryName: name => { nameDraft.value = name; saveName(); },
       closeNameEditor: () => { nameEditorOpen.value = false; },
     };
   },
   template: `
-    <main v-if="visible && !nameEditorOpen" id="fx-home-view" aria-label="ZFX Client home">
+    <Transition name="fx-home-transition">
+    <main v-if="visible && !nameEditorOpen" id="fx-home-view" :class="{'is-leaving': leaving}" aria-label="ZFX Client home">
       <div class="fx-home-orb fx-home-orb-one"></div><div class="fx-home-orb fx-home-orb-two"></div>
       <section class="fx-home-shell">
         <header class="fx-home-header">
@@ -276,7 +306,8 @@ const FxHomeView = defineComponent({
         </footer>
       </section>
     </main>
-    <main v-else-if="nameEditorOpen" id="fx-home-view" class="is-name-view" aria-label="Change player name">
+    </Transition>
+    <main v-if="nameEditorOpen" id="fx-home-view" class="is-name-view" aria-label="Change player name">
       <section class="fx-home-name-card">
         <button type="button" class="fx-home-back" @click="closeNameEditor">‹ {{ labels.cancel }}</button>
         <span class="fx-home-eyebrow">ZFX CLIENT · {{ labels.player.toUpperCase() }}</span>

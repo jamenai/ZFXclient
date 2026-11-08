@@ -79,6 +79,12 @@ The preview port can be changed on Windows PowerShell with:
 $env:ZFXCLIENT_PORT=8080; npm run serve
 ```
 
+## GitLab deployment
+
+The GitLab pipeline builds the static client on branch pushes. A semantic version tag such as `v0.1.20` builds the client and deploys it to [client.mapella.org](https://client.mapella.org).
+
+The deploy runner serves the generated `build/` artifact with Nginx on the shared `nginx-proxy` network. Its host runtime uses `/srv/vhosts/client.mapella.org`; the pipeline initializes this runtime on the first deployment. The `deploy-host` runner needs the Docker socket and `/srv/vhosts:/srv/vhosts` mounted. The `docker` runner builds the client artifact.
+
 ## Community
 
 For community discussion, join the ZFX Client Discord: https://discord.gg/9Dr2GMUNhc

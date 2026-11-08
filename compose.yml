@@ -1,0 +1,10 @@
+services:
+  web:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    init: true
+    expose:
+      - "80"
+    # Deploy runs before the framework switches current-artifact, so bind this release directly.
+    volumes:
+      - "${RELEASES_DIR}/${RELEASE_ID}/artifact:/usr/share/nginx/html:ro"

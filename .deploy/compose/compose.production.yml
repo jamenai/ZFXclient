@@ -1,0 +1,15 @@
+services:
+  web:
+    container_name: zfx-client-production
+    environment:
+      VIRTUAL_HOST: client.mapella.org
+      VIRTUAL_PORT: "80"
+      LETSENCRYPT_HOST: client.mapella.org
+      LETSENCRYPT_EMAIL: letsencrypt@git.elords.io
+    networks:
+      - nginx-proxy
+
+networks:
+  nginx-proxy:
+    external: true
+    name: nginx-proxy

@@ -74,7 +74,7 @@ const VueSidebar = defineComponent({
     const sections = computed(() => [
       { title: t("sidebarGeneralGroup"), items: [
         { icon: "⌂", label: t("sidebarHome"), action: openNativeAction(() => window.__fx?.openHome?.()) },
-        { icon: "⚔", label: t("sidebarMultiplayer"), action: openNativeAction(() => window.__fx?.startMultiplayer?.()) },
+        { icon: "⚔", label: t("sidebarMultiplayer"), action: () => window.__fx?.startMultiplayer?.() },
         { icon: "🏆", label: t("sidebarLeaderboard"), action: () => window.__fx?.openVueLeaderboards?.() },
         { icon: "▶", label: t("sidebarReplays"), action: () => window.__fx?.openVueReplays?.() },
         { icon: "▤", label: t("sidebarLogs"), action: () => window.__fx?.openVueLogs?.() },

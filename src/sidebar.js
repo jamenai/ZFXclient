@@ -203,8 +203,15 @@ function createLegacySidebar() {
     }
   };
 
+  const openNativeHome = () => {
+    const lobbyWasHidden = window.__fx?.hideCustomLobbyView?.() === true;
+    const open = () => window.__fx?.openHome?.();
+    if (lobbyWasHidden) window.requestAnimationFrame(open);
+    else open();
+  };
+
   appendSection("sidebarGeneralGroup", [
-    ["home", "sidebarHome", () => window.__fx?.openHome?.()],
+    ["home", "sidebarHome", openNativeHome],
     ["⚔️", "sidebarMultiplayer", () => window.__fx?.startMultiplayer?.()],
     ["🏆", "sidebarLeaderboard", () => window.__fx?.openVueLeaderboards?.()],
     ["▶", "sidebarReplays", () => window.__fx?.openGameMenuAction?.("replays")],

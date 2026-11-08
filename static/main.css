@@ -739,7 +739,11 @@ td {
 	gap: 10px;
 	padding: clamp(10px, 1.2vw, 20px);
 	overflow: auto;
-	/* background: linear-gradient(145deg, rgba(6, 15, 29, .94), rgba(9, 20, 35, .88)); */
+	background-image: linear-gradient(145deg, rgba(6, 15, 29, .62), rgba(9, 20, 35, .72)), var(--fx-custom-lobby-map-background, linear-gradient(145deg, rgba(6, 15, 29, .985), rgba(9, 20, 35, .97)));
+	background-position: center, center;
+	background-size: cover, cover;
+	background-repeat: no-repeat;
+	backdrop-filter: blur(3px);
 	color: #edf6ff;
 	font: calc(14px * var(--fx-custom-lobby-scale, 1))/1.35 system-ui, sans-serif;
 }
@@ -885,6 +889,13 @@ body:has(#fx-home-view:not(.is-name-view)) a[href*="play.google.com"],
 body:has(#fx-home-view:not(.is-name-view)) a[href*="apps.apple.com"],
 body:has(#fx-home-view:not(.is-name-view)) a[href*="discord.gg/pthqvpTXmh"],
 body:has(#fx-home-view:not(.is-name-view)) a[href*="instagram.com"] { visibility: hidden !important; pointer-events: none !important; }
+/* Native store/social badges vary in URLs and image names across game builds.
+   The Vue HomeView replaces those links; keep the game canvas/map visible. */
+body:has(#fx-home-view:not(.is-name-view)) :is(a, [role="link"], img):not(#fx-home-view-root *):not(#fx-sidebar *):not(#fx-sidebar-restore *) {
+	display: none !important;
+	visibility: hidden !important;
+	pointer-events: none !important;
+}
 
 #fx-home-view {
 	position: fixed;

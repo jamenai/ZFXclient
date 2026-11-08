@@ -12,18 +12,23 @@ const APP_ID = "fx-app-mount";
 const LOBBY_VIEW_MIGRATION_KEY = "fx_custom_lobby_view_enabled_v1";
 const lastDiagnostic = new Map();
 const mapImageCache = new Map();
+let nativeLobbyBackgroundImage = "";
 const MAP_IMAGE_CACHE_LIMIT = 20;
 const MAP_IMAGE_DB_NAME = "zfx-client-cache";
 const MAP_IMAGE_DB_STORE = "map-images";
-let mapImageCacheReady = false;
+let mapImageCacheHydrated = false;
+let mapImageCacheLoadPromise = null;
 let mapImageDbPromise;
 
-function mapImageCacheKey(mapName) {
-  return String(mapName ?? "").trim().normalize("NFKC").toLocaleLowerCase();
+function mapImageCacheKey(mapIndex, mapSeed) {
+  const index = Number(mapIndex);
+  const seed = Number(mapSeed);
+  if (!Number.isInteger(index) || !Number.isFinite(seed)) return "";
+  return `map-v3:${index}:${seed}`;
 }
 
-function rememberMapImage(mapName, image) {
-  const key = mapImageCacheKey(mapName);
+function rememberMapImage(mapIndex, mapSeed, image) {
+  const key = mapImageCacheKey(mapIndex, mapSeed);
   if (!key || !image || !isSafeMapImageUrl(image)) return;
   if (mapImageCache.has(key)) return;
   mapImageCache.delete(key);
@@ -75,26 +80,32 @@ async function persistMapImage(key, image) {
 }
 
 async function loadPersistentMapImages() {
-  if (mapImageCacheReady) return;
-  mapImageCacheReady = true;
-  try {
-    const database = await openMapImageDb();
-    if (!database) return;
-    const records = await new Promise((resolve, reject) => {
-      const request = database.transaction(MAP_IMAGE_DB_STORE, "readonly")
-        .objectStore(MAP_IMAGE_DB_STORE).getAll();
-      request.onsuccess = () => resolve(request.result || []);
-      request.onerror = () => reject(request.error);
-    });
-    records.sort((left, right) => left.savedAt - right.savedAt);
-    for (const record of records.slice(-MAP_IMAGE_CACHE_LIMIT)) {
-      if (record?.key && record?.image && isSafeMapImageUrl(record.image) && !mapImageCache.has(record.key)) {
-        mapImageCache.set(record.key, record.image);
+  if (mapImageCacheHydrated) return;
+  if (mapImageCacheLoadPromise) return mapImageCacheLoadPromise;
+  mapImageCacheLoadPromise = (async () => {
+    try {
+      const database = await openMapImageDb();
+      if (!database) return;
+      const records = await new Promise((resolve, reject) => {
+        const request = database.transaction(MAP_IMAGE_DB_STORE, "readonly")
+          .objectStore(MAP_IMAGE_DB_STORE).getAll();
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = () => reject(request.error);
+      });
+      records.sort((left, right) => left.savedAt - right.savedAt);
+      for (const record of records.slice(-MAP_IMAGE_CACHE_LIMIT)) {
+        if (record?.key?.startsWith("map-v3:") && record?.image
+          && isSafeMapImageUrl(record.image) && !mapImageCache.has(record.key)) {
+          mapImageCache.set(record.key, record.image);
+        }
       }
+    } catch {
+      // The lobby can still use images captured during this page session.
+    } finally {
+      mapImageCacheHydrated = true;
     }
-  } catch {
-    // The lobby can still use images captured during this page session.
-  }
+  })();
+  return mapImageCacheLoadPromise;
 }
 
 function logLobbyDiagnostic(stage, signature, details) {
@@ -344,85 +355,32 @@ function findMapNames(root) {
   return found;
 }
 
-function findMapImage(root) {
-  // The native lobby paints its map artwork on the current-map row (child 2).
-  const mapRow = root.children[2];
-  const rowNodes = mapRow ? [mapRow, ...mapRow.querySelectorAll("*")] : [];
-  const previewNodes = [...new Set([...rowNodes, root, ...root.querySelectorAll("*")])];
-  const image = Array.from(previewNodes).find(node => node instanceof HTMLImageElement);
-  const candidate = image?.currentSrc || image?.src;
-  if (candidate && isSafeMapImageUrl(candidate)) return candidate;
-
-  for (const node of previewNodes) {
-    const backgroundImage = getComputedStyle(node).backgroundImage;
-    const backgroundUrl = backgroundImage.match(/url\(["']?(.*?)["']?\)/)?.[1];
-    if (backgroundUrl && isSafeMapImageUrl(backgroundUrl)) return backgroundUrl;
-  }
-
-  for (const node of previewNodes) {
-    for (const pseudo of ["::before", "::after"]) {
-      const backgroundImage = getComputedStyle(node, pseudo).backgroundImage;
-      const backgroundUrl = backgroundImage.match(/url\(["']?(.*?)\)["']?\)/)?.[1];
-      if (backgroundUrl && isSafeMapImageUrl(backgroundUrl)) return backgroundUrl;
-    }
-  }
-
-  const canvas = rowNodes.find(node => node instanceof HTMLCanvasElement);
-  if (canvas) {
+function captureGameCanvasImage() {
+  const candidates = Array.from(document.querySelectorAll("canvas"))
+    .filter(canvas => canvas.width > 0 && canvas.height > 0
+      && canvas.getClientRects().length > 0
+      && !canvas.closest("#fx-app-mount, #fx-sidebar"))
+    .sort((left, right) => right.width * right.height - left.width * left.height);
+  for (const source of candidates) {
     try {
-      const dataUrl = canvas.toDataURL("image/png");
-      if (isSafeMapImageUrl(dataUrl)) return dataUrl;
+      const scale = Math.min(1, 1600 / Math.max(source.width, source.height));
+      const width = Math.max(1, Math.round(source.width * scale));
+      const height = Math.max(1, Math.round(source.height * scale));
+      const output = document.createElement("canvas");
+      output.width = width;
+      output.height = height;
+      output.getContext("2d")?.drawImage(source, 0, 0, width, height);
+      const image = output.toDataURL("image/jpeg", .82);
+      if (isSafeMapImageUrl(image) && image.length > 8000) return image;
     } catch {
-      // Cross-origin canvases cannot be exported; use the CSS fallback.
-    }
-  }
-
-  // Map previews are rendered by the game's viewport canvas, which lives
-  // outside the lobby DOM subtree. Crop the pixels underneath the native map row.
-  const rowRect = mapRow?.getBoundingClientRect();
-  if (rowRect?.width > 0 && rowRect?.height > 0) {
-    const centerX = rowRect.left + rowRect.width / 2;
-    const centerY = rowRect.top + rowRect.height / 2;
-    const viewportCanvases = Array.from(document.querySelectorAll("canvas"))
-      .map(source => ({ source, rect: source.getBoundingClientRect() }))
-      .filter(({ source, rect }) => source.width > 0 && source.height > 0
-        && rect.width > 0 && rect.height > 0
-        && centerX >= rect.left && centerX <= rect.right
-        && centerY >= rect.top && centerY <= rect.bottom)
-      .sort((left, right) => right.source.width * right.source.height - left.source.width * left.source.height);
-
-    for (const { source, rect } of viewportCanvases) {
-      // Use the complete game-canvas scene as the map artwork. The lobby's map
-      // is painted into this canvas, not represented by a DOM background.
-      try {
-        const fullCanvasImage = source.toDataURL("image/png");
-        if (isSafeMapImageUrl(fullCanvasImage)) return fullCanvasImage;
-      } catch {
-        // A tainted source may still allow a region copy for the preview.
-      }
-
-      const scaleX = source.width / rect.width;
-      const scaleY = source.height / rect.height;
-      const sx = Math.max(0, Math.floor((rowRect.left - rect.left) * scaleX));
-      const sy = Math.max(0, Math.floor((rowRect.top - rect.top) * scaleY));
-      const sw = Math.min(source.width - sx, Math.ceil(rowRect.width * scaleX));
-      const sh = Math.min(source.height - sy, Math.ceil(rowRect.height * scaleY));
-      if (sw <= 0 || sh <= 0) continue;
-
-      const preview = document.createElement("canvas");
-      const outputScale = Math.min(1, 1200 / sw);
-      preview.width = Math.max(1, Math.round(sw * outputScale));
-      preview.height = Math.max(1, Math.round(sh * outputScale));
-      try {
-        preview.getContext("2d")?.drawImage(source, sx, sy, sw, sh, 0, 0, preview.width, preview.height);
-        const dataUrl = preview.toDataURL("image/png");
-        if (isSafeMapImageUrl(dataUrl)) return dataUrl;
-      } catch {
-        // Try another overlapping game canvas if this one is tainted.
-      }
+      // Cross-origin or WebGL canvases may not permit capture.
     }
   }
   return "";
+}
+
+function getNativeMapImage(mapIndex, mapSeed) {
+  return mapImageCache.get(mapImageCacheKey(mapIndex, mapSeed)) || "";
 }
 
 function isSafeMapImageUrl(value) {
@@ -489,6 +447,11 @@ const LobbyView = defineComponent({
     const labels = getLobbyLabels();
     const adapter = createLobbyDataAdapter();
     const snapshot = shallowRef(adapter.getSnapshot());
+    const lobbyBackgroundStyle = computed(() => ({
+      "--fx-custom-lobby-map-background": snapshot.value.currentMapImage || snapshot.value.lobbyBackgroundImage
+        ? `url("${snapshot.value.currentMapImage || snapshot.value.lobbyBackgroundImage}")`
+        : "linear-gradient(145deg, rgba(6, 15, 29, .985), rgba(9, 20, 35, .97))",
+    }));
     const lobbyRating = shallowRef(null);
     const query = ref("");
     const sortBy = ref("rank-asc");
@@ -601,7 +564,15 @@ const LobbyView = defineComponent({
     let currentSelectionOverrideTimer = 0;
     const playerContextMenu = ref(null);
     const playerListComponent = ref(null);
-    const active = ref(false);
+    const startupLobbyCandidate = shell ? findLobbyRoot(shell) : null;
+    // This component is only mounted on /lobby, so do not gate its first render
+    // on native DOM selectors. Those selectors vary between game builds and
+    // previously left the native lobby visible with no Vue replacement.
+    const active = ref(window.__fx?.settings?.customLobbyView !== false
+      && (Number(window.__fx?.nativeMenuState) !== 5 || multiplayerLobbyRequested));
+    let nativeRoot = null;
+    let savedStyles = null;
+    if (active.value) suppressNativeRoot(startupLobbyCandidate);
     let nativeNotificationObserver = null;
     const hiddenNativeNotifications = new Map();
     const hideNativeNotificationOverlays = () => {
@@ -806,13 +777,12 @@ const LobbyView = defineComponent({
         : currentMapEntry.value.selected === true
       : false);
 
-    let nativeRoot = null;
-    let savedStyles = null;
     let observer = null;
     let frame = 0;
     let unsubscribe = () => {};
     let unsubscribeGameSdk = () => {};
     let unsubscribeLobbyChat = () => {};
+    let getLobbyDataDiagnostics = null;
     let missingLobbyTimer = 0;
     let readinessRefreshTimer = 0;
     let ratingRefreshTimer = 0;
@@ -845,6 +815,116 @@ const LobbyView = defineComponent({
       savedStyles = null;
     }
 
+    function suppressNativeRoot(root) {
+      if (!root || root === shell) return false;
+      if (nativeRoot === root && root.dataset.fxCustomLobbyHidden === "true") return true;
+      if (nativeRoot && nativeRoot !== root) restoreNativeRoot();
+      nativeRoot = root;
+      savedStyles = ["visibility", "pointer-events"].map(property => [
+        property, root.style.getPropertyValue(property), root.style.getPropertyPriority(property),
+      ]);
+      root.style.setProperty("visibility", "hidden", "important");
+      root.style.setProperty("pointer-events", "none", "important");
+      root.dataset.fxCustomLobbyHidden = "true";
+      return true;
+    }
+
+    function publishSdkLobbySnapshot(sdkLobby = window.__fx?.gameSdk?.lobby?.getSnapshot?.()) {
+      if (!sdkLobby) return false;
+      const entries = Array.isArray(sdkLobby.entries) ? sdkLobby.entries : [];
+      const sdkPlayers = Array.isArray(sdkLobby.players) ? sdkLobby.players : [];
+      if (sdkLobby.source === "none" && entries.length === 0 && sdkPlayers.length === 0) return false;
+
+      const mapNames = window.__fx?.getGameMapNames?.();
+      const resolveMap = entry => entry?.mapName || (Number.isInteger(Number(entry?.mapIndex))
+        ? String(mapNames?.[Number(entry.mapIndex)] || getMapName(Number(entry.mapIndex))) : "");
+      const resolveMode = code => {
+        const value = Number(code);
+        if (value >= 0 && value <= 6) return { key: "team", label: labels.modeTeamGame, teams: `${value + 2} ${labels.modeTeams}` };
+        if (value === 7 || value === 10) return { key: "battle-royale", label: labels.modeBattleRoyale, teams: "" };
+        if (value === 8) return { key: "duel", label: labels.modeDuel, teams: "" };
+        if (value === 9) return { key: "zombie", label: labels.modeZombie, teams: "" };
+        return { key: "unknown", label: labels.modeUnknown, teams: "" };
+      };
+      const currentEntry = entries.find(entry => entry.id === sdkLobby.rosterEntryId) ?? entries[0] ?? null;
+      const selectedEntry = entries.find(entry => entry.selected) ?? null;
+      const currentMode = resolveMode(currentEntry?.modeCode);
+      const nextMode = resolveMode(selectedEntry?.modeCode);
+      const currentMap = resolveMap(currentEntry);
+      const nextMap = resolveMap(selectedEntry);
+      if (!mapImageCacheHydrated) {
+        void loadPersistentMapImages().then(() => {
+          if (active.value) publishSdkLobbySnapshot(sdkLobby);
+        });
+      }
+      let currentMapImage = getNativeMapImage(currentEntry?.mapIndex, currentEntry?.mapSeed);
+      const identity = window.__fx?.getNativeOwnPlayerIdentity?.();
+      const ownId = identity?.id ?? window.__fx?.getGameVar?.("playerId");
+      const players = sdkPlayers.map(player => ({
+        id: player.id,
+        senderId: player.id,
+        name: player.name,
+        clan: getPlayerClan(player.name),
+        readiness: player.ready ? "ready" : "not-ready",
+        ready: player.ready === true,
+        rankCode: player.rankCode,
+        self: (ownId != null && String(ownId) === String(player.id))
+          || (identity?.username && normalizeLobbyPlayerName(identity.username) === normalizeLobbyPlayerName(player.name)),
+        color: window.__fx?.getLobbyChatSenderColor?.(player.id) || "",
+      }));
+      const upcomingGames = entries.map(entry => {
+        const mode = resolveMode(entry.modeCode);
+        const mapName = resolveMap(entry);
+        return {
+          ...entry,
+          mapName,
+          mapImage: getNativeMapImage(entry.mapIndex, entry.mapSeed),
+          modeKey: mode.key,
+          modeLabel: mode.label,
+          teamCountLabel: mode.teams,
+        };
+      });
+      const nextSnapshot = adapter.publish({
+        ...adapter.getSnapshot(),
+        players,
+        playerCount: Number.isInteger(Number(sdkLobby.playerCount)) ? Number(sdkLobby.playerCount) : players.length,
+        readyCount: Number.isInteger(Number(sdkLobby.readyCount)) ? Number(sdkLobby.readyCount) : players.filter(player => player.ready).length,
+        upcomingGames,
+        currentMap,
+        currentMapImage,
+        lobbyBackgroundImage: captureGameCanvasImage()
+          || nativeLobbyBackgroundImage || adapter.getSnapshot().lobbyBackgroundImage,
+        currentMapEntryId: currentEntry?.id ?? null,
+        rosterEntryId: sdkLobby.rosterEntryId ?? null,
+        currentTeamCountLabel: currentMode.teams,
+        currentGameModeLabel: currentMode.label,
+        currentGameModeKey: currentMode.key,
+        nextMap,
+        nextMapImage: getNativeMapImage(selectedEntry?.mapIndex, selectedEntry?.mapSeed),
+        // The roster entry is the lobby's actual next start. The selected
+        // entry can be empty or belong to a different future game, so it must
+        // not delay the countdown/progress bar.
+        nextGameEntryId: currentEntry?.id ?? null,
+        nextGameCountdownSeconds: currentEntry?.countdownSeconds ?? null,
+        nextGamePlayerCount: currentEntry?.playerCount ?? null,
+        nextTeamCountLabel: nextMode.teams,
+        nextGameModeLabel: selectedEntry ? nextMode.label : "",
+        nextGameModeKey: selectedEntry ? nextMode.key : "",
+        isContest: currentEntry?.isContest === true,
+        nextIsContest: selectedEntry ? selectedEntry.isContest === true : null,
+        noFullsend: Number(currentEntry?.modeCode) === 10,
+        nextNoFullsend: Number(selectedEntry?.modeCode) === 10,
+      }, sdkLobby.source || "native-websocket");
+      logLobbyDiagnostic("sdk-lobby-data", `${sdkLobby.revision}:${entries.length}:${players.length}`, {
+        source: sdkLobby.source,
+        revision: sdkLobby.revision,
+        entryCount: entries.length,
+        playerCount: players.length,
+        rosterEntryId: sdkLobby.rosterEntryId,
+      });
+      return nextSnapshot;
+    }
+
     function readLobby() {
       if (!shell) return;
       const found = getLobbyList(shell);
@@ -863,13 +943,7 @@ const LobbyView = defineComponent({
         if (!nativeRoot?.isConnected) {
           const root = findLobbyRoot(shell);
           if (root) {
-            nativeRoot = root;
-            savedStyles = ["visibility", "pointer-events"].map(property => [
-              property, root.style.getPropertyValue(property), root.style.getPropertyPriority(property),
-            ]);
-            root.style.setProperty("visibility", "hidden", "important");
-            root.style.setProperty("pointer-events", "none", "important");
-            root.dataset.fxCustomLobbyHidden = "true";
+            suppressNativeRoot(root);
             active.value = true;
             activeTab.value = "chat";
             const current = adapter.getSnapshot();
@@ -917,14 +991,7 @@ const LobbyView = defineComponent({
         return;
       }
       if (nativeRoot !== root) {
-        restoreNativeRoot();
-        nativeRoot = root;
-        savedStyles = ["visibility", "pointer-events"].map(property => [
-          property, root.style.getPropertyValue(property), root.style.getPropertyPriority(property),
-        ]);
-        root.style.setProperty("visibility", "hidden", "important");
-        root.style.setProperty("pointer-events", "none", "important");
-        root.dataset.fxCustomLobbyHidden = "true";
+        suppressNativeRoot(root);
       }
 
       const ownPlayerId = window.__fx?.getGameVar?.("playerId");
@@ -1073,13 +1140,9 @@ const LobbyView = defineComponent({
       const nextIsContest = selectedNextEntry ? selectedNextEntry.isContest === true : null;
       const noFullsend = selectedModeCode === 10;
       const nextNoFullsend = nextModeCode === 10;
-      const capturedMapImage = findMapImage(root);
-      const currentMapImage = capturedMapImage
-        || (snapshot?.currentMap === currentMap ? snapshot?.currentMapImage : "")
-        || mapImageCache.get(mapImageCacheKey(currentMap)) || "";
-      if (currentMapImage) rememberMapImage(currentMap, currentMapImage);
-      const nextMapImage = mapImageCache.get(mapImageCacheKey(nextMap))
-        || (mapImageCacheKey(nextMap) === mapImageCacheKey(currentMap) ? currentMapImage : "");
+      const currentMapImage = getNativeMapImage(currentMapEntry?.mapIndex ?? roomMap, currentMapEntry?.mapSeed ?? room?.mapSeed)
+        || (snapshot?.currentMap === currentMap ? snapshot?.currentMapImage : "");
+      const nextMapImage = getNativeMapImage(selectedNextEntry?.mapIndex, selectedNextEntry?.mapSeed);
       const gameMapNames = window.__fx?.getGameMapNames?.();
       const entryCards = upcomingGames.map(entry => {
         const mapName = entry.mapName || (entry.mapIndex != null && Number.isInteger(Number(entry.mapIndex))
@@ -1092,12 +1155,10 @@ const LobbyView = defineComponent({
         const modeLabel = modeKey === "team" ? labels.modeTeamGame
           : modeKey === "battle-royale" ? labels.modeBattleRoyale
             : modeKey === "duel" ? labels.modeDuel : modeKey === "zombie" ? labels.modeZombie : labels.modeUnknown;
-        const isDisplayedEntry = entry.id === selectedNextEntry?.id;
         return {
           ...entry,
           mapName,
-          mapImage: mapImageCache.get(mapImageCacheKey(mapName))
-            || (entry.id === currentMapEntry?.id ? currentMapImage : isDisplayedEntry ? nextMapImage : ""),
+          mapImage: getNativeMapImage(entry.mapIndex, entry.mapSeed),
           modeKey,
           modeLabel,
           teamCountLabel,
@@ -1249,8 +1310,28 @@ const LobbyView = defineComponent({
       else scheduleRead();
     }
 
+    function handleNativeMapPreview() {
+      publishSdkLobbySnapshot();
+      scheduleRead();
+    }
+
     function handleNativeLobbyReturn() {
       active.value = true;
+      scheduleRead();
+    }
+
+    function handleNativeMenuStateChange(event) {
+      const nextState = Number(event.detail?.nextState);
+      if (nextState === 5) {
+        active.value = false;
+        restoreNativeRoot();
+        return;
+      }
+      if (nextState !== 0
+        || (Number(window.__fx?.getGameVar?.("gameState")) === 1 && !multiplayerLobbyRequested)
+        || window.__fx?.settings?.customLobbyView === false) return;
+      active.value = true;
+      suppressNativeRoot(findLobbyRoot(shell));
       scheduleRead();
     }
 
@@ -1482,6 +1563,9 @@ const LobbyView = defineComponent({
 
     onMounted(() => {
       console.log("[ZFX Client LobbyView] Vue route mounted; waiting for native lobby data.");
+      void loadPersistentMapImages().then(() => {
+        publishSdkLobbySnapshot();
+      });
       window.__fx.debugLobbyChat = debugLobbyChat;
       window.__fx.replayNativeLobbyChat = replayNativeLobbyChat;
       nativePropagandaObserver = new MutationObserver(migrateNativePropaganda);
@@ -1526,7 +1610,16 @@ const LobbyView = defineComponent({
         }
       });
       window.__fx.getCustomLobbyClanDiagnostics = getClanDiagnostics;
-      unsubscribeGameSdk = window.__fx?.gameSdk?.lobby?.subscribe?.(() => {
+      getLobbyDataDiagnostics = () => ({
+        sdk: window.__fx?.gameSdk?.lobby?.getDiagnostics?.() ?? null,
+        nativeLobbyRootFound: Boolean(findLobbyRoot(shell)),
+        adapterSource: adapter.getSnapshot().source,
+        adapterPlayers: adapter.getSnapshot().players.length,
+        adapterEntries: adapter.getSnapshot().upcomingGames.length,
+      });
+      window.__fx.getCustomLobbyDataDiagnostics = getLobbyDataDiagnostics;
+      unsubscribeGameSdk = window.__fx?.gameSdk?.lobby?.subscribe?.(sdkSnapshot => {
+        publishSdkLobbySnapshot(sdkSnapshot);
         if (nativeRoot?.isConnected) readLobby();
       }) ?? (() => {});
       unsubscribeLobbyChat = window.__fx?.lobbyChatFeed?.subscribe?.(message => {
@@ -1552,7 +1645,9 @@ const LobbyView = defineComponent({
       console.info("[ZFX Client LobbyChat] view subscribed", window.__fx?.lobbyChatFeed?.getDiagnostics?.());
       if (!shell) return;
       window.addEventListener("fx-bot-protection-state", handleBotProtectionState);
+      window.addEventListener("fx-native-map-preview", handleNativeMapPreview);
       window.addEventListener("fx-native-lobby-return", handleNativeLobbyReturn);
+      window.addEventListener("fx-native-menu-state-change", handleNativeMenuStateChange);
       observer = new MutationObserver(records => {
         if (records.some(record => {
           const target = record.target instanceof Element ? record.target : record.target.parentElement;
@@ -1566,7 +1661,13 @@ const LobbyView = defineComponent({
       readinessRefreshTimer = window.setInterval(() => {
         // Native own-account identity may arrive after the initial roster render.
         // Re-read the existing rows so the own-clan overview can resolve then.
-        if (active.value && nativeRoot?.isConnected) scheduleRead();
+        if (!active.value) return;
+        if (nativeRoot?.isConnected) scheduleRead();
+        // Native entry previews are cached by map index + seed at their source hook.
+        if (snapshot.value.currentMap && !snapshot.value.lobbyBackgroundImage) {
+          const image = captureGameCanvasImage();
+          if (image) adapter.publish({ ...adapter.getSnapshot(), lobbyBackgroundImage: image }, adapter.getSnapshot().source);
+        }
       }, 1000);
       ratingRefreshTimer = window.setInterval(() => refreshLobbyRating(), 1000);
       refreshLobbyRating();
@@ -1581,7 +1682,9 @@ const LobbyView = defineComponent({
       if (frame) cancelAnimationFrame(frame);
       if (missingLobbyTimer) window.clearTimeout(missingLobbyTimer);
       window.removeEventListener("fx-bot-protection-state", handleBotProtectionState);
+      window.removeEventListener("fx-native-map-preview", handleNativeMapPreview);
       window.removeEventListener("fx-native-lobby-return", handleNativeLobbyReturn);
+      window.removeEventListener("fx-native-menu-state-change", handleNativeMenuStateChange);
       window.removeEventListener("fx-lobby-notification", handleLobbyNotification);
       window.removeEventListener("fx-game-language-change", handleGameLanguageChange);
       if (window.__fx?.showPropagandaInVue === showPropagandaInVue) delete window.__fx.showPropagandaInVue;
@@ -1592,6 +1695,7 @@ const LobbyView = defineComponent({
       closePropagandaMessage();
       unsubscribe();
       if (window.__fx?.getCustomLobbyClanDiagnostics === getClanDiagnostics) delete window.__fx.getCustomLobbyClanDiagnostics;
+      if (window.__fx?.getCustomLobbyDataDiagnostics === getLobbyDataDiagnostics) delete window.__fx.getCustomLobbyDataDiagnostics;
       unsubscribeGameSdk();
       unsubscribeLobbyChat();
       restoreNativeRoot();
@@ -1599,7 +1703,7 @@ const LobbyView = defineComponent({
     });
 
     return {
-      active, labels, snapshot, lobbyRating, scale, query, sortBy, readyFilter, affiliationFilter, filteredPlayers, filteredTeamPlayers, clanGroups, topReadyClan, readyClanSlices, readyClanTotal, activeTab,
+      active, labels, snapshot, lobbyRating, lobbyBackgroundStyle, scale, query, sortBy, readyFilter, affiliationFilter, filteredPlayers, filteredTeamPlayers, clanGroups, topReadyClan, readyClanSlices, readyClanTotal, activeTab,
       lobbyNotifications, notificationIndex, notificationPanelOpen, currentLobbyNotification,
       propagandaDialog, propagandaMessage, closePropagandaMessage,
       previousLobbyNotification, nextLobbyNotification,
@@ -1624,7 +1728,7 @@ const LobbyView = defineComponent({
     };
   },
   template: `
-    <section v-if="active" id="fx-custom-lobby-view" class="fx-custom-lobby" :style="{ '--fx-custom-lobby-scale': scale }" :aria-label="labels.title">
+    <section v-if="active" id="fx-custom-lobby-view" class="fx-custom-lobby" :style="{ '--fx-custom-lobby-scale': scale, ...lobbyBackgroundStyle }" :aria-label="labels.title">
       <Teleport to="body">
       <dialog ref="propagandaDialog" class="fx-lobby-propaganda-dialog" :style="propagandaMessage?.style" aria-label="Propaganda message" @cancel.prevent="closePropagandaMessage" @click.self="closePropagandaMessage">
         <header><span>PROPAGANDA</span><button type="button" :aria-label="labels.dismiss" @click="closePropagandaMessage">×</button></header>
@@ -1672,7 +1776,7 @@ const router = createRouter({
     { path: "/lobby", name: "lobby", component: LobbyView },
     { path: "/game", name: "game", component: InGameView },
     { path: "/classic", name: "classic", component: ClassicView },
-    { path: "/:pathMatch(.*)*", redirect: "/classic" },
+    { path: "/:pathMatch(.*)*", redirect: "/lobby" },
   ],
 });
 
@@ -1685,11 +1789,31 @@ let observedNativeMenu = null;
 let nativeLobbyReturnPending = false;
 let nativeLobbyReturnUntil = 0;
 let customLobbyReturnLatched = false;
+let multiplayerLobbyRequested = false;
+let multiplayerLobbyStateObserved = false;
+let nativeMatchActive = false;
 
 export function initializeCustomLobbyView() {
   migrateLobbyViewPreference();
   const shell = document.getElementById("fx-game-shell");
   if (!shell || document.getElementById(APP_ID)) return () => {};
+  const onNativeMapPreview = (mapIndex, mapSeed, canvas) => {
+    if (!(canvas instanceof HTMLCanvasElement) || !canvas.width || !canvas.height) return false;
+    const key = mapImageCacheKey(mapIndex, mapSeed);
+    if (!key || mapImageCache.has(key)) return false;
+    try {
+      const image = canvas.toDataURL("image/png");
+      if (!isSafeMapImageUrl(image) || image.length < 1500) return false;
+      rememberMapImage(mapIndex, mapSeed, image);
+      window.dispatchEvent(new CustomEvent("fx-native-map-preview", {
+        detail: { mapIndex: Number(mapIndex), mapSeed: Number(mapSeed) },
+      }));
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  window.__fx.onNativeMapPreview = onNativeMapPreview;
   const mount = document.createElement("div");
   mount.id = APP_ID;
   document.body.appendChild(mount);
@@ -1702,21 +1826,68 @@ export function initializeCustomLobbyView() {
   };
   app.use(router);
   app.mount(mount);
+  const clearMapImageCache = async () => {
+    mapImageCache.clear();
+    nativeLobbyBackgroundImage = "";
+    mapImageCacheHydrated = true;
+    try {
+      const database = await openMapImageDb();
+      if (!database) return { cleared: true, persistent: false };
+      await new Promise((resolve, reject) => {
+        const transaction = database.transaction(MAP_IMAGE_DB_STORE, "readwrite");
+        transaction.objectStore(MAP_IMAGE_DB_STORE).clear();
+        transaction.oncomplete = resolve;
+        transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () => reject(transaction.error || new Error("Map image cache clear was aborted"));
+      });
+      console.info("[ZFX Client LobbyView] Map image cache cleared.");
+      return { cleared: true, persistent: true };
+    } catch (error) {
+      console.error("[ZFX Client LobbyView] Could not clear persistent map image cache:", error);
+      return { cleared: false, persistent: false, error: String(error) };
+    }
+  };
+  window.__fx.clearMapImageCache = clearMapImageCache;
   const stopBotProtectionObserver = observeBotProtection(mount);
   let disposed = false;
   let routeTimer = 0;
+  let unsubscribeMatchStarted = () => {};
   const getTargetRoute = () => {
-    const gameState = window.__fx?.getGameVar?.("gameState");
-    const nativeMenuState = Number(window.__fx?.nativeMenuState);
+    const gameState = Number(window.__fx?.getGameVar?.("gameState"));
+    const rawNativeMenuState = window.__fx?.nativeMenuState;
+    const nativeMenuState = rawNativeMenuState != null && Number.isFinite(Number(rawNativeMenuState))
+      ? Number(rawNativeMenuState) : Number.NaN;
     const currentLobbyRoot = findLobbyRoot(shell);
     const lobbyRootStyle = currentLobbyRoot ? getComputedStyle(currentLobbyRoot) : null;
     const nativeLobbyVisible = Boolean(currentLobbyRoot?.getClientRects().length
       && lobbyRootStyle?.display !== "none"
       && lobbyRootStyle?.visibility !== "hidden"
       && Number(lobbyRootStyle?.opacity ?? 1) > 0);
-    const nativeLobbyConfirmed = nativeMenuState === 0
-      && (nativeLobbyReturnPending || customLobbyReturnLatched || previousGameState === 1)
-      || (nativeLobbyVisible && (nativeLobbyReturnPending || customLobbyReturnLatched || previousGameState === 1));
+    // Some game builds return from a match without changing their menu-state
+    // field. After a confirmed native match start, a finite game-state exit is
+    // sufficient to restore the lobby unless the game explicitly returned Home.
+    if (nativeMatchActive && Number.isFinite(gameState) && gameState !== 1) {
+      nativeMatchActive = false;
+      if (nativeMenuState === 5) return "/classic";
+      nativeLobbyBackgroundImage = captureGameCanvasImage() || nativeLobbyBackgroundImage;
+      window.__fx?.onGameReturnedToLobby?.();
+      return "/lobby";
+    }
+    if (nativeMatchActive) return "/game";
+    if (multiplayerLobbyRequested && window.__fx?.settings?.customLobbyView !== false) return "/lobby";
+    // Native menu state 5 is the home screen. Saving settings reloads the app
+    // while this state is active, so the lobby route must not become the
+    // router's default during that reload.
+    if (nativeMenuState === 5 && gameState !== 1) {
+      previousGameState = gameState;
+      return "/classic";
+    }
+    // The visible native lobby is the strongest signal. Menu/game state can
+    // lag during startup, which used to route to the empty in-game view.
+    const nativeLobbyConfirmed = nativeMenuState === 0 || nativeLobbyVisible;
+    if (nativeLobbyConfirmed && !nativeLobbyBackgroundImage) {
+      nativeLobbyBackgroundImage = captureGameCanvasImage();
+    }
     const inGame = gameState === 1 && !nativeLobbyConfirmed;
     const returnedToLobby = nativeLobbySuppressionRoot
       && (!nativeLobbySuppressionRoot.isConnected
@@ -1745,7 +1916,8 @@ export function initializeCustomLobbyView() {
       return "/game";
     }
     return inGame ? "/game"
-      : classicSessionDisabled || window.__fx?.settings?.customLobbyView === false ? "/classic" : "/lobby";
+      : classicSessionDisabled || window.__fx?.settings?.customLobbyView === false
+        || (nativeMenuState !== 0 && !nativeLobbyVisible) ? "/classic" : "/lobby";
   };
   const syncRoute = () => {
     const target = getTargetRoute();
@@ -1760,13 +1932,35 @@ export function initializeCustomLobbyView() {
       router.replace(target).catch(error => console.error("[ZFX Client] View route update failed:", error));
     }
   };
+  unsubscribeMatchStarted = window.__fx?.gameSdk?.on?.("match.started", match => {
+    nativeMatchActive = true;
+    multiplayerLobbyRequested = false;
+    multiplayerLobbyStateObserved = false;
+    customLobbyReturnLatched = false;
+    nativeLobbyReturnPending = false;
+    nativeLobbyReturnUntil = 0;
+    classicSessionDisabled = false;
+    console.info("[ZFX Client LobbyView] Match started; switching to in-game route.", match);
+    router.replace("/game").catch(error => console.error("[ZFX Client] Match route update failed:", error));
+  }) ?? (() => {});
   window.__fx.navigateFxView = path => router.push(path);
+  window.__fx.requestCustomLobbyView = () => {
+    if (window.__fx?.settings?.customLobbyView === false) return false;
+    multiplayerLobbyRequested = true;
+    multiplayerLobbyStateObserved = false;
+    nativeMatchActive = false;
+    classicSessionDisabled = false;
+    router.replace("/lobby").catch(error => console.error("[ZFX Client] Multiplayer lobby navigation failed:", error));
+    return true;
+  };
   window.__fx.isCustomLobbyViewVisible = () => window.__fx?.settings?.customLobbyView === true
     && router.currentRoute.value.path === "/lobby"
     && Boolean(mount.querySelector("#fx-custom-lobby-view"));
   window.__fx.hideCustomLobbyView = () => {
     if (!window.__fx.isCustomLobbyViewVisible()) return false;
     customLobbyReturnLatched = false;
+    multiplayerLobbyRequested = false;
+    multiplayerLobbyStateObserved = false;
     classicSessionDisabled = true;
     nativeLobbySuppressionRoot = findLobbyRoot(shell);
     nativeLobbySuppressionSawDeparture = false;
@@ -1778,6 +1972,9 @@ export function initializeCustomLobbyView() {
   };
   window.__fx.showCustomLobbyView = () => {
     customLobbyReturnLatched = false;
+    multiplayerLobbyRequested = false;
+    multiplayerLobbyStateObserved = false;
+    nativeMatchActive = false;
     classicSessionDisabled = false;
     nativeLobbySuppressionRoot = null;
     nativeLobbySuppressionSawDeparture = false;
@@ -1785,6 +1982,7 @@ export function initializeCustomLobbyView() {
     router.replace("/lobby").catch(error => console.error("[ZFX Client] Lobby show failed:", error));
   };
   window.__fx.onGameReturnedToLobby = () => {
+    nativeMatchActive = false;
     classicSessionDisabled = false;
     customLobbyReturnLatched = true;
     nativeLobbyReturnPending = true;
@@ -1839,14 +2037,26 @@ export function initializeCustomLobbyView() {
   };
   window.__fx.onNativeMenuStateChange = (previousState, nextState) => {
     window.__fx.nativeMenuState = nextState;
+    if (nextState === 0) {
+      nativeLobbyBackgroundImage = captureGameCanvasImage() || nativeLobbyBackgroundImage;
+    }
     window.dispatchEvent(new CustomEvent("fx-native-menu-state-change", { detail: { previousState, nextState } }));
+    if (multiplayerLobbyRequested) {
+      if (nextState === 0) multiplayerLobbyStateObserved = true;
+      else if (multiplayerLobbyStateObserved) {
+        multiplayerLobbyRequested = false;
+        multiplayerLobbyStateObserved = false;
+      }
+    }
     // Returning from a match can reach the native lobby through a different
     // menu path than the patched game-end handler. State 0 is the game's
     // original lobby; use that transition as a second, native return signal.
-    if (nextState === 0 && previousState !== 0 && !nativeLobbyReturnPending) {
+    if (nextState === 0 && (previousState !== 0 || nativeMatchActive)
+      && !nativeLobbyReturnPending && !multiplayerLobbyRequested) {
       window.__fx.onGameReturnedToLobby?.();
     }
     if (nextState === 0 && window.__fx?.settings?.customLobbyView !== false) syncRoute();
+    else if (multiplayerLobbyRequested) syncRoute();
     if (!classicSessionDisabled) return;
     const returnedToOriginalLobbyState = nativeLobbySuppressionReturnState !== null
       && nextState === nativeLobbySuppressionReturnState;
@@ -1876,10 +2086,13 @@ export function initializeCustomLobbyView() {
   return () => {
     disposed = true;
     window.clearInterval(routeTimer);
+    unsubscribeMatchStarted();
     stopBotProtectionObserver();
     if (app._instance) app.unmount();
     mount.remove();
     if (window.__fx?.navigateFxView) delete window.__fx.navigateFxView;
+    if (window.__fx?.clearMapImageCache === clearMapImageCache) delete window.__fx.clearMapImageCache;
+    if (window.__fx?.onNativeMapPreview === onNativeMapPreview) delete window.__fx.onNativeMapPreview;
     if (window.__fx?.isCustomLobbyViewVisible) delete window.__fx.isCustomLobbyViewVisible;
     if (window.__fx?.hideCustomLobbyView) delete window.__fx.hideCustomLobbyView;
     if (window.__fx?.showCustomLobbyView) delete window.__fx.showCustomLobbyView;

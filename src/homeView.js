@@ -18,7 +18,7 @@ const FxHomeView = defineComponent({
     const labels = computed(() => isGerman.value ? {
       accountId: "Account-ID",
       eyebrow: "DEIN SPIEL. DEIN CLIENT.", subtitle: "Dein Territorial.io-Spielbereich",
-      multiplayer: "Mehrspieler", scenario: "Szenario", scenarioNote: "Noch nicht vollständig implementiert", menuNote: "(nativ)", accountNote: "(WIP)", account: "Konto", menu: "Spielmenü",
+      multiplayer: "Mehrspieler", scenario: "Szenario", scenarioNote: "(nativ)", menuNote: "(nativ)", accountNote: "(WIP)", account: "Konto", menu: "Spielmenü",
       settings: "Einstellungen", discord: "Discord", customLobby: "Custom-Lobby beitreten oder erstellen", customLobbyNote: "Noch nicht vollständig implementiert",
       online: "Startklar", player: "Spielerprofil", changeName: "Namen ändern", nameTitle: "Spielername ändern",
       nameNote: "Bis zu 20 Zeichen. Clan-Tags wie [TAG] kannst du im Namen mit angeben.", save: "Speichern", cancel: "Zurück",
@@ -28,7 +28,7 @@ const FxHomeView = defineComponent({
     } : {
       accountId: "Account ID",
       eyebrow: "YOUR GAME. YOUR CLIENT.", subtitle: "Your Territorial.io home",
-      multiplayer: "Multiplayer", scenario: "Custom scenario", scenarioNote: "Not fully implemented", menuNote: "(native)", accountNote: "(WIP)", account: "My account", menu: "Game menu",
+      multiplayer: "Multiplayer", scenario: "Custom scenario", scenarioNote: "(native)", menuNote: "(native)", accountNote: "(WIP)", account: "My account", menu: "Game menu",
       settings: "Settings", discord: "Discord", customLobby: "Join or create a custom lobby", customLobbyNote: "Not fully implemented",
       online: "Ready to play", player: "Player profile", changeName: "Change name", nameTitle: "Change player name",
       nameNote: "Up to 20 characters. You can include clan tags like [TAG] in your name.", save: "Save name", cancel: "Back",
@@ -39,6 +39,8 @@ const FxHomeView = defineComponent({
     let timer = 0;
     const nativeHomeButtonVisibility = new WeakMap();
     const nativeNameInputVisibility = new WeakMap();
+    const hiddenNativeHomeExtras = new Map();
+    let nativeHomeExtrasObserver = null;
 
     function hasVisibleNativeHomeControls() {
       const buttons = Array.isArray(window.__fx?.nativeHomeMenuButtons) ? window.__fx.nativeHomeMenuButtons : [];
@@ -76,7 +78,67 @@ const FxHomeView = defineComponent({
       }
     }
 
-    if (window.__fx?.settings?.customHomeView !== false) setNativeHomeButtonsHidden(true);
+    function setNativeHomeExtrasHidden(hidden) {
+      const scope = document.body;
+      if (!scope) return;
+      const targets = new Set();
+      const candidates = Array.from(scope.querySelectorAll("a, img, [role='link'], div, section, article"))
+        .filter(element => !element.closest("#fx-app-mount, #fx-sidebar, #fx-home-view-root"));
+      let clanWidget = null;
+      let clanWidgetTextLength = Infinity;
+      for (const element of candidates) {
+        const text = (element.innerText || element.textContent || "").replace(/\s+/g, " ").trim();
+        if (text.length > 500 || !/top\s+clan/i.test(text) || !/best\s+clan/i.test(text)) continue;
+        if (text.length < clanWidgetTextLength) {
+          clanWidget = element;
+          clanWidgetTextLength = text.length;
+        }
+      }
+      if (clanWidget) targets.add(clanWidget);
+
+      for (const element of candidates) {
+        if (!element.matches("a, img, [role='link']")) continue;
+        const identifyingText = [element.textContent, element.getAttribute("href"), element.getAttribute("src"),
+          element.getAttribute("alt"), element.getAttribute("title")].filter(Boolean).join(" ");
+        if (!/(google\s*play|play\.google|app\s*store|apps\.apple|discord)/i.test(identifyingText)) continue;
+        targets.add(element);
+      }
+
+      if (hidden) {
+        for (const element of targets) {
+          if (hiddenNativeHomeExtras.has(element)) continue;
+          hiddenNativeHomeExtras.set(element, {
+            display: element.style.getPropertyValue("display"),
+            displayPriority: element.style.getPropertyPriority("display"),
+            visibility: element.style.getPropertyValue("visibility"),
+            visibilityPriority: element.style.getPropertyPriority("visibility"),
+            pointerEvents: element.style.getPropertyValue("pointer-events"),
+            pointerEventsPriority: element.style.getPropertyPriority("pointer-events"),
+          });
+          element.style.setProperty("display", "none", "important");
+          element.style.setProperty("visibility", "hidden", "important");
+          element.style.setProperty("pointer-events", "none", "important");
+        }
+      } else {
+        for (const [element, style] of hiddenNativeHomeExtras) {
+          if (!element.isConnected) continue;
+          for (const [property, value, priority] of [
+            ["display", style.display, style.displayPriority],
+            ["visibility", style.visibility, style.visibilityPriority],
+            ["pointer-events", style.pointerEvents, style.pointerEventsPriority],
+          ]) {
+            if (value) element.style.setProperty(property, value, priority);
+            else element.style.removeProperty(property);
+          }
+        }
+        hiddenNativeHomeExtras.clear();
+      }
+    }
+
+    if (window.__fx?.settings?.customHomeView !== false) {
+      setNativeHomeButtonsHidden(true);
+      setNativeHomeExtrasHidden(true);
+    }
 
     function refresh() {
       const game = window.__fx;
@@ -99,6 +161,7 @@ const FxHomeView = defineComponent({
       visible.value = game?.settings?.customHomeView !== false && onHomeScreen;
       const customLobbyVisible = game?.isCustomLobbyViewVisible?.() === true;
       setNativeHomeButtonsHidden(visible.value || customLobbyVisible);
+      setNativeHomeExtrasHidden(game?.settings?.customHomeView !== false);
     }
 
     function openNameEditor() {
@@ -158,11 +221,19 @@ const FxHomeView = defineComponent({
       refresh();
       timer = window.setInterval(refresh, 300);
       window.addEventListener("fx-native-menu-state-change", refresh);
+      if (window.__fx?.settings?.customHomeView !== false) {
+        nativeHomeExtrasObserver = new MutationObserver(() => {
+          if (visible.value) setNativeHomeExtrasHidden(true);
+        });
+        nativeHomeExtrasObserver.observe(document.body, { childList: true, subtree: true });
+      }
       window.__fx.openPlayerNameView = openNameEditor;
     });
     onBeforeUnmount(() => {
       if (timer) window.clearInterval(timer);
+      nativeHomeExtrasObserver?.disconnect();
       setNativeHomeButtonsHidden(false);
+      setNativeHomeExtrasHidden(false);
       window.removeEventListener("fx-native-menu-state-change", refresh);
       if (window.__fx?.openPlayerNameView === openNameEditor) delete window.__fx.openPlayerNameView;
     });

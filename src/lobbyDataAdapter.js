@@ -7,6 +7,7 @@ const EMPTY_SNAPSHOT = Object.freeze({
   modes: [],
   currentMap: "",
   currentMapImage: "",
+  lobbyBackgroundImage: "",
   currentTeamCountLabel: "",
     currentGameModeLabel: "",
   currentGameModeKey: "",
@@ -119,6 +120,7 @@ function normalizeSnapshot(snapshot, source, previousSnapshot = EMPTY_SNAPSHOT) 
     currentMap: String(snapshot?.currentMap ?? ""),
     currentMapImage: String(snapshot?.currentMapImage
       ?? (String(snapshot?.currentMap ?? "") === previousSnapshot?.currentMap ? previousSnapshot.currentMapImage : "") ?? ""),
+    lobbyBackgroundImage: String(snapshot?.lobbyBackgroundImage ?? previousSnapshot?.lobbyBackgroundImage ?? ""),
     currentTeamCountLabel: String(snapshot?.currentTeamCountLabel ?? ""),
     currentGameModeLabel: String(snapshot?.currentGameModeLabel ?? ""),
     currentGameModeKey: String(snapshot?.currentGameModeKey ?? ""),

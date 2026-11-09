@@ -67,7 +67,7 @@ export function createGameSdk({ getMapNames = () => null } = {}) {
       const id = Number(entry?.id);
       const mapIndex = Number(entry?.fG);
       const modeCode = Number(entry?.w2);
-      const maxPlayersValue = entry?.MaxPlayers ?? entry?.maxPlayers ?? entry?.max_players;
+      const maxPlayersValue = entry?.MaxPlayers ?? entry?.maxPlayers ?? entry?.max_players ?? entry?.nS;
       return Object.freeze({
         id: Number.isInteger(id) ? id : null,
         index,

@@ -2040,6 +2040,50 @@ body[data-fx-bot-protection="active"] #fx-sidebar {
 	min-height: 58px;
 }
 
+.fx-custom-lobby-contest-timers {
+	display: grid;
+	align-content: center;
+	gap: 6px;
+	min-width: 0;
+	padding: 8px 12px;
+	border: 1px solid rgba(104, 186, 225, .22);
+	border-radius: 9px;
+	background: linear-gradient(120deg, rgba(17, 45, 64, .82), rgba(9, 26, 40, .9));
+}
+
+.fx-custom-lobby-contest-timers > strong {
+	color: #a8bdd0;
+	font-size: .68em;
+	letter-spacing: .06em;
+	text-transform: uppercase;
+}
+
+.fx-custom-lobby-contest-timers > div {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 5px 10px;
+}
+
+.fx-custom-lobby-contest-timers > div > span {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 5px;
+	white-space: nowrap;
+}
+
+.fx-custom-lobby-contest-timers b {
+	color: #c1d5e6;
+	font-size: .76em;
+	font-weight: 600;
+}
+
+.fx-custom-lobby-contest-timers time {
+	color: #8ff0ac;
+	font-size: .9em;
+	font-variant-numeric: tabular-nums;
+	font-weight: 700;
+}
+
 .fx-custom-lobby-progress-text,
 .fx-custom-lobby-next-card strong {
 	font-size: 1.05em;

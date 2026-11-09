@@ -1,12 +1,10 @@
 {
-    "version": "0.1.24",
+    "version": "0.1.25",
     "lastUpdated": "November 9, 2026",
     "changes": [
-        "Add Follow join actions to player rows and player context menus, syncing the lobby to the same game entry",
-        "Add a Change name action to the lobby's current-player card",
-        "Restore saved account entries and make the Vue login initialize the native login form reliably",
-        "Open the native account screen behind My Account and keep account routing synchronized",
-        "Keep replay loading compatible with the latest native replay input flow"
+        "Show native upcoming contest timers beside the Vue lobby progress bar",
+        "Display MaxPlayers capacity on lobby game entries and the joined-game card",
+        "Use localized native table headings and formatted values in Leaderboards and Logs"
     ],
     "isSignificant": true,
     "history": [

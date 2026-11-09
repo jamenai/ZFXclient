@@ -112,14 +112,21 @@ export const LobbyProgress = defineComponent({
         <strong class="fx-custom-lobby-progress-percent">{{ percentLabel }}</strong>
         <span class="fx-custom-lobby-progress-eta">{{ etaLabel }}</span>
       </article>
+      <aside v-if="contestTimers.length" class="fx-custom-lobby-contest-timers" :aria-label="labels.upcomingContests">
+        <strong>{{ labels.upcomingContests }}</strong>
+        <div><span v-for="timer in contestTimers" :key="timer.mode"><b>{{ timer.label }}</b><time>{{ timer.time }}</time></span></div>
+      </aside>
     </section>`,
   data() { return {
     countdownTimer: 0, currentTime: Date.now(), countdownEntryId: null,
     countdownBaseline: null, countdownServerValue: null, countdownReceivedAt: 0,
     countdownSequence: null, audioContext: null, audioUnlockHandler: null,
+    contestRefreshTimer: 0, contestTimers: [],
   }; },
   mounted() {
     this.syncStartCountdown(true);
+    this.refreshContestTimers();
+    this.contestRefreshTimer = window.setInterval(this.refreshContestTimers, 1000);
     this.audioUnlockHandler = () => this.unlockProgressAudio();
     document.addEventListener("pointerdown", this.audioUnlockHandler, { capture: true, passive: true });
     document.addEventListener("keydown", this.audioUnlockHandler, { capture: true });
@@ -130,6 +137,7 @@ export const LobbyProgress = defineComponent({
   },
   beforeUnmount() {
     if (this.progressTimer) window.clearInterval(this.progressTimer);
+    if (this.contestRefreshTimer) window.clearInterval(this.contestRefreshTimer);
     if (this.audioUnlockHandler) {
       document.removeEventListener("pointerdown", this.audioUnlockHandler, true);
       document.removeEventListener("keydown", this.audioUnlockHandler, true);
@@ -167,6 +175,26 @@ export const LobbyProgress = defineComponent({
     },
   },
   methods: {
+    refreshContestTimers() {
+      let nativeText = "";
+      try { nativeText = String(window.__fx?.getNativeContestTimers?.() ?? ""); }
+      catch (error) { console.warn("[ZFX Client LobbyView] Could not read native contest timers:", error); }
+      const labelsByMode = {
+        team: this.labels.modeTeamGame,
+        br: this.labels.modeBattleRoyale,
+        "1v1": this.labels.modeDuel,
+        zombie: this.labels.modeZombie,
+      };
+      this.contestTimers = [...nativeText.matchAll(/([^:|]+):\s*(\d{1,2}:\d{2})/g)]
+        .map(([, sourceMode, time]) => {
+          const mode = sourceMode.trim().toLowerCase();
+          const key = mode === "team" ? "team"
+            : mode === "br" || mode.includes("battle") ? "br"
+              : mode === "1v1" ? "1v1" : mode.includes("zombie") ? "zombie" : "";
+          return key ? { mode: key, label: labelsByMode[key], time } : null;
+        })
+        .filter(Boolean);
+    },
     unlockProgressAudio() {
       try {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;

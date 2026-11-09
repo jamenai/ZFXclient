@@ -1,5 +1,6 @@
 import ModUtils from "../modUtils.js";
 import customLobby from "./customLobby.js";
+import contestTimers from "./contestTimers.js";
 import followedAccounts from "./followedAccounts.js";
 import gameSdk from "./gameSdk.js";
 import highlightSpawnpoints from "./highlightSpawnpoints.js";
@@ -24,6 +25,7 @@ import selfTerritoryHighlight from "./selfTerritoryHighlight.js";
 // post-minification callbacks should not depend on filesystem enumeration.
 export const patchRegistry = [
     ["customLobby.js", customLobby],
+    ["contestTimers.js", contestTimers],
     ["followedAccounts.js", followedAccounts],
     ["gameSdk.js", gameSdk],
     ["highlightSpawnpoints.js", highlightSpawnpoints],

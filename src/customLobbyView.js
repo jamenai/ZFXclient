@@ -378,7 +378,7 @@ const getLobbyLabels = (language = window.__fx?.getGameLanguage?.() || "en") => 
   return german ? {
     title: "Lobby-Übersicht", currentMap: "Aktuelle Karte", nextMap: "Ausgewähltes Spiel", selectedGame: "Ausgewähltes Spiel", joinedGame: "Beigetretenes Spiel", selectGame: "Spiel auswählen", noGameSelected: "Kein Spiel ausgewählt", chooseGameHint: "Wähle oben ein anstehendes Spiel aus.", modes: "Spielmodi", upcomingGames: "Anstehende Spiele", noOtherUpcomingGames: "Keine weiteren anstehenden Spiele", gameEntry: "Spiel", map: "Karte", modeTeamGame: "Team", modeTeams: "Teams", modeBattleRoyale: "Battle Royale", modeDuel: "1v1", modeZombie: "Zombie", modeUnknown: "Spielmodus", selected: "Ausgewählt", joinGame: "Beitreten", leaveGame: "Verlassen", joinSelected: "Ausgewählt · beitreten", waitingForGames: "Warte auf anstehende Spiele …", unknownPlayer: "Unbekannter Spieler", clans: "Clans",
     lobbyRating: "Lobby-Rating", lobbyRatingUnavailable: "Warte auf bereite Spieler mit Rang",
-    teams: "Teams", currentPlayer: "Du spielst als", changeName: "Namen ändern", gameMode: "Spielmodus", readyPlayers: "Bereite Spieler", quickFilters: "Schnellfilter", lobbyInfo: "Lobby-Info", lobbyViews: "Lobby-Bereiche",
+    teams: "Teams", currentPlayer: "Du spielst als", changeName: "Namen ändern", upcomingContests: "Nächste Contests", gameMode: "Spielmodus", readyPlayers: "Bereite Spieler", quickFilters: "Schnellfilter", lobbyInfo: "Lobby-Info", lobbyViews: "Lobby-Bereiche",
     overview: "Übersicht", topReadyPlayers: "Top 3 bereite Spieler", noReadyPlayers: "Keine bereiten Spieler",
     topReadyClan: "Top-Clan (bereit)",
     overviewLeadersNote: "Beste Weltränge unter den bereiten Spielern",
@@ -401,7 +401,7 @@ const getLobbyLabels = (language = window.__fx?.getGameLanguage?.() || "en") => 
   } : {
     title: "Lobby overview", currentMap: "Current map", nextMap: "Your selection", selectedGame: "Your selection", joinedGame: "Joined game", selectGame: "Select game", noGameSelected: "No game selected", chooseGameHint: "Choose an upcoming game above.", modes: "Game modes", upcomingGames: "Upcoming games", noOtherUpcomingGames: "No other upcoming games", gameEntry: "Game", map: "Map", modeTeamGame: "Team", modeTeams: "Teams", modeBattleRoyale: "Battle Royale", modeDuel: "1v1", modeZombie: "Zombie", modeUnknown: "Game mode", selected: "Selected", joinGame: "Join", leaveGame: "Leave", joinSelected: "Selected · join", waitingForGames: "Waiting for upcoming games …", unknownPlayer: "Unknown player", clans: "Clans",
     lobbyRating: "Lobby rating", lobbyRatingUnavailable: "Waiting for ready players with rank data",
-    teams: "Teams", currentPlayer: "Playing as", changeName: "Change name", gameMode: "Game mode", readyPlayers: "Ready players", quickFilters: "Quick filters", lobbyInfo: "Lobby info", lobbyViews: "Lobby views",
+    teams: "Teams", currentPlayer: "Playing as", changeName: "Change name", upcomingContests: "Upcoming contests", gameMode: "Game mode", readyPlayers: "Ready players", quickFilters: "Quick filters", lobbyInfo: "Lobby info", lobbyViews: "Lobby views",
     overview: "Overview", topReadyPlayers: "Top 3 ready players", noReadyPlayers: "No ready players",
     topReadyClan: "Top ready clan",
     overviewLeadersNote: "Highest global ranks among ready players",

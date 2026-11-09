@@ -18,6 +18,12 @@ export default definePatch((modUtils) => {
 		modUtils.script = modUtils.script.replace(tableBuilder, match => `Number.isInteger(data?.uq)&&Array.isArray(fc.uN)&&Array.isArray(fc.uH)&&(window.__fx.logsViewActive?window.__fx.logsAdapter:window.__fx.leaderboardsViewActive?window.__fx.leaderboardsAdapter:null)?.receiveTable?.({category:data.uq,headers:fc.uN,widths:fc.uU,rows:fc.uH.map(row=>row.map(cell=>({text:String(cell?.g1??""),interactive:cell?.ea===1,id:cell?.uX??null,secondaryId:cell?.uY??null})))}),${match}`);
 	}
 
+	// Forward the native table model after it has applied localized headers,
+	// widths, formatted values, and player links. The response hook above is a
+	// raw protocol fallback and otherwise exposes opaque numeric columns.
+	replaceOne(/\}\}aVE=new uJ\(aRp\.xp,fd\)\}function aVN/g,
+		`}}(window.__fx.logsViewActive?window.__fx.logsAdapter:window.__fx.leaderboardsViewActive?window.__fx.leaderboardsAdapter:null)?.receiveTable?.({category:data.ut,headers:fd.uQ,widths:fd.uX,rows:fd.uK.map(row=>row.map(cell=>({text:String(cell?.g2??""),interactive:cell?.eb===1,id:cell?.ua??null,secondaryId:cell?.ub??null})))});aVE=new uJ(aRp.xp,fd)}function aVN`);
+
 	// Player list and leaderboard filter tabs
 
     const uiOffset = dict.uiSizes + "." + dict.gap

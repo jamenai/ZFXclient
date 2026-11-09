@@ -1,6 +1,6 @@
 import { definePatch, insert } from "../modUtils.js"
 
-export default definePatch(({ replaceRawCode, matchCode, insertCode, modifyCode }) => {
+export default definePatch(({ matchCode, modifyCode, replace, waitForMinification }) => {
   // keep a rolling history of last 5 replays.
   modifyCode(`this.a3d = function(eY) {
 		if (!bC.re.a6x.length) {
@@ -38,22 +38,22 @@ export default definePatch(({ replaceRawCode, matchCode, insertCode, modifyCode 
     /*insert line:*/ __fx.replayHistory.setActiveReplay(null);
     ${protocol}.${watchReplay}();
   }`)
-  try { insertCode(`
-    this.stripPrefix = function(text) {
-      var index = text.indexOf("=");
-      if (index >= 0) return text.substring(index + 1);
-      return text;
-    };
-    this.encode = function(text) { return text; };
-    /* here */`,
-    `__fx.replayHistory.load = (saved, timestamp) => {
-      saved = ${protocol}.${stripPrefix}(saved);
-      if (${protocol}.${parser}.${parseReplay}(saved)) {
-        __fx.replayHistory.setActiveReplay(timestamp);
-        ${protocol}.${watchReplay}();
-      } else __fx.replayHistory.setActiveReplay(null);
-    };`);
-  } catch (error) {
-    console.warn("[ZFX Client] Native replay input adapter changed; replay history loading is unavailable.");
-  }
+  waitForMinification(() => {
+    try {
+      replace(/__fx\.replay\.restartReplay\s*=\s*\(\)\s*=>\s*this\.aWC\(\)\s*,\s*this\.aWC\s*=\s*function\(\)\s*\{\s*var\s+\w+\s*=/,
+        `__fx.replayHistory.load = function(saved, timestamp) {
+          saved = ${protocol}.${stripPrefix}(saved);
+          ${menuSystem}.${closeMenu}();
+          if (${protocol}.${parser}.${parseReplay}(saved)) {
+            __fx.replayHistory.setActiveReplay(timestamp);
+            ${protocol}.${watchReplay}();
+            return true;
+          }
+          __fx.replayHistory.setActiveReplay(null);
+          return false;
+        };$&`);
+    } catch (error) {
+      console.warn("[ZFX Client] Native replay input adapter changed; replay history loading is unavailable.", error);
+    }
+  });
 })

@@ -222,7 +222,7 @@ function createLegacySidebar() {
       ? window.__fx.openVueGameSettings()
       : typeof window.__fx?.openVueSettings === "function"
         ? window.__fx.openVueSettings() : window.__fx?.WindowManager?.openWindow("settings")],
-    ["🔑", "sidebarAccount", () => window.__fx?.openAccount?.()],
+    ["🔑", "sidebarAccount", () => window.__fx?.openVueMyAccount?.()],
     ["🧈", "sidebarGoldTransfer", () => window.__fx?.openGameMenuAction?.("goldTransfer")],
   ]);
 

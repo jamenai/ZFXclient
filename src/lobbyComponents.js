@@ -236,7 +236,7 @@ export const LobbyProgress = defineComponent({
 
 export const PlayerList = defineComponent({
   props: { players: Array, allPlayers: Array, clans: Array, labels: Object, count: Number, playerCountLabel: String, query: String, sortBy: String, readyFilter: String, affiliationFilter: String, activeTab: String, chatMessages: Array, chatStatus: String, teamMode: Boolean, teamPlayers: Array, teamClan: String, teamCount: String, clanCount: String, topReadyClan: Object, onlyReadyClans: Boolean, currentMap: String, nextMap: String, nextTeamCount: String },
-  emits: ["update:query", "update:sort", "update:ready-filter", "update:affiliation-filter", "reset-filter-groups", "reset-filters", "filter-ready-clans", "select-player", "select-tab", "send-chat", "send-call", "send-join", "send-team-message"],
+  emits: ["update:query", "update:sort", "update:ready-filter", "update:affiliation-filter", "reset-filter-groups", "reset-filters", "filter-ready-clans", "select-player", "follow-join", "select-tab", "send-chat", "send-call", "send-join", "send-team-message"],
   data() { return { teamMessage: "", teamMessageStatus: "" }; },
   template: `
     <section class="fx-custom-lobby-player-panel fx-custom-lobby-workspace">
@@ -274,7 +274,7 @@ export const PlayerList = defineComponent({
                 <td class="fx-custom-lobby-player-name"><i class="fx-custom-lobby-status-dot" :class="'is-' + player.readiness"></i>{{ player.name }}</td>
                 <td class="fx-custom-lobby-player-clan">{{ player.clan ? '[' + player.clan + ']' : '—' }}</td>
                 <td>{{ player.rankText || (player.rank ? '#' + player.rank.toLocaleString() : '-') }}</td>
-                <td class="fx-custom-lobby-player-status" :class="'is-' + player.readiness"><span>{{ player.readiness === 'ready' ? labels.ready : player.readiness === 'not-ready' ? labels.notReady : labels.online }}</span><small v-if="player.readiness === 'ready' && player.readyEntryLabel"> · {{ player.readyEntryLabel }}</small></td>
+                <td class="fx-custom-lobby-player-status" :class="'is-' + player.readiness"><span>{{ player.readiness === 'ready' ? labels.ready : player.readiness === 'not-ready' ? labels.notReady : labels.online }}</span><small v-if="player.readiness === 'ready' && player.readyEntryLabel"> · {{ player.readyEntryLabel }}</small><button v-if="player.readiness === 'ready' && player.entryId != null && !player.self" type="button" class="fx-custom-lobby-follow-join" :title="labels.followJoin" @click.stop.prevent="$emit('follow-join', player)">{{ labels.followJoin }}</button></td>
               </tr>
               <tr v-if="!visiblePlayers.length"><td colspan="5" class="fx-custom-lobby-empty">{{ activeTab === 'team' && !teamClan ? labels.noClan : labels.noPlayers }}</td></tr>
             </tbody>

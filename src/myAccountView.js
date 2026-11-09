@@ -37,14 +37,15 @@ export const myAccountAdapter = {
   },
   getSnapshot() { return nativeProfileSnapshot ? { ...nativeProfileSnapshot } : null; },
   setSavedAccounts(data, select, login, remove) {
-    const names = Array.isArray(data?.options) ? data.options : [];
+    const names = Array.isArray(data?.options) ? data.options : Array.isArray(data?.oP) ? data.oP : [];
     savedAccountSnapshot = names.map((name, index) => ({ name: String(name || "").trim(), index }))
       .filter(entry => entry.index > 0 && entry.name);
     savedAccountActions = { data, select, login, remove };
     window.dispatchEvent(new Event("fx-my-account-saved-accounts-update"));
   },
   getSavedAccounts() {
-    const names = Array.isArray(savedAccountActions?.data?.options) ? savedAccountActions.data.options : savedAccountSnapshot.map(entry => entry.name);
+    const data = savedAccountActions?.data;
+    const names = Array.isArray(data?.options) ? data.options : Array.isArray(data?.oP) ? data.oP : savedAccountSnapshot.map(entry => entry.name);
     return names.map((name, index) => ({ name: String(name || "").trim(), index })).filter(entry => entry.index > 0 && entry.name);
   },
   useSavedAccount(index) {
@@ -154,6 +155,12 @@ const MyAccountView = defineComponent({
 
     function open() {
       if (visible.value) return;
+      const currentMenuState = Number(window.__fx?.nativeMenuState);
+      returnMenuState = Number.isInteger(currentMenuState) ? currentMenuState : 5;
+      handedOffToNative.value = false;
+      try { window.__fx?.openAccount?.(); }
+      catch (error) { console.warn("[ZFX Client MyAccountView] Could not open the native account screen", error); }
+      window.__fx?.refreshSavedAccounts?.();
       refresh();
       activeSection.value = "overview";
       bioDraft.value = String(gameProfile.value?.bio || "");
@@ -217,13 +224,14 @@ const MyAccountView = defineComponent({
       window.requestAnimationFrame(() => window.__fx?.openPlayerNameView?.());
     }
     function openLoginView() {
-      if (typeof window.__fx?.nativeLoginAdapter?.login !== "function") {
-        status.value = labels.value.actionUnavailable;
-        return false;
-      }
       handedOffToNative.value = true;
       close();
-      window.requestAnimationFrame(() => window.__fx?.openVueLoginView?.());
+      window.requestAnimationFrame(() => {
+        // The native login adapter is created with the native login screen.
+        // Initialize that screen first, then immediately cover it with Vue.
+        window.__fx?.setNativeMenuState?.(6);
+        window.__fx?.openVueLoginView?.();
+      });
       return true;
     }
     function findNativeButton(labelId, prefix = false) {

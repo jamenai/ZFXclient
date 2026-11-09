@@ -1,12 +1,12 @@
 {
-    "version": "0.1.23",
+    "version": "0.1.24",
     "lastUpdated": "November 9, 2026",
     "changes": [
-        "Remove obsolete native lobby layout and styling patches now that the Vue lobby owns the interface",
-        "Fix Game Settings language selection and restore editable native shortcut groups",
-        "Open Game Settings first from the HomeView and sidebar",
-        "Remove the unused same-clan highlight setting and disable own-territory highlighting by default",
-        "Remove discontinued client feature toggles from the settings UI and runtime"
+        "Add Follow join actions to player rows and player context menus, syncing the lobby to the same game entry",
+        "Add a Change name action to the lobby's current-player card",
+        "Restore saved account entries and make the Vue login initialize the native login form reliably",
+        "Open the native account screen behind My Account and keep account routing synchronized",
+        "Keep replay loading compatible with the latest native replay input flow"
     ],
     "isSignificant": true,
     "history": [

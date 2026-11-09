@@ -63,17 +63,32 @@ const LoginView = defineComponent({
         error.value = labels.value.required;
         return;
       }
-      const login = window.__fx?.nativeLoginAdapter?.login;
-      if (typeof login !== "function") {
-        error.value = labels.value.unavailable;
-        return;
-      }
       submitting.value = true;
       let started = false;
-      try { started = await login(name, password.value); } catch (loginError) {
+      try {
+        let adapter = window.__fx?.nativeLoginAdapter;
+        if (typeof adapter?.login !== "function") {
+          window.__fx?.setNativeMenuState?.(6);
+          await new Promise(resolve => requestAnimationFrame(resolve));
+          adapter = window.__fx?.nativeLoginAdapter;
+        }
+        if (typeof adapter?.login === "function") started = await adapter.login(name, password.value);
+        if (!started && typeof window.__fx?.setNativeMenuState === "function") {
+          // Recreate the native form once in case its fields were not ready when the view opened.
+          window.__fx.setNativeMenuState(6);
+          await new Promise(resolve => requestAnimationFrame(resolve));
+          adapter = window.__fx?.nativeLoginAdapter;
+          if (typeof adapter?.login === "function") started = await adapter.login(name, password.value);
+        }
+      } catch (loginError) {
         console.error("[ZFX Client LoginView] Native login failed to start", loginError);
       }
       if (!started) {
+        console.warn("[ZFX Client LoginView] Native login adapter is not ready", {
+          adapterAvailable: typeof window.__fx?.nativeLoginAdapter?.login === "function",
+          menuStateAvailable: typeof window.__fx?.setNativeMenuState === "function",
+          nativeMenuState: window.__fx?.nativeMenuState,
+        });
         submitting.value = false;
         error.value = labels.value.unavailable;
         return;

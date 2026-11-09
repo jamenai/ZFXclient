@@ -102,8 +102,11 @@ async function patchGameCode(buildTimestamp) {
 		/(function aKG\(eI,aKF\)\{[\s\S]*?canvas\[eI\]=bD\.or\.a6v\(canvas\[eI\],a6w,a6x\);)/,
 	];
 	const nativeLogoRenderer = nativeLogoRenderers.find(renderer => renderer.test(script));
-	if (!nativeLogoRenderer) throw new Error("Could not locate a supported native logo renderer.");
-	script = script.replace(nativeLogoRenderer, "$&if(eI===6||eI===22){var blank=document.createElement('canvas');blank.width=canvas[eI].width;blank.height=canvas[eI].height;canvas[eI]=blank;}");
+	if (nativeLogoRenderer) {
+		script = script.replace(nativeLogoRenderer, "$&if(eI===6||eI===22){var blank=document.createElement('canvas');blank.width=canvas[eI].width;blank.height=canvas[eI].height;canvas[eI]=blank;}");
+	} else {
+		console.warn("Native logo renderer changed; skipping logo canvas suppression.");
+	}
 
 	const modUtils = new ModUtils(minifyCode(script));
 

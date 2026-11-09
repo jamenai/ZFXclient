@@ -852,6 +852,7 @@ const LobbyView = defineComponent({
       const nextMode = resolveMode(selectedEntry?.modeCode);
       const currentMap = resolveMap(currentEntry);
       const nextMap = resolveMap(selectedEntry);
+      const entriesById = new Map(entries.map(entry => [Number(entry.id), entry]));
       if (!mapImageCacheHydrated) {
         void loadPersistentMapImages().then(() => {
           if (active.value) publishSdkLobbySnapshot(sdkLobby);
@@ -867,6 +868,15 @@ const LobbyView = defineComponent({
         clan: getPlayerClan(player.name),
         readiness: player.ready ? "ready" : "not-ready",
         ready: player.ready === true,
+        readyEntryLabel: player.ready && player.entryId != null
+          ? (() => {
+            const entry = entriesById.get(Number(player.entryId));
+            if (!entry) return `${labels.gameEntry} #${player.entryId}`;
+            const mapName = resolveMap(entry) || `${labels.map} ${entry.mapIndex ?? ""}`.trim();
+            const mode = resolveMode(entry.modeCode).label;
+            return [mapName, mode !== labels.modeUnknown ? mode : ""].filter(Boolean).join(" · ");
+          })()
+          : "",
         rankCode: player.rankCode,
         rankText: player.rankText,
         self: (ownId != null && String(ownId) === String(player.id))

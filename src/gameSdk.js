@@ -65,19 +65,19 @@ export function createGameSdk({ getMapNames = () => null } = {}) {
     try { mapNames = getMapNames(); } catch { /* Keep protocol data available if map metadata is not ready. */ }
     const entries = latestNativeEntries.map((entry, index) => {
       const id = Number(entry?.id);
-      const mapIndex = Number(entry?.fF);
-      const modeCode = Number(entry?.vz);
+      const mapIndex = Number(entry?.fG);
+      const modeCode = Number(entry?.w2);
       return Object.freeze({
         id: Number.isInteger(id) ? id : null,
         index,
         selected: Number.isInteger(id) && id === selectedEntryId,
-        countdownSeconds: Number(entry?.wK),
-        playerCount: Number(entry?.h2),
+        countdownSeconds: Number(entry?.wN),
+        playerCount: Number(entry?.h3),
         mapIndex,
         mapName: Number.isInteger(mapIndex) ? String(mapNames?.[mapIndex] ?? "") : "",
         mapSeed: Number(entry?.mapSeed),
         modeCode,
-        isContest: entry?.wN === 1,
+        isContest: entry?.wR === 1,
         readyCount: rostersByEntryId.get(id)?.readyCount ?? null,
         players: rostersByEntryId.get(id)?.players ?? null,
       });
@@ -143,27 +143,49 @@ export function createGameSdk({ getMapNames = () => null } = {}) {
     return true;
   }
 
-  function receiveNativePlayers(players, readyCount, entryId, selectedId = selectedEntryId, sequence = null) {
+  function receiveNativePlayers(players, entries = latestNativeEntries, selectedId = selectedEntryId, sequence = null) {
     if (!Array.isArray(players)) return false;
-    const parsedEntryId = Number(entryId);
-    const safeReadyCount = Number(readyCount);
     const normalizedPlayers = players.map((player, index) => Object.freeze({
-      id: Number.isInteger(Number(player?.uX)) ? Number(player.uX) : null,
+      id: Number.isInteger(Number(player?.ua)) ? Number(player.ua) : null,
       name: String(player?.username ?? ""),
-      ready: index < safeReadyCount,
-      rankCode: Number.isFinite(Number(player?.a6r)) && Number(player.a6r) >= 0 && Number(player.a6r) !== 1234566
-        ? Number(player.a6r) : null,
+      ready: Number(player?.wk) > 0,
+      entryId: Number.isInteger(Number(player?.wk)) && Number(player.wk) > 0 ? Number(player.wk) : null,
+      rankCode: Number.isFinite(Number(player?.a75)) && Number(player.a75) >= 0 && Number(player.a75) !== 1234566
+        ? Number(player.a75) : null,
       rankText: String(window.__fx?.getNativeLobbyPlayerRankText?.(player) ?? ""),
       colorCode: Number.isFinite(Number(player?.color)) ? Number(player.color) : null,
     }));
+    const entryList = Array.isArray(entries) ? entries : latestNativeEntries;
+    for (const entry of entryList) {
+      const id = Number(entry?.id);
+      if (!Number.isInteger(id) || id <= 0) continue;
+      const entryPlayers = normalizedPlayers.filter(player => player.entryId === id);
+      const previous = rostersByEntryId.get(id);
+      const entryRoster = Object.freeze({
+        entryId: id,
+        selectedEntryIdAtUpdate: Number.isInteger(Number(selectedId)) && Number(selectedId) > 0 ? Number(selectedId) : null,
+        sequence: sequence || activeSequence,
+        updateNumber: (previous?.updateNumber ?? 0) + 1,
+        updatedAt: Date.now(),
+        readyCount: entryPlayers.length,
+        playerCount: entryPlayers.length,
+        players: Object.freeze(entryPlayers),
+      });
+      rostersByEntryId.set(id, entryRoster);
+    }
+    const parsedEntryId = Number(entryList.find(entry => Number(entry?.id) === Number(selectedId))?.id ?? entryList[0]?.id);
+    const currentEntryPlayers = normalizedPlayers.filter(player => player.entryId === parsedEntryId);
     roster = Object.freeze({
       entryId: Number.isInteger(parsedEntryId) && parsedEntryId > 0 ? parsedEntryId : null,
       selectedEntryIdAtUpdate: Number.isInteger(Number(selectedId)) && Number(selectedId) > 0 ? Number(selectedId) : null,
       sequence: sequence || activeSequence,
       updateNumber: roster.updateNumber + 1,
       updatedAt: Date.now(),
-      readyCount: Number.isInteger(safeReadyCount) ? Math.max(0, Math.min(safeReadyCount, players.length)) : 0,
+      readyCount: currentEntryPlayers.length,
       playerCount: normalizedPlayers.length,
+      // The lobby-wide player list includes everyone. `entryId` and `ready`
+      // describe each player's upcoming-game assignment; they must not filter
+      // players out of the shared roster.
       players: Object.freeze(normalizedPlayers),
     });
     if (roster.entryId !== null) rostersByEntryId.set(roster.entryId, roster);

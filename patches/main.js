@@ -1,6 +1,5 @@
 import ModUtils from "../modUtils.js";
 import customLobby from "./customLobby.js";
-import duplicateIpHighlight from "./duplicateIpHighlight.js";
 import followedAccounts from "./followedAccounts.js";
 import gameSdk from "./gameSdk.js";
 import highlightSpawnpoints from "./highlightSpawnpoints.js";
@@ -10,6 +9,7 @@ import lobbyLayout from "./lobbyLayout.js";
 import lobbyReminders from "./lobbyReminders.js";
 import misc from "./misc.js";
 import mobileKeybinds from "./mobileKeybinds.js";
+import nativeLoginView from "./nativeLoginView.js";
 import nameFilter from "./nameFilter.js";
 import nameRendering from "./nameRendering.js";
 import passwordReset from "./passwordReset.js";
@@ -20,13 +20,11 @@ import replayHistory from "./replayHistory.js";
 import replayTimebar from "./replayTimebar.js";
 import savedAccounts from "./savedAccounts.js";
 import selfTerritoryHighlight from "./selfTerritoryHighlight.js";
-import titanChatButton from "./titanChatButton.js";
 
 // Preserve the current application order explicitly. Patch dependencies and
 // post-minification callbacks should not depend on filesystem enumeration.
 export const patchRegistry = [
     ["customLobby.js", customLobby],
-    ["duplicateIpHighlight.js", duplicateIpHighlight],
     ["followedAccounts.js", followedAccounts],
     ["gameSdk.js", gameSdk],
     ["highlightSpawnpoints.js", highlightSpawnpoints],
@@ -36,6 +34,7 @@ export const patchRegistry = [
     ["lobbyReminders.js", lobbyReminders],
     ["misc.js", misc],
     ["mobileKeybinds.js", mobileKeybinds],
+    ["nativeLoginView.js", nativeLoginView],
     ["nameFilter.js", nameFilter],
     ["nameRendering.js", nameRendering],
     ["passwordReset.js", passwordReset],
@@ -46,7 +45,6 @@ export const patchRegistry = [
     ["replayTimebar.js", replayTimebar],
     ["savedAccounts.js", savedAccounts],
     ["selfTerritoryHighlight.js", selfTerritoryHighlight],
-    ["titanChatButton.js", titanChatButton],
 ];
 
 /** @param {ModUtils} modUtils @param {[string, (modUtils: ModUtils) => unknown][]} registry @param {{ continueOnError?: boolean }} [options] */

@@ -4308,3 +4308,129 @@ label.checkbox .checkmark:after {
 	background: linear-gradient(105deg, rgba(var(--fx-ui-accent-rgb, 87, 219, 161), .26), rgba(var(--fx-ui-accent-rgb, 87, 219, 161), .12)) !important;
 	color: #eefcf6 !important;
 }
+
+#fx-login-view-root { display: contents; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+.fx-login-view-overlay {
+	position: fixed;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 10005;
+	box-sizing: border-box;
+	color: #edf6ff;
+	background: radial-gradient(ellipse at 16% 8%, rgba(35, 104, 136, .16), transparent 42%), rgba(3, 9, 17, .86);
+	backdrop-filter: blur(5px);
+}
+.fx-login-view {
+	display: grid;
+	grid-template-rows: auto minmax(0, 1fr) auto;
+	width: 100%;
+	height: 100%;
+	min-height: 0;
+	font-size: clamp(14px, 1vw, 18px);
+}
+.fx-login-view-header {
+	padding: clamp(20px, 3.2vh, 38px) 24px 20px;
+	border-bottom: 1px solid rgba(157, 195, 226, .2);
+	text-align: center;
+}
+.fx-login-view-header small {
+	color: #8da9bf;
+	font-size: .68em;
+	font-weight: 750;
+	letter-spacing: .18em;
+}
+.fx-login-view-header h1 {
+	margin: 4px 0 5px;
+	color: #f0f7ff;
+	font-size: clamp(28px, 3vw, 42px);
+	font-weight: 760;
+}
+.fx-login-view-header p {
+	margin: 0;
+	color: #91a9be;
+	font-size: .92em;
+}
+.fx-login-view-content {
+	display: grid;
+	grid-template-columns: minmax(240px, 1fr) minmax(240px, .85fr);
+	align-content: center;
+	gap: clamp(16px, 2vw, 28px);
+	width: min(900px, calc(100% - 48px));
+	margin: 0 auto;
+	padding: 24px 0;
+}
+.fx-login-form { display: grid; align-content: start; gap: 18px; min-width: 0; }
+.fx-login-field { display: grid; gap: 8px; color: #d9e8f5; font-weight: 680; }
+.fx-login-field > span { font-size: .94em; }
+.fx-login-field-hint { color: #869eb2; font-size: .74em; font-weight: 450; line-height: 1.4; }
+.fx-login-field input {
+	width: 100%;
+	min-height: 48px;
+	box-sizing: border-box;
+	padding: 11px 13px;
+	border: 1px solid rgba(145, 184, 215, .28);
+	border-radius: 10px;
+	outline: none;
+	background: rgba(5, 14, 25, .88);
+	color: #f2f8ff;
+	font: inherit;
+}
+.fx-login-field input:focus { border-color: rgba(var(--fx-ui-accent-rgb, 87, 219, 161), .72); box-shadow: 0 0 0 3px rgba(var(--fx-ui-accent-rgb, 87, 219, 161), .13); }
+.fx-login-password-control { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.fx-login-password-control button {
+	min-width: 82px;
+	padding: 8px 12px;
+	border: 1px solid rgba(145, 184, 215, .2);
+	border-radius: 9px;
+	background: rgba(20, 39, 58, .82);
+	color: #d9e9f5;
+	font: inherit;
+	cursor: pointer;
+}
+.fx-login-security-card {
+	align-self: start;
+	padding: 20px;
+	border: 1px solid rgba(145, 184, 215, .18);
+	border-radius: 14px;
+	background: rgba(10, 23, 38, .84);
+}
+.fx-login-security-card > span { color: var(--fx-ui-accent, #57dba1); font-size: 1.4em; }
+.fx-login-security-card h2 { margin: 8px 0 14px; color: #eaf4fc; font-size: 1.05em; }
+.fx-login-security-card p { margin: 0 0 12px; color: #a9bdce; font-size: .86em; line-height: 1.5; }
+.fx-login-security-card p:last-child { margin-bottom: 0; }
+.fx-login-error { margin: 0; color: #ffaaa8; font-size: .86em; }
+.fx-login-view-footer {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 12px;
+	padding: 14px clamp(18px, 3vw, 40px);
+	border-top: 1px solid rgba(157, 195, 226, .2);
+}
+.fx-login-view-footer button {
+	min-height: 48px;
+	padding: 10px 16px;
+	border: 1px solid rgba(145, 184, 215, .2);
+	border-radius: 10px;
+	background: rgba(16, 34, 52, .85);
+	color: #e6f1fa;
+	font: inherit;
+	font-weight: 680;
+	cursor: pointer;
+}
+.fx-login-view-footer .fx-login-back { justify-self: start; min-width: 150px; text-align: left; }
+.fx-login-view-footer .fx-login-submit {
+	justify-self: end;
+	min-width: min(240px, 100%);
+	border-color: rgba(var(--fx-ui-accent-rgb, 87, 219, 161), .4);
+	background: linear-gradient(110deg, rgba(var(--fx-ui-accent-rgb, 87, 219, 161), .25), rgba(var(--fx-ui-accent-rgb, 87, 219, 161), .1));
+}
+.fx-login-view-footer .fx-login-submit b { margin-left: 10px; color: var(--fx-ui-accent, #57dba1); }
+.fx-login-view-footer button:disabled { opacity: .6; cursor: wait; }
+@media (max-width: 680px) {
+	.fx-login-view-content { grid-template-columns: minmax(0, 1fr); width: min(480px, calc(100% - 32px)); gap: 14px; }
+	.fx-login-security-card { padding: 15px; }
+	.fx-login-view-header { padding-inline: 14px; }
+	.fx-login-view-footer { gap: 8px; padding-inline: 12px; }
+	.fx-login-view-footer .fx-login-back { min-width: 0; }
+}

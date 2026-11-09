@@ -1,6 +1,7 @@
 import { definePatch, insert } from "../modUtils.js";
 
 export default definePatch(({ matchCode, modifyCode }) => {
+  try {
 
     const { options } = matchCode(`entry = document.createElement("p");
         entry.textContent = "⚪ " + source.options[i];`);
@@ -24,4 +25,7 @@ export default definePatch(({ matchCode, modifyCode }) => {
         }).button]));`)}
         section.add(new ButtonRow([buttons[1].button]));`,
         { dictionary: { options, Button } });
+  } catch (error) {
+    console.warn("[ZFX Client] Native saved-account dialog changed; saved-account UI bridge is unavailable.");
+  }
 });

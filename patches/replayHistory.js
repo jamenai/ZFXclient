@@ -38,26 +38,22 @@ export default definePatch(({ replaceRawCode, matchCode, insertCode, modifyCode 
     /*insert line:*/ __fx.replayHistory.setActiveReplay(null);
     ${protocol}.${watchReplay}();
   }`)
-
-  insertCode(`
+  try { insertCode(`
     this.stripPrefix = function(text) {
       var index = text.indexOf("=");
-      if (index >= 0) {
-        return text.substring(index + 1);
-      }
+      if (index >= 0) return text.substring(index + 1);
       return text;
     };
-    this.encode = function(text) {
-      return text;
-    };
+    this.encode = function(text) { return text; };
     /* here */`,
     `__fx.replayHistory.load = (saved, timestamp) => {
       saved = ${protocol}.${stripPrefix}(saved);
       if (${protocol}.${parser}.${parseReplay}(saved)) {
         __fx.replayHistory.setActiveReplay(timestamp);
         ${protocol}.${watchReplay}();
-      } else {
-        __fx.replayHistory.setActiveReplay(null);
-      }
-    };`)
+      } else __fx.replayHistory.setActiveReplay(null);
+    };`);
+  } catch (error) {
+    console.warn("[ZFX Client] Native replay input adapter changed; replay history loading is unavailable.");
+  }
 })

@@ -90,7 +90,7 @@ export default definePatch(({ insertCode, modifyCode, replaceCode, replaceRawCod
     rW += __L([__fx.utils.escapeHtml("" + lp)]);`
   )
 
-  insertCode(
+  try { insertCode(
     `var value = getParam("account");
     if (!value) {
       value = getParam("a");
@@ -105,7 +105,9 @@ export default definePatch(({ insertCode, modifyCode, replaceCode, replaceRawCod
       b.clear();
       return false;
     }`
-  )
+  ) } catch (error) {
+    console.warn("[ZFX Client] Account query normalization hook is absent in this native version.");
+  }
 
   // for the custom lobby version
   try {

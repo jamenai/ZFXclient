@@ -279,7 +279,7 @@ export const PlayerList = defineComponent({
                 <td class="fx-custom-lobby-player-name"><i class="fx-custom-lobby-status-dot" :class="'is-' + player.readiness"></i>{{ player.name }}</td>
                 <td class="fx-custom-lobby-player-clan">{{ player.clan ? '[' + player.clan + ']' : '—' }}</td>
                 <td>{{ player.rankText || (player.rank ? '#' + player.rank.toLocaleString() : '-') }}</td>
-                <td class="fx-custom-lobby-player-status" :class="'is-' + player.readiness">{{ player.readiness === 'ready' ? labels.ready : player.readiness === 'not-ready' ? labels.notReady : labels.online }}</td>
+                <td class="fx-custom-lobby-player-status" :class="'is-' + player.readiness"><span>{{ player.readiness === 'ready' ? labels.ready : player.readiness === 'not-ready' ? labels.notReady : labels.online }}</span><small v-if="player.readiness === 'ready' && player.readyEntryLabel"> · {{ player.readyEntryLabel }}</small></td>
               </tr>
               <tr v-if="!visiblePlayers.length"><td colspan="5" class="fx-custom-lobby-empty">{{ activeTab === 'team' && !teamClan ? labels.noClan : labels.noPlayers }}</td></tr>
             </tbody>

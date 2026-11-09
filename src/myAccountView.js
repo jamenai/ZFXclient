@@ -107,7 +107,7 @@ const MyAccountView = defineComponent({
         bio: "Profiltext", supporter: "Unterstützerstatus", supporterActive: "Verknüpft", supporterInactive: "Nicht verknüpft",
         savedAccounts: "Gespeicherte Konten", useAccount: "Anmelden", removeAccount: "Entfernen", noSavedAccounts: "Keine gespeicherten Konten.",
       overviewTab: "Übersicht", accountTab: "Konto", securityTab: "Sicherheit", profileTab: "Profil",
-      accountActions: "Kontoaktionen", switchAccount: "Zu anderem Konto wechseln", createAccount: "Neues Konto erstellen", deleteAccount: "Konto löschen",
+      accountActions: "Kontoaktionen", switchAccount: "Mit anderem Konto anmelden", createAccount: "Neues Konto erstellen", deleteAccount: "Konto löschen",
       security: "Sicherheit und Zugriff", password: "Passwort", resetPassword: "Passwort ändern / zurücksetzen", email: "E-Mail-Adresse",
       emailPlaceholder: "Neue E-Mail-Adresse", codePlaceholder: "Bestätigungscode", requestCode: "Code anfordern", submitCode: "Code bestätigen",
       profileBio: "Profilbeschreibung", saveBio: "Beschreibung speichern", bioPlaceholder: "Kurze Beschreibung für dein Profil",
@@ -122,7 +122,7 @@ const MyAccountView = defineComponent({
         bio: "Profile bio", supporter: "Supporter status", supporterActive: "Connected", supporterInactive: "Not connected",
         savedAccounts: "Saved accounts", useAccount: "Log in", removeAccount: "Remove", noSavedAccounts: "No saved accounts.",
       overviewTab: "Overview", accountTab: "Account", securityTab: "Security", profileTab: "Profile",
-      accountActions: "Account actions", switchAccount: "Switch to another account", createAccount: "Create new account", deleteAccount: "Delete account",
+      accountActions: "Account actions", switchAccount: "Log in with another account", createAccount: "Create new account", deleteAccount: "Delete account",
       security: "Security and access", password: "Password", resetPassword: "Change / reset password", email: "Email address",
       emailPlaceholder: "New email address", codePlaceholder: "Verification code", requestCode: "Request code", submitCode: "Verify code",
       profileBio: "Profile bio", saveBio: "Save bio", bioPlaceholder: "A short description for your profile",
@@ -159,13 +159,6 @@ const MyAccountView = defineComponent({
       bioDraft.value = String(gameProfile.value?.bio || "");
       status.value = "";
       visible.value = true;
-      if (typeof window.__fx?.openAccount === "function") {
-        returnMenuState = Number(window.__fx.nativeMenuState);
-        handedOffToNative.value = false;
-        profileHydrationListener = refresh;
-        window.addEventListener("fx-my-account-profile-update", profileHydrationListener);
-        window.__fx.openAccount();
-      }
     }
     function close() {
       visible.value = false;
@@ -179,7 +172,14 @@ const MyAccountView = defineComponent({
     }
     function handoffToNative(action) {
       const target = findNativeButton(action.labelId, action.prefix === true);
-      if (!target) { status.value = labels.value.actionUnavailable; return false; }
+      if (!target) {
+        status.value = labels.value.actionUnavailable;
+        console.warn("[ZFX Client MyAccountView] Native account action button not found", {
+          labelId: action.labelId,
+          expected: window.__fx?.getNativeGameLabel?.(action.labelId) || "",
+        });
+        return false;
+      }
       handedOffToNative.value = true;
       visible.value = false;
       target.click();
@@ -216,10 +216,25 @@ const MyAccountView = defineComponent({
       close();
       window.requestAnimationFrame(() => window.__fx?.openPlayerNameView?.());
     }
+    function openLoginView() {
+      if (typeof window.__fx?.nativeLoginAdapter?.login !== "function") {
+        status.value = labels.value.actionUnavailable;
+        return false;
+      }
+      handedOffToNative.value = true;
+      close();
+      window.requestAnimationFrame(() => window.__fx?.openVueLoginView?.());
+      return true;
+    }
     function findNativeButton(labelId, prefix = false) {
       const expected = String(window.__fx?.getNativeGameLabel?.(labelId) || "").trim();
       if (!expected) return null;
-      const candidates = [...document.querySelectorAll("button")].filter(button => !button.closest("#fx-my-account-view-root"));
+      const candidates = [...document.querySelectorAll("button, [role=button]")].filter(button => {
+        if (button.closest("#fx-my-account-view-root") || button.disabled || !button.isConnected) return false;
+        if (typeof button.checkVisibility === "function") return button.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });
+        const style = window.getComputedStyle(button);
+        return button.getClientRects().length > 0 && style.display !== "none" && style.visibility !== "hidden" && style.opacity !== "0";
+      });
       return candidates.reverse().find(button => {
         const text = String(button.textContent || "").trim();
         return prefix ? text.startsWith(expected) : text === expected;
@@ -294,7 +309,7 @@ const MyAccountView = defineComponent({
     return {
       visible, activeSection, navigation, playerName, accountId, gameProfile, savedAccounts, status, isGerman,
       bioDraft, emailDraft, verificationCode, labels: extendedLabels, close, copyId, changeName,
-      handoffToNative, requestEmailCode, submitEmailCode, saveBio, useSavedAccount, removeSavedAccount,
+      handoffToNative, requestEmailCode, submitEmailCode, saveBio, useSavedAccount, removeSavedAccount, openLoginView,
     };
   },
   template: `
@@ -355,9 +370,8 @@ const MyAccountView = defineComponent({
             </article>
           </section>
           <article class="fx-my-account-action-grid">
-            <button type="button" @click="handoffToNative({ labelId: 206 })"><span>SW</span><strong>{{ labels.switchAccount }}</strong><i>&rsaquo;</i></button>
-            <button type="button" @click="handoffToNative({ labelId: 207 })"><span>+</span><strong>{{ labels.createAccount }}</strong><i>&rsaquo;</i></button>
-            <button type="button" class="is-danger" @click="handoffToNative({ labelId: 208, prefix: true })"><span>X</span><strong>{{ labels.deleteAccount }}</strong><i>&rsaquo;</i></button>
+            <button type="button" @click="openLoginView"><span>SW</span><strong>{{ labels.switchAccount }}</strong><i>&rsaquo;</i></button>
+            <button type="button" class="is-danger" @click="handoffToNative({ labelId: 214, prefix: true })"><span>X</span><strong>{{ labels.deleteAccount }}</strong><i>&rsaquo;</i></button>
           </article>
           </section>
           <section v-if="activeSection === 'security'" class="fx-my-account-section">

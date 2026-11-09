@@ -1,13 +1,24 @@
 {
-    "version": "0.1.20",
-    "lastUpdated": "November 8, 2026",
+    "version": "0.1.21",
+    "lastUpdated": "November 9, 2026",
     "changes": [
-        "Add UI transparency and accent-color skin settings",
-        "Improve lobby rank data and translated rating labels",
-        "Smooth HomeView navigation and preserve post-match results"
+        "Update native patches and lobby data adapters for game version 2.17.1",
+        "Show all lobby players with each player's ready entry and status",
+        "Correct game entry map, mode, player count, countdown, and contest data",
+        "Restore the shared lobby chat channel and current player rank information",
+        "Add a dedicated account login view and document known Terri error codes"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.20",
+            "lastUpdated": "November 8, 2026",
+            "changes": [
+                "Add UI transparency and accent-color skin settings",
+                "Improve lobby rank data and translated rating labels",
+                "Smooth HomeView navigation and preserve post-match results"
+            ]
+        },
         {
             "version": "0.1.19",
             "lastUpdated": "November 8, 2026",

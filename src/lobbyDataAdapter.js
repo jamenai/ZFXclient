@@ -32,6 +32,8 @@ function normalizePlayer(player) {
     name: String(player.name ?? ""),
     clan: player.clan ? String(player.clan).toLocaleUpperCase() : null,
     readiness: ["ready", "not-ready"].includes(player.readiness) ? player.readiness : "unknown",
+    entryId: player.entryId != null && Number.isInteger(Number(player.entryId)) ? Number(player.entryId) : null,
+    readyEntryLabel: String(player.readyEntryLabel ?? ""),
     rank: Number.isFinite(Number(player.rank)) && Number(player.rank) > 0 ? Number(player.rank)
       : Number.isFinite(Number(player.rankCode)) && Number(player.rankCode) >= 0 ? Number(player.rankCode) + 1 : null,
     rankText: String(player.rankText ?? ""),
@@ -60,6 +62,7 @@ function normalizeSnapshot(snapshot, source, previousSnapshot = EMPTY_SNAPSHOT) 
       id: Number.isInteger(Number(game.id)) ? Number(game.id) : null,
       countdownSeconds: game.countdownSeconds != null && Number.isFinite(Number(game.countdownSeconds)) ? Number(game.countdownSeconds) : null,
       playerCount: game.playerCount != null && Number.isFinite(Number(game.playerCount)) ? Number(game.playerCount) : null,
+      maxPlayers: game.maxPlayers != null && Number.isFinite(Number(game.maxPlayers)) ? Number(game.maxPlayers) : null,
       readyCount: game.readyCount != null && Number.isFinite(Number(game.readyCount)) ? Number(game.readyCount) : null,
       players: Array.isArray(game.players) ? game.players.map(player => {
         const name = String(player.name ?? "");
@@ -82,6 +85,8 @@ function normalizeSnapshot(snapshot, source, previousSnapshot = EMPTY_SNAPSHOT) 
       teamCountLabel: String(game.teamCountLabel ?? ""),
       isContest: game.isContest === true,
       selected: game.selected === true,
+      active: game.active === true,
+      joined: game.joined === true,
     })) : [],
     chatMessages: Array.isArray(snapshot?.chatMessages) ? snapshot.chatMessages
       .map((message, index) => ({

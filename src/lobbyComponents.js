@@ -20,18 +20,18 @@ const GameModeBadge = defineComponent({
 
 export const MapHeader = defineComponent({
   components: { GameModeBadge },
-  props: { map: String, mapImage: String, nextMap: String, nextMapImage: String, nextTeamCountLabel: String, nextGameModeLabel: String, gameModeKey: String, nextGameModeKey: String, nextGameMeta: String, isContest: Boolean, nextIsContest: null, noFullsend: Boolean, nextNoFullsend: Boolean, labels: Object, entries: Array, currentMapEntryId: Number, currentMapSelected: Boolean, selectionDisabled: Boolean, entryTitle: Function, readyCount: Number, readyClans: Array, readyClanTotal: Number, teamCount: String, gameModeLabel: String, lobbyRating: Object },
-  emits: ["select-entry", "select-current"],
+  props: { map: String, mapImage: String, nextMap: String, nextMapImage: String, nextTeamCountLabel: String, nextGameModeLabel: String, gameModeKey: String, nextGameModeKey: String, nextGameMeta: String, isContest: Boolean, nextIsContest: null, noFullsend: Boolean, nextNoFullsend: Boolean, labels: Object, entries: Array, currentMapEntryId: Number, selectedGameJoined: Boolean, selectionDisabled: Boolean, entryTitle: Function, readyCount: Number, readyClans: Array, readyClanTotal: Number, teamCount: String, gameModeLabel: String, lobbyRating: Object },
+  emits: ["select-entry", "join-selected"],
   template: `
     <header class="fx-custom-lobby-top">
       <nav class="fx-custom-lobby-modes fx-custom-lobby-entries" :aria-label="labels.upcomingGames">
         <button v-for="entry in visibleEntries" :key="entry.id ?? entry.index" type="button"
-          class="fx-custom-lobby-mode fx-custom-lobby-entry" :class="{ 'is-active': entry.selected, 'is-contest': entry.isContest }" :data-mode="entry.modeKey"
-          :aria-pressed="entry.selected" @click="$emit('select-entry', entry)">
+          class="fx-custom-lobby-mode fx-custom-lobby-entry" :class="{ 'is-active': entry.active, 'is-next': entry.selected, 'is-contest': entry.isContest }" :data-mode="entry.modeKey" :data-next-game="entry.selected ? 'true' : 'false'"
+          :aria-pressed="entry.active" @click="$emit('select-entry', entry)">
           <img v-if="entry.mapImage" class="fx-custom-lobby-entry-map-image" :src="entry.mapImage" alt="" aria-hidden="true">
           <span class="fx-custom-lobby-mode-meta">
             <span v-if="entry.countdownSeconds != null" class="fx-custom-lobby-mode-clock">{{ formatCountdown(entry.countdownSeconds) }}</span>
-            <span class="fx-custom-lobby-mode-count-group"><span v-if="entry.playerCount != null" class="fx-custom-lobby-mode-count">{{ entry.playerCount }} {{ labels.players.toLowerCase() }}</span></span>
+            <span class="fx-custom-lobby-mode-count-group"><span v-if="entry.playerCount != null || entry.maxPlayers != null" class="fx-custom-lobby-mode-count">{{ entry.playerCount ?? '—' }}<template v-if="entry.maxPlayers != null">/{{ entry.maxPlayers }}</template> {{ labels.players.toLowerCase() }}</span><span v-if="entry.rating" class="fx-custom-lobby-entry-rating" :title="entry.rating.title"><img :src="entry.rating.image" alt="" aria-hidden="true"><b>{{ entry.rating.value }}</b></span></span>
           </span>
           <GameModeBadge :mode-key="entry.modeKey" :label="entry.modeLabel" />
           <strong class="fx-custom-lobby-mode-title">{{ entryTitle(entry) }}<span v-if="entry.isContest" class="fx-custom-lobby-contest-badge">CONTEST</span><span v-if="entry.selected" class="fx-custom-lobby-entry-selected">✓ {{ labels.selected }}</span></strong>
@@ -73,12 +73,11 @@ export const MapHeader = defineComponent({
           <div><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0m2-9a3 3 0 1 0 0-6m1 9a5 5 0 0 1 3 4"/></svg><span>{{ labels.readyPlayers }}</span><strong>{{ readyCount }}</strong></div>
           <div v-if="teamCount"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20a6 6 0 0 1 12 0m1-4a4.5 4.5 0 0 1 5 4"/></svg><span>{{ labels.teams }}</span><strong>{{ teamCount }}</strong></div>
           <strong v-if="noFullsend" class="fx-custom-lobby-rules-badge">NO FULLSEND</strong>
-          <button type="button" class="fx-custom-lobby-entry-selection" :class="currentMapSelected ? 'is-selected' : 'is-not-selected'" :aria-pressed="currentMapSelected" :disabled="selectionDisabled" @click="$emit('select-current')">{{ currentMapSelected ? labels.leaveGame : labels.joinGame }}</button>
         </div>
       </section>
       <article class="fx-custom-lobby-card fx-custom-lobby-next-card" :class="{ 'is-contest': Boolean(nextMap) && nextIsContest === true, 'is-standard': Boolean(nextMap) && nextIsContest === false, 'is-empty': !nextMap }">
         <img v-if="nextMapImage" class="fx-custom-lobby-next-image" :src="nextMapImage" alt="" aria-hidden="true">
-        <div class="fx-custom-lobby-next-heading"><span class="fx-custom-lobby-next-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg></span><span class="fx-custom-lobby-next-label">{{ nextMap ? labels.selectedGame : labels.selectGame }}</span><b v-if="nextMap && nextIsContest === true" class="fx-custom-lobby-contest-badge">CONTEST</b><b v-else-if="nextMap && nextIsContest === false" class="fx-custom-lobby-next-standard">{{ labels.nextStandardGame }}</b><b v-else-if="nextMap" class="fx-custom-lobby-next-unknown">{{ labels.nextContestUnknown }}</b></div>
+        <div class="fx-custom-lobby-next-heading"><span class="fx-custom-lobby-next-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg></span><span class="fx-custom-lobby-next-label">{{ nextMap ? (selectedGameJoined ? labels.joinedGame : labels.selectedGame) : labels.selectGame }}</span><b v-if="nextMap && nextIsContest === true" class="fx-custom-lobby-contest-badge">CONTEST</b><b v-else-if="nextMap && nextIsContest === false" class="fx-custom-lobby-next-standard">{{ labels.nextStandardGame }}</b><b v-else-if="nextMap" class="fx-custom-lobby-next-unknown">{{ labels.nextContestUnknown }}</b></div>
         <div class="fx-custom-lobby-next-title-row">
           <GameModeBadge v-if="nextGameModeKey" :mode-key="nextGameModeKey" :label="nextGameModeLabel" standalone />
           <strong class="fx-custom-lobby-next-title">{{ nextMap || labels.noGameSelected }}</strong>
@@ -87,6 +86,7 @@ export const MapHeader = defineComponent({
         <small v-if="nextGameModeLabel" class="fx-custom-lobby-next-mode-label">{{ nextGameModeLabel }}<span v-if="nextTeamCountLabel"> · {{ nextTeamCountLabel }}</span></small>
         <small v-if="!nextMap" class="fx-custom-lobby-next-teams">{{ labels.chooseGameHint }}</small>
         <strong v-if="nextNoFullsend" class="fx-custom-lobby-rules-badge">NO FULLSEND</strong>
+        <button type="button" class="fx-custom-lobby-entry-selection" :class="selectedGameJoined ? 'is-selected' : 'is-not-selected'" :aria-pressed="selectedGameJoined" :disabled="selectionDisabled" @click="$emit('join-selected')">{{ selectedGameJoined ? labels.leaveGame : labels.joinGame }}</button>
       </article>
       </div>
     </header>`,
@@ -98,12 +98,7 @@ export const MapHeader = defineComponent({
   },
   computed: {
     visibleEntries() {
-      const entries = this.entries || [];
-      if (!entries.length) return [];
-      const currentIndex = this.currentMapEntryId == null ? 0
-        : entries.findIndex(entry => Number(entry.id) === Number(this.currentMapEntryId));
-      const hiddenIndex = currentIndex >= 0 ? currentIndex : 0;
-      return entries.filter((_entry, index) => index !== hiddenIndex);
+      return this.entries || [];
     },
   },
 });
@@ -527,7 +522,7 @@ export const ClanOverview = defineComponent({
             <span class="fx-custom-lobby-clan-ready-label">{{ labels.ready }}</span>
           </div>
         </header>
-        <div class="fx-custom-lobby-clan-members"><button v-for="player in members" :key="player.id || player.name" type="button" class="fx-custom-lobby-clan-member" :title="player.title || player.name" :style="player.color ? { color: player.color } : null" @click.stop.prevent="$emit('select-player', player, $event)"><i class="fx-custom-lobby-status-dot" :class="'is-' + player.readiness"></i>{{ player.name }}</button><p v-if="!clan" class="fx-custom-lobby-clan-empty">{{ labels.noClan }}</p><p v-else-if="!members.length" class="fx-custom-lobby-clan-empty">{{ labels.noClanMembers }}</p></div>
+        <div class="fx-custom-lobby-clan-members"><button v-for="player in members" :key="player.id || player.name" type="button" class="fx-custom-lobby-clan-member" :title="player.readiness === 'other-entry' ? (player.readyEntryLabel || player.name) : (player.title || player.name)" :style="player.color ? { color: player.color } : null" @click.stop.prevent="$emit('select-player', player, $event)"><i class="fx-custom-lobby-status-dot" :class="'is-' + player.readiness"></i>{{ player.name }}</button><p v-if="!clan" class="fx-custom-lobby-clan-empty">{{ labels.noClan }}</p><p v-else-if="!members.length" class="fx-custom-lobby-clan-empty">{{ labels.noClanMembers }}</p></div>
       </article>
     </aside>`,
 });

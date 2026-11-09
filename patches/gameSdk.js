@@ -28,7 +28,11 @@ export default definePatch(({ replaceOne }) => {
   // the native protocol as the transport, while publishing the decoded data.
   replaceOne(
     /if\(id===0\)\{return\{id:id,ua:bK\.rX\(30\),s:bq\.aGG\.aIY\(bJ\.zO\.zf\(7\)\)\}\}/g,
-    "if(id===0){var senderId=bK.rX(30);var text=bq.aGG.aIY(bJ.zO.zf(7));window.__fx?.lobbyChatFeed?.observeSocketEntry?.({id:id,ua:senderId,s:text});window.__fx?.lobbyChatFeed?.publish?.({text:text,senderId:senderId});return{id:id,ua:senderId,s:text};}"
+    "if(id===0){return{id:id,ua:bK.rX(30),s:bq.aGG.aIY(bJ.zO.zf(7))};}"
+  );
+  replaceOne(
+    /var aJK=aY3\(\);bq\.tZ\.aJJ\(aJK\);tQ\.push\(aJK\)/g,
+    "var aJK=aY3();if(aJK&&aJK.id===0){window.__fx?.lobbyChatFeed?.observeSocketEntry?.(aJK);window.__fx?.lobbyChatFeed?.publish?.({id:'native-chat:'+bq.z.tR+':'+aC,senderId:aJK.ua,text:aJK.s});}bq.tZ.aJJ(aJK);tQ.push(aJK)"
   );
 
   replaceOne(

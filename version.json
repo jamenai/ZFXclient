@@ -1,15 +1,26 @@
 {
-    "version": "0.1.21",
+    "version": "0.1.22",
     "lastUpdated": "November 9, 2026",
     "changes": [
-        "Update native patches and lobby data adapters for game version 2.17.1",
-        "Show all lobby players with each player's ready entry and status",
-        "Correct game entry map, mode, player count, countdown, and contest data",
-        "Restore the shared lobby chat channel and current player rank information",
-        "Add a dedicated account login view and document known Terri error codes"
+        "Separate the locally previewed game entry from the next game selected by the server",
+        "Show per-entry lobby rating emblems and player capacity in game cards",
+        "Scope clan ready states and counts to the game shown in the Join card",
+        "Automatically select the next available game when an unjoined entry starts",
+        "Improve countdown visibility and preserve MaxPlayers data from the native game"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.21",
+            "lastUpdated": "November 9, 2026",
+            "changes": [
+                "Update native patches and lobby data adapters for game version 2.17.1",
+                "Show all lobby players with each player's ready entry and status",
+                "Correct game entry map, mode, player count, countdown, and contest data",
+                "Restore the shared lobby chat channel and current player rank information",
+                "Add a dedicated account login view and document known Terri error codes"
+            ]
+        },
         {
             "version": "0.1.20",
             "lastUpdated": "November 8, 2026",

@@ -391,7 +391,7 @@ const getLobbyLabels = (language = window.__fx?.getGameLanguage?.() || "en") => 
   const selectedLanguage = String(language || "en");
   const german = selectedLanguage.toLowerCase().startsWith("de");
   return german ? {
-    title: "Lobby-Übersicht", currentMap: "Aktuelle Karte", nextMap: "Ausgewähltes Spiel", selectedGame: "Ausgewähltes Spiel", selectGame: "Spiel auswählen", noGameSelected: "Kein Spiel ausgewählt", chooseGameHint: "Wähle oben ein anstehendes Spiel aus.", modes: "Spielmodi", upcomingGames: "Anstehende Spiele", noOtherUpcomingGames: "Keine weiteren anstehenden Spiele", gameEntry: "Spiel", map: "Karte", modeTeamGame: "Team", modeTeams: "Teams", modeBattleRoyale: "Battle Royale", modeDuel: "1v1", modeZombie: "Zombie", modeUnknown: "Spielmodus", selected: "Ausgewählt", joinGame: "Beitreten", leaveGame: "Verlassen", joinSelected: "Ausgewählt · beitreten", waitingForGames: "Warte auf anstehende Spiele …", unknownPlayer: "Unbekannter Spieler", clans: "Clans",
+    title: "Lobby-Übersicht", currentMap: "Aktuelle Karte", nextMap: "Ausgewähltes Spiel", selectedGame: "Ausgewähltes Spiel", joinedGame: "Beigetretenes Spiel", selectGame: "Spiel auswählen", noGameSelected: "Kein Spiel ausgewählt", chooseGameHint: "Wähle oben ein anstehendes Spiel aus.", modes: "Spielmodi", upcomingGames: "Anstehende Spiele", noOtherUpcomingGames: "Keine weiteren anstehenden Spiele", gameEntry: "Spiel", map: "Karte", modeTeamGame: "Team", modeTeams: "Teams", modeBattleRoyale: "Battle Royale", modeDuel: "1v1", modeZombie: "Zombie", modeUnknown: "Spielmodus", selected: "Ausgewählt", joinGame: "Beitreten", leaveGame: "Verlassen", joinSelected: "Ausgewählt · beitreten", waitingForGames: "Warte auf anstehende Spiele …", unknownPlayer: "Unbekannter Spieler", clans: "Clans",
     lobbyRating: "Lobby-Rating", lobbyRatingUnavailable: "Warte auf bereite Spieler mit Rang",
     teams: "Teams", currentPlayer: "Du spielst als", gameMode: "Spielmodus", readyPlayers: "Bereite Spieler", quickFilters: "Schnellfilter", lobbyInfo: "Lobby-Info", lobbyViews: "Lobby-Bereiche",
     overview: "Übersicht", topReadyPlayers: "Top 3 bereite Spieler", noReadyPlayers: "Keine bereiten Spieler",
@@ -414,7 +414,7 @@ const getLobbyLabels = (language = window.__fx?.getGameLanguage?.() || "en") => 
     playersCount: "Spieler", noClan: "Kein eigener Clan erkannt", lobbyUnavailable: "Lobby wird geladen …",
     chatUnavailable: "Lobby-Chat konnte nicht geöffnet werden",
   } : {
-    title: "Lobby overview", currentMap: "Current map", nextMap: "Your selection", selectedGame: "Your selection", selectGame: "Select game", noGameSelected: "No game selected", chooseGameHint: "Choose an upcoming game above.", modes: "Game modes", upcomingGames: "Upcoming games", noOtherUpcomingGames: "No other upcoming games", gameEntry: "Game", map: "Map", modeTeamGame: "Team", modeTeams: "Teams", modeBattleRoyale: "Battle Royale", modeDuel: "1v1", modeZombie: "Zombie", modeUnknown: "Game mode", selected: "Selected", joinGame: "Join", leaveGame: "Leave", joinSelected: "Selected · join", waitingForGames: "Waiting for upcoming games …", unknownPlayer: "Unknown player", clans: "Clans",
+    title: "Lobby overview", currentMap: "Current map", nextMap: "Your selection", selectedGame: "Your selection", joinedGame: "Joined game", selectGame: "Select game", noGameSelected: "No game selected", chooseGameHint: "Choose an upcoming game above.", modes: "Game modes", upcomingGames: "Upcoming games", noOtherUpcomingGames: "No other upcoming games", gameEntry: "Game", map: "Map", modeTeamGame: "Team", modeTeams: "Teams", modeBattleRoyale: "Battle Royale", modeDuel: "1v1", modeZombie: "Zombie", modeUnknown: "Game mode", selected: "Selected", joinGame: "Join", leaveGame: "Leave", joinSelected: "Selected · join", waitingForGames: "Waiting for upcoming games …", unknownPlayer: "Unknown player", clans: "Clans",
     lobbyRating: "Lobby rating", lobbyRatingUnavailable: "Waiting for ready players with rank data",
     teams: "Teams", currentPlayer: "Playing as", gameMode: "Game mode", readyPlayers: "Ready players", quickFilters: "Quick filters", lobbyInfo: "Lobby info", lobbyViews: "Lobby views",
     overview: "Overview", topReadyPlayers: "Top 3 ready players", noReadyPlayers: "No ready players",
@@ -561,7 +561,6 @@ const LobbyView = defineComponent({
     const activeTab = ref("overview");
     let hasOpenedPlayersTab = false;
     const currentSelectionOverride = ref(undefined);
-    let currentSelectionOverrideTimer = 0;
     const playerContextMenu = ref(null);
     const playerListComponent = ref(null);
     const startupLobbyCandidate = shell ? findLobbyRoot(shell) : null;
@@ -648,15 +647,30 @@ const LobbyView = defineComponent({
         || b.players.length - a.players.length
         || a.tag.localeCompare(b.tag));
     });
+    function readyPlayersForEntry(entry) {
+      const entryId = entry?.id;
+      if (entryId == null) return [];
+      const assignedPlayers = snapshot.value.players.filter(player => player.entryId != null
+        && Number(player.entryId) === Number(entryId)
+        && player.readiness === "ready");
+      if (assignedPlayers.length || snapshot.value.players.some(player => player.entryId != null)) return assignedPlayers;
+      return Array.isArray(entry.players)
+        ? entry.players.filter(player => player.readiness === "ready"
+          && (player.entryId == null || Number(player.entryId) === Number(entryId)))
+        : [];
+    }
     const topReadyClan = computed(() => clanGroups.value.find(clan => clan.readyCount > 0) ?? null);
-    const readyClanTotal = computed(() => snapshot.value.players
-      .filter(player => player.readiness === "ready").length);
+    const selectedEntryReadyPlayers = computed(() => {
+      return readyPlayersForEntry(selectedGameEntry.value);
+    });
+    const selectedEntryReadyCount = computed(() => Number.isFinite(Number(selectedGameEntry.value?.readyCount))
+      ? Number(selectedGameEntry.value.readyCount) : selectedEntryReadyPlayers.value.length);
+    const readyClanTotal = computed(() => selectedEntryReadyPlayers.value.length);
     const readyClanSlices = computed(() => {
       const counts = new Map();
       const othersSliceId = "__fx_others__";
       let untaggedCount = 0;
-      for (const player of snapshot.value.players) {
-        if (player.readiness !== "ready") continue;
+      for (const player of selectedEntryReadyPlayers.value) {
         if (!player.clan) {
           untaggedCount++;
           continue;
@@ -744,11 +758,42 @@ const LobbyView = defineComponent({
         lobbyPlayers: snapshot.value.players.map(player => ({ id: player.id, name: player.name, clan: player.clan, self: player.self })),
       };
     };
-    const nextGameMeta = computed(() => {
+    const displayedUpcomingGames = computed(() => {
       const entries = snapshot.value.upcomingGames ?? [];
-      const selectedEntry = entries.find(entry => entry.selected);
+      const previewEntryId = currentSelectionOverride.value !== undefined
+        ? currentSelectionOverride.value
+        : entries.find(entry => entry.selected)?.id
+          ?? entries.find(entry => entry.joined)?.id
+          ?? (snapshot.value.currentMapEntryId == null ? null
+            : entries.find(entry => Number(entry.id) === Number(snapshot.value.currentMapEntryId))?.id)
+          ?? entries[0]?.id
+          ?? null;
+      return entries.map(entry => {
+        const readyPlayers = readyPlayersForEntry(entry);
+        return {
+          ...entry,
+          active: Number(entry.id) === Number(previewEntryId),
+          rating: calculateLobbyRating(readyPlayers.map(player => player.rank),
+            key => window.__fx?.translateFX?.(key) ?? labels[key] ?? key),
+        };
+      });
+    });
+    const selectedGameEntry = computed(() => displayedUpcomingGames.value.find(entry => entry.active) ?? null);
+    const joinedGameEntry = computed(() => displayedUpcomingGames.value.find(entry => entry.joined) ?? null);
+    const joinCardEntry = computed(() => joinedGameEntry.value
+      ?? selectedGameEntry.value
+      ?? (snapshot.value.currentMapEntryId == null ? null
+        : displayedUpcomingGames.value.find(entry => Number(entry.id) === Number(snapshot.value.currentMapEntryId)))
+      ?? null);
+    const selectedGameJoined = computed(() => Boolean(joinedGameEntry.value));
+    const nextGameMeta = computed(() => {
+      const selectedEntry = joinCardEntry.value;
       const values = [];
-      if (selectedEntry?.playerCount != null) values.push(`${selectedEntry.playerCount} ${labels.players.toLowerCase()}`);
+      if (selectedEntry?.playerCount != null || selectedEntry?.maxPlayers != null) {
+        const count = selectedEntry.playerCount == null ? "—" : selectedEntry.playerCount;
+        const capacity = selectedEntry.maxPlayers == null ? "" : `/${selectedEntry.maxPlayers}`;
+        values.push(`${count}${capacity} ${labels.players.toLowerCase()}`);
+      }
       if (selectedEntry?.countdownSeconds != null) {
         const seconds = Math.max(0, Math.floor(selectedEntry.countdownSeconds));
         values.push(`${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`);
@@ -762,7 +807,18 @@ const LobbyView = defineComponent({
     const clanOverviewGroup = computed(() => ownClan.value
       ? clanGroups.value.find(group => group.tag === ownClan.value) ?? null
       : null);
-    const clanPlayers = computed(() => clanOverviewGroup.value?.players ?? []);
+    const clanPlayers = computed(() => {
+      if (!ownClan.value) return [];
+      const members = snapshot.value.players.filter(player => player.clan === ownClan.value);
+      const entryId = joinCardEntry.value?.id;
+      if (entryId == null) return members;
+      const readyIds = new Set(readyPlayersForEntry(joinCardEntry.value).map(player => String(player.id)));
+      return members.map(player => ({
+        ...player,
+        readiness: readyIds.has(String(player.id)) ? "ready"
+          : player.readiness === "ready" && player.entryId != null ? "other-entry" : "not-ready",
+      }));
+    });
     const teamCount = computed(() => `${ownClanPlayers.value.filter(player => player.readiness === "ready").length}/${ownClanPlayers.value.length}`);
     const filteredTeamPlayers = computed(() => filteredPlayers.value
       .filter(player => ownClan.value && player.clan === ownClan.value));
@@ -771,11 +827,6 @@ const LobbyView = defineComponent({
       const entries = snapshot.value.upcomingGames ?? [];
       return entries.find(entry => entry.id === snapshot.value.currentMapEntryId) ?? entries[0] ?? null;
     });
-    const currentMapEntrySelected = computed(() => currentMapEntry.value
-      ? currentSelectionOverride.value !== undefined
-        ? currentSelectionOverride.value === currentMapEntry.value.id
-        : currentMapEntry.value.selected === true
-      : false);
 
     let observer = null;
     let frame = 0;
@@ -787,19 +838,9 @@ const LobbyView = defineComponent({
     let readinessRefreshTimer = 0;
     let ratingRefreshTimer = 0;
 
-    function refreshLobbyRating(players = snapshot.value.players) {
-      const sidebarRating = window.__fx?.vueSidebarApi?.getLobbyRating?.();
-      const visibleRatingCard = document.querySelector("#fx-sidebar .fx-vue-sidebar-rating");
-      const visibleValue = visibleRatingCard?.querySelector("strong")?.textContent?.match(/[0-9]+(?:[.,][0-9]+)?/)?.[0];
-      const visibleMeta = visibleRatingCard?.querySelector("span")?.textContent?.trim();
-      const visibleSidebarRating = visibleValue ? {
-        value: visibleValue,
-        image: visibleRatingCard.querySelector("img")?.src ?? "",
-        meta: visibleMeta ?? "",
-        title: visibleRatingCard.title ?? "",
-      } : null;
-      lobbyRating.value = sidebarRating ?? visibleSidebarRating ?? calculateLobbyRating(
-        players.filter(player => player.readiness === "ready").map(player => player.rank),
+    function refreshLobbyRating() {
+      lobbyRating.value = calculateLobbyRating(
+        selectedEntryReadyPlayers.value.map(player => player.rank),
         key => window.__fx?.translateFX?.(key) ?? labels[key] ?? key,
       );
     }
@@ -847,7 +888,14 @@ const LobbyView = defineComponent({
         return { key: "unknown", label: labels.modeUnknown, teams: "" };
       };
       const currentEntry = entries.find(entry => entry.id === sdkLobby.rosterEntryId) ?? entries[0] ?? null;
-      const selectedEntry = entries.find(entry => entry.selected) ?? null;
+      const joinedEntryId = sdkLobby.selectedEntryId ?? null;
+      if (currentSelectionOverride.value != null
+        && !entries.some(entry => Number(entry.id) === Number(currentSelectionOverride.value))) {
+        currentSelectionOverride.value = undefined;
+      }
+      const activeSelectionId = currentSelectionOverride.value !== undefined
+        ? currentSelectionOverride.value : joinedEntryId;
+      const selectedEntry = entries.find(entry => Number(entry.id) === Number(activeSelectionId)) ?? null;
       const currentMode = resolveMode(currentEntry?.modeCode);
       const nextMode = resolveMode(selectedEntry?.modeCode);
       const currentMap = resolveMap(currentEntry);
@@ -866,6 +914,7 @@ const LobbyView = defineComponent({
         senderId: player.id,
         name: player.name,
         clan: getPlayerClan(player.name),
+        entryId: player.entryId,
         readiness: player.ready ? "ready" : "not-ready",
         ready: player.ready === true,
         readyEntryLabel: player.ready && player.entryId != null
@@ -888,6 +937,9 @@ const LobbyView = defineComponent({
         const mapName = resolveMap(entry);
         return {
           ...entry,
+          selected: entry.selected === true,
+          active: Number(entry.id) === Number(activeSelectionId),
+          joined: Number(entry.id) === Number(joinedEntryId),
           mapName,
           mapImage: getNativeMapImage(entry.mapIndex, entry.mapSeed),
           modeKey: mode.key,
@@ -1012,6 +1064,10 @@ const LobbyView = defineComponent({
       const hasDecodedRoster = sdkLobbySnapshot?.rosterEntryId != null
         && sdkLobbySnapshot.entries?.some(entry => entry.id === sdkLobbySnapshot.rosterEntryId)
         && Array.isArray(sdkLobbySnapshot.players);
+      const sdkPlayersByName = hasDecodedRoster
+        ? new Map(sdkLobbySnapshot.players.map(player => [normalizeLobbyPlayerName(player.name), player]))
+        : null;
+      const sdkEntriesById = new Map((sdkLobbySnapshot?.entries ?? []).map(entry => [Number(entry.id), entry]));
       const readinessByName = hasDecodedRoster
         ? new Map(sdkLobbySnapshot.players.map(player => [normalizeLobbyPlayerName(player.name), player.ready ? "ready" : "not-ready"]))
         : null;
@@ -1025,6 +1081,16 @@ const LobbyView = defineComponent({
           || rawText.replace(/^[🟢⚪]\s*/u, "");
         if (!row.dataset.fxLobbyPlayer) row.dataset.fxLobbyPlayer = "true";
         if (!metadata.dataset.fxAccountName) metadata.dataset.fxAccountName = name;
+        const sdkPlayer = sdkPlayersByName?.get(normalizeLobbyPlayerName(name));
+        const sdkEntry = sdkPlayer?.entryId != null ? sdkEntriesById.get(Number(sdkPlayer.entryId)) : null;
+        const sdkEntryMapName = sdkEntry?.mapName
+          || (Number.isInteger(Number(sdkEntry?.mapIndex))
+            ? window.__fx?.getGameMapNames?.()?.[Number(sdkEntry.mapIndex)] || getMapName(Number(sdkEntry.mapIndex))
+            : "");
+        const sdkEntryModeCode = Number(sdkEntry?.modeCode);
+        const sdkEntryMode = sdkEntryModeCode >= 0 && sdkEntryModeCode <= 6 ? labels.modeTeamGame
+          : sdkEntryModeCode === 7 || sdkEntryModeCode === 10 ? labels.modeBattleRoyale
+            : sdkEntryModeCode === 8 ? labels.modeDuel : sdkEntryModeCode === 9 ? labels.modeZombie : "";
         const senderId = window.__fx?.getLobbyChatSenderIdByName?.(name) ?? null;
         const readinessMark = rawText.codePointAt(0);
         if (readinessMark === 0x1F7E2) row.dataset.fxLobbyReady = "ready";
@@ -1034,6 +1100,10 @@ const LobbyView = defineComponent({
           id: metadata.dataset.fxPlayerId || row.dataset.fxPlayerId || `${name}-${index}`,
           senderId,
           name,
+          entryId: sdkPlayer?.entryId ?? null,
+          readyEntryLabel: sdkPlayer?.ready && sdkEntry
+            ? [sdkEntryMapName || `${labels.gameEntry} #${sdkEntry.id}`, sdkEntryMode].filter(Boolean).join(" · ")
+            : "",
           clan: metadata.dataset.fxClan || row.dataset.fxClan
             || getPlayerClan(name) || getPlayerClan(rawText),
           readiness: row.dataset.fxLobbyReady || "unknown",
@@ -1081,10 +1151,17 @@ const LobbyView = defineComponent({
       void loadPersistentMapImages();
       const sdkLobby = window.__fx?.gameSdk?.lobby?.getSnapshot?.();
       const upcomingGames = Array.isArray(sdkLobby?.entries) ? sdkLobby.entries : [];
+      const joinedEntryId = sdkLobby?.selectedEntryId ?? null;
+      if (currentSelectionOverride.value != null
+        && !upcomingGames.some(entry => Number(entry.id) === Number(currentSelectionOverride.value))) {
+        currentSelectionOverride.value = undefined;
+      }
+      const activeSelectionId = currentSelectionOverride.value !== undefined
+        ? currentSelectionOverride.value : joinedEntryId;
       const rosterEntry = upcomingGames.find(game => game.id === sdkLobby?.rosterEntryId)
         ?? upcomingGames[0]
         ?? null;
-      const selectedNextEntry = upcomingGames.find(game => game.selected) ?? null;
+      const selectedNextEntry = upcomingGames.find(game => Number(game.id) === Number(activeSelectionId)) ?? null;
       const currentMapEntry = rosterEntry ?? upcomingGames[0] ?? null;
       const enhancedModes = Array.from(root.querySelectorAll(".fx-lobby-mode-tab"));
       const modeButtons = enhancedModes.length ? enhancedModes
@@ -1168,6 +1245,9 @@ const LobbyView = defineComponent({
             : modeKey === "duel" ? labels.modeDuel : modeKey === "zombie" ? labels.modeZombie : labels.modeUnknown;
         return {
           ...entry,
+          selected: entry.selected === true,
+          active: Number(entry.id) === Number(activeSelectionId),
+          joined: Number(entry.id) === Number(joinedEntryId),
           mapName,
           mapImage: getNativeMapImage(entry.mapIndex, entry.mapSeed),
           modeKey,
@@ -1389,38 +1469,35 @@ const LobbyView = defineComponent({
     }
 
     function selectUpcomingGame(entry) {
-      const selected = window.__fx?.gameSdk?.lobby?.selectEntry?.(entry?.id);
-      if (!selected) console.warn("[ZFX Client LobbyView] Could not select upcoming game entry:", entry?.id);
-      return Boolean(selected);
+      const entryId = Number(entry?.id);
+      if (!Number.isInteger(entryId) || !snapshot.value.upcomingGames.some(game => game.id === entryId)) return false;
+      currentSelectionOverride.value = entryId;
+      return true;
     }
 
-    function toggleCurrentMapEntry() {
-      const entry = currentMapEntry.value;
+    function toggleSelectedGameJoin() {
+      const entry = joinedGameEntry.value ?? selectedGameEntry.value ?? joinCardEntry.value;
       const lobby = window.__fx?.gameSdk?.lobby;
       if (!entry || typeof lobby?.selectEntry !== "function") {
-        console.warn("[ZFX Client LobbyView] Current-map selection is unavailable:", {
+        console.warn("[ZFX Client LobbyView] No upcoming game is selected for joining:", {
           entryId: entry?.id ?? null,
-          currentMapEntryId: snapshot.value.currentMapEntryId,
+          selectedEntryId: entry?.id ?? null,
           lobbySdkAvailable: Boolean(lobby),
         });
         return false;
       }
-      const wasSelected = currentMapEntrySelected.value;
-      const changed = wasSelected ? lobby.deselectEntry?.() : lobby.selectEntry(entry.id);
+      const joinedEntryId = lobby.getSnapshot?.()?.selectedEntryId ?? null;
+      const wasJoined = Number(joinedEntryId) === Number(entry.id);
+      const changed = wasJoined ? lobby.deselectEntry?.() : lobby.selectEntry(entry.id);
       if (!changed) {
-        console.warn("[ZFX Client LobbyView] Could not toggle current-map selection:", {
+        console.warn("[ZFX Client LobbyView] Could not toggle selected game join state:", {
           entryId: entry.id,
-          selected: wasSelected,
-          selectedEntryId: lobby.getSnapshot?.()?.selectedEntryId ?? null,
+          joined: wasJoined,
+          joinedEntryId,
         });
         return false;
       }
-      currentSelectionOverride.value = wasSelected ? null : entry.id;
-      if (currentSelectionOverrideTimer) window.clearTimeout(currentSelectionOverrideTimer);
-      currentSelectionOverrideTimer = window.setTimeout(() => {
-        currentSelectionOverride.value = undefined;
-        currentSelectionOverrideTimer = 0;
-      }, 2500);
+      if (currentSelectionOverride.value === undefined) currentSelectionOverride.value = entry.id;
       return true;
     }
 
@@ -1487,8 +1564,8 @@ const LobbyView = defineComponent({
       if (!ownClan.value) return;
       if (kind === "current") return sendClanLobbyMessage(ownClan.value, "join");
       if (kind === "cont") return sendClanLobbyMessage(ownClan.value, "join cont");
-      const nextMap = String(snapshot.value.nextMap || "").trim();
-      const teamCount = String(snapshot.value.nextTeamCountLabel || "").match(/\d+/)?.[0] || "";
+      const nextMap = String(selectedGameEntry.value?.mapName || "").trim();
+      const teamCount = String(selectedGameEntry.value?.teamCountLabel || "").match(/\d+/)?.[0] || "";
       if (kind === "next" && nextMap && teamCount) {
         return sendClanLobbyMessage(ownClan.value, `join ${nextMap} ${teamCount} teams`);
       }
@@ -1610,13 +1687,11 @@ const LobbyView = defineComponent({
       notificationPanelOpen.value = lobbyNotifications.value.length > 0;
       unsubscribe = adapter.subscribe(value => {
         snapshot.value = value;
-        refreshLobbyRating(value.players);
+        refreshLobbyRating();
         if (currentSelectionOverride.value !== undefined) {
-          const selectedId = value.upcomingGames.find(entry => entry.selected)?.id ?? null;
-          if (selectedId === currentSelectionOverride.value) {
+          const joinedId = value.upcomingGames.find(entry => entry.joined)?.id ?? null;
+          if (joinedId === currentSelectionOverride.value) {
             currentSelectionOverride.value = undefined;
-            if (currentSelectionOverrideTimer) window.clearTimeout(currentSelectionOverrideTimer);
-            currentSelectionOverrideTimer = 0;
           }
         }
       });
@@ -1689,7 +1764,6 @@ const LobbyView = defineComponent({
       observer?.disconnect();
       if (readinessRefreshTimer) window.clearInterval(readinessRefreshTimer);
       if (ratingRefreshTimer) window.clearInterval(ratingRefreshTimer);
-      if (currentSelectionOverrideTimer) window.clearTimeout(currentSelectionOverrideTimer);
       if (frame) cancelAnimationFrame(frame);
       if (missingLobbyTimer) window.clearTimeout(missingLobbyTimer);
       window.removeEventListener("fx-bot-protection-state", handleBotProtectionState);
@@ -1719,8 +1793,9 @@ const LobbyView = defineComponent({
       propagandaDialog, propagandaMessage, closePropagandaMessage,
       previousLobbyNotification, nextLobbyNotification,
       ownClan, currentPlayerName, clanOverviewGroup, clanPlayers, clanReadyCount, teamCount, clanCount, playerCountLabel, onlyReadyClans, visibleClanGroups, chatStatus, nextGameMeta, isTeamMode,
+      displayedUpcomingGames, selectedGameEntry, joinedGameEntry, joinCardEntry, selectedEntryReadyCount,
       currentMapEntry,
-      currentMapSelected: currentMapEntrySelected,
+      selectedGameJoined,
       playerContextMenu, playerListComponent, mentionPlayerFromContextMenu,
       selectUpcomingGame,
       getEntryTitle,
@@ -1735,7 +1810,7 @@ const LobbyView = defineComponent({
       sendJoin: sendJoinCall,
       sendTeamMessage,
       selectLobbyTab,
-      toggleCurrentMapEntry,
+      toggleSelectedGameJoin,
     };
   },
   template: `
@@ -1766,13 +1841,13 @@ const LobbyView = defineComponent({
         </div>
       </div>
       </Teleport>
-      <MapHeader :map="snapshot.currentMap" :map-image="snapshot.currentMapImage" :next-map="snapshot.nextMap" :next-map-image="snapshot.nextMapImage" :next-team-count-label="snapshot.nextTeamCountLabel" :next-game-mode-label="snapshot.nextGameModeLabel" :game-mode-key="snapshot.currentGameModeKey" :next-game-mode-key="snapshot.nextGameModeKey" :next-game-meta="nextGameMeta" :is-contest="snapshot.isContest" :next-is-contest="snapshot.nextIsContest" :no-fullsend="snapshot.noFullsend" :next-no-fullsend="snapshot.nextNoFullsend" :labels="labels" :entries="snapshot.upcomingGames" :current-map-entry-id="snapshot.currentMapEntryId" :current-map-selected="currentMapSelected" :selection-disabled="!currentMapEntry" :entry-title="getEntryTitle" :ready-count="snapshot.readyCount" :ready-clans="readyClanSlices" :ready-clan-total="readyClanTotal" :team-count="snapshot.currentTeamCountLabel" :game-mode-label="snapshot.currentGameModeLabel" :lobby-rating="lobbyRating" @select-entry="selectUpcomingGame" @select-current="toggleCurrentMapEntry" />
-      <LobbyProgress :snapshot="snapshot" :labels="labels" />
+      <MapHeader :map="selectedGameEntry?.mapName || snapshot.currentMap" :map-image="selectedGameEntry?.mapImage || snapshot.currentMapImage" :next-map="joinCardEntry?.mapName || ''" :next-map-image="joinCardEntry?.mapImage || ''" :next-team-count-label="joinCardEntry?.teamCountLabel || ''" :next-game-mode-label="joinCardEntry?.modeLabel || ''" :game-mode-key="selectedGameEntry?.modeKey || snapshot.currentGameModeKey" :next-game-mode-key="joinCardEntry?.modeKey || ''" :next-game-meta="nextGameMeta" :is-contest="selectedGameEntry ? selectedGameEntry.isContest : snapshot.isContest" :next-is-contest="joinCardEntry ? joinCardEntry.isContest : null" :no-fullsend="selectedGameEntry ? Number(selectedGameEntry.modeCode) === 10 : snapshot.noFullsend" :next-no-fullsend="Number(joinCardEntry?.modeCode) === 10" :labels="labels" :entries="displayedUpcomingGames" :current-map-entry-id="snapshot.currentMapEntryId" :selected-game-joined="selectedGameJoined" :selection-disabled="!joinCardEntry" :entry-title="getEntryTitle" :ready-count="selectedEntryReadyCount" :ready-clans="readyClanSlices" :ready-clan-total="readyClanTotal" :team-count="selectedGameEntry?.teamCountLabel || snapshot.currentTeamCountLabel" :game-mode-label="selectedGameEntry?.modeLabel || snapshot.currentGameModeLabel" :lobby-rating="lobbyRating" @select-entry="selectUpcomingGame" @join-selected="toggleSelectedGameJoin" />
+      <LobbyProgress :snapshot="{ ...snapshot, nextGameEntryId: selectedGameEntry?.id ?? null, nextGameCountdownSeconds: selectedGameEntry?.countdownSeconds ?? null }" :labels="labels" />
       <main class="fx-custom-lobby-content">
         <PlayerList ref="playerListComponent" :players="filteredPlayers" :all-players="snapshot.players" :clans="visibleClanGroups" :labels="labels" :count="snapshot.playerCount" :player-count-label="playerCountLabel" :query="query" :sort-by="sortBy" :ready-filter="readyFilter" :affiliation-filter="affiliationFilter" :active-tab="activeTab" :chat-messages="snapshot.chatMessages" :chat-status="chatStatus" :team-mode="isTeamMode" :team-players="filteredTeamPlayers" :team-clan="ownClan" :team-count="teamCount" :clan-count="clanCount" :top-ready-clan="topReadyClan" :only-ready-clans="onlyReadyClans" :current-map="snapshot.currentMap" :next-map="snapshot.nextMap" :next-team-count="snapshot.nextTeamCountLabel" @update:query="query = $event" @update:sort="setSort" @update:ready-filter="setReadyFilter" @update:affiliation-filter="setAffiliationFilter" @reset-filter-groups="resetFilterGroups" @reset-filters="resetFilters" @filter-ready-clans="onlyReadyClans = $event" @select-player="selectPlayer" @select-tab="selectLobbyTab" @send-chat="sendChat" @send-call="sendCall" @send-join="sendJoin" @send-team-message="sendTeamMessage" />
         <aside class="fx-custom-lobby-side-stack">
           <article class="fx-custom-lobby-current-player-card"><span class="fx-custom-lobby-current-player-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg></span><div><span>{{ labels.currentPlayer }}</span><strong :title="currentPlayerName">{{ currentPlayerName }}</strong></div></article>
-          <ClanOverview :clan="clanOverviewGroup?.tag || ownClan" :ready-count="clanOverviewGroup?.readyCount ?? clanReadyCount" :member-count="clanPlayers.length" :members="clanPlayers" :labels="labels" @select-player="selectPlayer" />
+          <ClanOverview :clan="clanOverviewGroup?.tag || ownClan" :ready-count="clanReadyCount" :member-count="clanPlayers.length" :members="clanPlayers" :labels="labels" @select-player="selectPlayer" />
         </aside>
       </main>
     </section>`,

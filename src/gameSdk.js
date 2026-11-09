@@ -5,7 +5,7 @@ const EMPTY_LOBBY = Object.freeze({
   entries: Object.freeze([]),
 });
 
-const ENTRY_FIELDS = ["countdownSeconds", "playerCount", "mapIndex", "mapSeed", "modeCode", "isContest", "readyCount", "players"];
+const ENTRY_FIELDS = ["countdownSeconds", "playerCount", "maxPlayers", "mapIndex", "mapSeed", "modeCode", "isContest", "readyCount", "players"];
 
 /** Stable public facade over values decoded by the native game client. */
 export function createGameSdk({ getMapNames = () => null } = {}) {
@@ -67,12 +67,15 @@ export function createGameSdk({ getMapNames = () => null } = {}) {
       const id = Number(entry?.id);
       const mapIndex = Number(entry?.fG);
       const modeCode = Number(entry?.w2);
+      const maxPlayersValue = entry?.MaxPlayers ?? entry?.maxPlayers ?? entry?.max_players;
       return Object.freeze({
         id: Number.isInteger(id) ? id : null,
         index,
         selected: Number.isInteger(id) && id === selectedEntryId,
         countdownSeconds: Number(entry?.wN),
         playerCount: Number(entry?.h3),
+        maxPlayers: maxPlayersValue != null && Number.isFinite(Number(maxPlayersValue))
+          ? Number(maxPlayersValue) : null,
         mapIndex,
         mapName: Number.isInteger(mapIndex) ? String(mapNames?.[mapIndex] ?? "") : "",
         mapSeed: Number(entry?.mapSeed),

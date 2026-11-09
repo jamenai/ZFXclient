@@ -1564,7 +1564,16 @@ body[data-fx-bot-protection="active"] #fx-sidebar {
 .fx-custom-lobby-mode-clock {
 	display: inline-flex;
 	align-items: center;
-	gap: 4px;
+	gap: 5px;
+	padding: 3px 8px;
+	border: 1px solid rgba(146, 204, 242, .34);
+	border-radius: 7px;
+	background: rgba(5, 18, 31, .78);
+	color: #e8f5ff;
+	font-size: 1.16em;
+	font-variant-numeric: tabular-nums;
+	font-weight: 800;
+	line-height: 1.1;
 }
 
 .fx-custom-lobby-mode-clock svg {
@@ -1583,6 +1592,25 @@ body[data-fx-bot-protection="active"] #fx-sidebar {
 	display: inline-flex;
 	align-items: center;
 	gap: 7px;
+}
+
+.fx-custom-lobby-entry-rating {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	padding: 2px 5px;
+	border: 1px solid rgba(210, 222, 238, .2);
+	border-radius: 999px;
+	background: rgba(4, 12, 22, .68);
+	color: #f2f7fc;
+	font-size: .94em;
+	line-height: 1;
+}
+
+.fx-custom-lobby-entry-rating img {
+	width: 17px;
+	height: 17px;
+	object-fit: contain;
 }
 
 .fx-custom-lobby-team-count {
@@ -2131,6 +2159,13 @@ body[data-fx-bot-protection="active"] #fx-sidebar {
 .fx-custom-lobby-next-card .fx-custom-lobby-next-mode-label {
 	margin: 0;
 	font-size: 1.05em;
+}
+
+.fx-custom-lobby-next-card > .fx-custom-lobby-entry-selection {
+	align-self: stretch;
+	min-height: 2.5em;
+	margin-top: auto;
+	font-weight: 750;
 }
 
 .fx-custom-lobby-next-unknown,
@@ -2708,6 +2743,11 @@ body[data-fx-bot-protection="active"] #fx-sidebar {
 
 .fx-custom-lobby-status-dot.is-not-ready {
 	background: #aab6c2;
+}
+
+.fx-custom-lobby-clan-members .fx-custom-lobby-status-dot.is-other-entry {
+	background: #55c8ff;
+	box-shadow: 0 0 7px rgba(85, 200, 255, .72);
 }
 
 .fx-custom-lobby-side-panel {

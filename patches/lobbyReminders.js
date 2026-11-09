@@ -27,7 +27,7 @@ export default definePatch(({ replaceRawCode, replaceOne }) => {
     // lobby can render with its own styling.
     replaceRawCode(
         `var sC=bq.lj.tT(aG2,bq.lj.tU(aG2));`,
-        `var sC=bq.lj.tT(aG2,bq.lj.tU(aG2));var fxLobbyNotificationManager=bq&&bq.message;var fxLobbyNotificationList=fxLobbyNotificationManager&&typeof fxLobbyNotificationManager.aGG==="function"?fxLobbyNotificationManager.aGG():[];if(window.__fx)window.__fx.getLobbyNotificationHistory=function(){var manager=bq&&bq.message;var history=manager&&typeof manager.aGG==="function"?manager.aGG():[];return Array.isArray(history)?history.map(function(notification,index){return {index:index,id:notification.id,text:bq.lj.tT(notification,bq.lj.tU(notification)).s};}):[];};if(aG2.id!==6&&sC)window.dispatchEvent(new CustomEvent("fx-lobby-notification",{detail:{id:aG2.id,index:fxLobbyNotificationList.indexOf(aG2),text:sC.s}}));`
+        `var sC=bq.lj.tT(aG2,bq.lj.tU(aG2));var fxLobbyNotificationManager=bq&&bq.message;var fxLobbyNotificationList=fxLobbyNotificationManager&&typeof fxLobbyNotificationManager.aGG==="function"?fxLobbyNotificationManager.aGG():[];if(window.__fx)window.__fx.getLobbyNotificationHistory=function(){var manager=bq&&bq.message;var history=manager&&typeof manager.aGG==="function"?manager.aGG():[];return Array.isArray(history)?history.map(function(notification,index){return {index:index,id:notification.id,text:bq.lj.tT(notification,bq.lj.tU(notification)).s};}):[];};if(aG2.id!==6&&sC)window.dispatchEvent(new CustomEvent("fx-lobby-notification",{detail:{id:aG2.id,index:fxLobbyNotificationList.indexOf(aG2),text:sC.s,soundAllowed:!!aG2.__fxSoundAllowed}}));`
     );
 
     // The original message manager renders its notification corner directly.

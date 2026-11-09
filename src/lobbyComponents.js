@@ -7,12 +7,12 @@ export const LobbyPlayerName = defineComponent({
 });
 
 const GameModeBadge = defineComponent({
-  props: { modeKey: String, label: String, standalone: Boolean },
+  props: { modeKey: String, label: String, standalone: Boolean, compact: Boolean },
   template: `
-    <span class="fx-custom-lobby-mode-emblem" :class="{ 'is-standalone': standalone }" :data-mode="modeKey || 'unknown'" role="img" :aria-label="label || ''" :title="label || ''">
+    <span class="fx-custom-lobby-mode-emblem" :class="{ 'is-standalone': standalone, 'is-compact': compact }" :data-mode="modeKey || 'unknown'" role="img" :aria-label="label || ''" :title="label || ''">
       <svg v-if="modeKey === 'team'" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1M16 5a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 5v1"/></svg>
       <svg v-else-if="modeKey === 'battle-royale'" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 1v3m0 16v3M1 12h3m16 0h3"/></svg>
-      <svg v-else-if="modeKey === 'duel'" viewBox="0 0 24 24"><path d="m4 20 10-10m-6 0 6 6m-2-12 8 8m-5-9 6 6m-13 6-4 4m12-12 4-4"/></svg>
+      <svg v-else-if="modeKey === 'duel'" viewBox="0 0 24 24"><circle cx="6.5" cy="7" r="2.7"/><path d="M2 19v-2a4.5 4.5 0 0 1 9 0v2z"/><circle cx="17.5" cy="7" r="2.7"/><path d="M13 19v-2a4.5 4.5 0 0 1 9 0v2z"/><path d="M10 11.5h4"/></svg>
       <svg v-else-if="modeKey === 'zombie'" viewBox="0 0 24 24"><path d="M12 3a8 8 0 0 0-5 14.2V21h3v-2h4v2h3v-3.8A8 8 0 0 0 12 3Z"/><circle cx="9" cy="11" r="1"/><circle cx="15" cy="11" r="1"/><path d="M10 15h4"/></svg>
       <svg v-else viewBox="0 0 24 24"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15m6-12v15"/></svg>
     </span>`,
@@ -40,7 +40,7 @@ export const MapHeader = defineComponent({
         <div v-if="!visibleEntries.length" class="fx-custom-lobby-entry-empty">{{ entries.length ? labels.noOtherUpcomingGames : labels.waitingForGames }}</div>
       </nav>
       <div class="fx-custom-lobby-map-cards">
-      <section class="fx-custom-lobby-map-hero" :class="{ 'is-contest': isContest }">
+      <section class="fx-custom-lobby-map-hero" :class="{ 'is-contest': isContest }" :data-mode="gameModeKey || 'unknown'">
         <img v-if="mapImage" class="fx-custom-lobby-map-image" :src="mapImage" alt="" aria-hidden="true">
         <div class="fx-custom-lobby-map-heading">
           <span>{{ labels.currentMap }}<b v-if="isContest" class="fx-custom-lobby-contest-badge">🏆 CONTEST</b></span>
@@ -75,7 +75,7 @@ export const MapHeader = defineComponent({
           <strong v-if="noFullsend" class="fx-custom-lobby-rules-badge">NO FULLSEND</strong>
         </div>
       </section>
-      <article class="fx-custom-lobby-card fx-custom-lobby-next-card" :class="{ 'is-contest': Boolean(nextMap) && nextIsContest === true, 'is-standard': Boolean(nextMap) && nextIsContest === false, 'is-empty': !nextMap }">
+      <article class="fx-custom-lobby-card fx-custom-lobby-next-card" :class="{ 'is-contest': Boolean(nextMap) && nextIsContest === true, 'is-standard': Boolean(nextMap) && nextIsContest === false, 'is-empty': !nextMap }" :data-mode="nextGameModeKey || 'unknown'">
         <img v-if="nextMapImage" class="fx-custom-lobby-next-image" :src="nextMapImage" alt="" aria-hidden="true">
         <div class="fx-custom-lobby-next-heading"><span class="fx-custom-lobby-next-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg></span><span class="fx-custom-lobby-next-label">{{ nextMap ? (selectedGameJoined ? labels.joinedGame : labels.selectedGame) : labels.selectGame }}</span><b v-if="nextMap && nextIsContest === true" class="fx-custom-lobby-contest-badge">CONTEST</b><b v-else-if="nextMap && nextIsContest === false" class="fx-custom-lobby-next-standard">{{ labels.nextStandardGame }}</b><b v-else-if="nextMap" class="fx-custom-lobby-next-unknown">{{ labels.nextContestUnknown }}</b></div>
         <div class="fx-custom-lobby-next-title-row">
@@ -83,9 +83,8 @@ export const MapHeader = defineComponent({
           <strong class="fx-custom-lobby-next-title">{{ nextMap || labels.noGameSelected }}</strong>
         </div>
         <small v-if="nextGameMeta" class="fx-custom-lobby-next-teams">{{ nextGameMeta }}</small>
-        <small v-if="nextGameModeLabel" class="fx-custom-lobby-next-mode-label">{{ nextGameModeLabel }}<span v-if="nextTeamCountLabel"> · {{ nextTeamCountLabel }}</span></small>
+        <small v-if="nextGameModeLabel || nextNoFullsend" class="fx-custom-lobby-next-mode-label"><span v-if="nextGameModeLabel">{{ nextGameModeLabel }}<span v-if="nextTeamCountLabel"> · {{ nextTeamCountLabel }}</span></span><b v-if="nextNoFullsend" class="fx-custom-lobby-next-rules">NO FULLSEND</b></small>
         <small v-if="!nextMap" class="fx-custom-lobby-next-teams">{{ labels.chooseGameHint }}</small>
-        <strong v-if="nextNoFullsend" class="fx-custom-lobby-rules-badge">NO FULLSEND</strong>
         <button type="button" class="fx-custom-lobby-entry-selection" :class="selectedGameJoined ? 'is-selected' : 'is-not-selected'" :aria-pressed="selectedGameJoined" :disabled="selectionDisabled" @click="$emit('join-selected')">{{ selectedGameJoined ? labels.leaveGame : labels.joinGame }}</button>
       </article>
       </div>
@@ -104,6 +103,7 @@ export const MapHeader = defineComponent({
 });
 
 export const LobbyProgress = defineComponent({
+  components: { GameModeBadge },
   props: { snapshot: Object, labels: Object },
   template: `
     <section class="fx-custom-lobby-summary">
@@ -114,7 +114,9 @@ export const LobbyProgress = defineComponent({
       </article>
       <aside v-if="contestTimers.length" class="fx-custom-lobby-contest-timers" :aria-label="labels.upcomingContests">
         <strong>{{ labels.upcomingContests }}</strong>
-        <div><span v-for="timer in contestTimers" :key="timer.mode"><b>{{ timer.label }}</b><time>{{ timer.time }}</time></span></div>
+        <div><span v-for="timer in contestTimers" :key="timer.mode" class="fx-custom-lobby-contest-timer" :aria-label="timer.label + ': ' + timer.time" :title="timer.label">
+          <GameModeBadge :mode-key="timer.modeKey" :label="timer.label" /><time>{{ timer.time }}</time>
+        </span></div>
       </aside>
     </section>`,
   data() { return {
@@ -191,7 +193,8 @@ export const LobbyProgress = defineComponent({
           const key = mode === "team" ? "team"
             : mode === "br" || mode.includes("battle") ? "br"
               : mode === "1v1" ? "1v1" : mode.includes("zombie") ? "zombie" : "";
-          return key ? { mode: key, label: labelsByMode[key], time } : null;
+          const modeKey = key === "br" ? "battle-royale" : key === "1v1" ? "duel" : key;
+          return key ? { mode: key, modeKey, label: labelsByMode[key], time } : null;
         })
         .filter(Boolean);
     },
@@ -263,9 +266,13 @@ export const LobbyProgress = defineComponent({
 });
 
 export const PlayerList = defineComponent({
-  props: { players: Array, allPlayers: Array, clans: Array, labels: Object, count: Number, playerCountLabel: String, query: String, sortBy: String, readyFilter: String, affiliationFilter: String, activeTab: String, chatMessages: Array, chatStatus: String, teamMode: Boolean, teamPlayers: Array, teamClan: String, teamCount: String, clanCount: String, topReadyClan: Object, onlyReadyClans: Boolean, currentMap: String, nextMap: String, nextTeamCount: String },
-  emits: ["update:query", "update:sort", "update:ready-filter", "update:affiliation-filter", "reset-filter-groups", "reset-filters", "filter-ready-clans", "select-player", "follow-join", "select-tab", "send-chat", "send-call", "send-join", "send-team-message"],
-  data() { return { teamMessage: "", teamMessageStatus: "" }; },
+  components: { GameModeBadge },
+  props: { players: Array, allPlayers: Array, clans: Array, labels: Object, count: Number, playerCountLabel: String, query: String, sortBy: String, readyFilter: String, affiliationFilter: String, entryFilter: String, currentEntryAvailable: Boolean, activeTab: String, chatMessages: Array, chatStatus: String, teamMode: Boolean, teamPlayers: Array, teamClan: String, teamCount: String, clanCount: String, topReadyClan: Object, onlyReadyClans: Boolean, currentMap: String, nextMap: String, nextTeamCount: String },
+  emits: ["update:query", "update:sort", "update:ready-filter", "update:affiliation-filter", "update:entry-filter", "reset-filter-groups", "reset-filters", "filter-ready-clans", "select-player", "follow-join", "select-tab", "send-chat", "send-call", "send-join", "send-team-message"],
+  data() {
+    const savedView = localStorage.getItem("fx_lobby_player_view");
+    return { teamMessage: "", teamMessageStatus: "", playerViewMode: ["grid", "table", "list"].includes(savedView) ? savedView : "table" };
+  },
   template: `
     <section class="fx-custom-lobby-player-panel fx-custom-lobby-workspace">
       <nav class="fx-custom-lobby-workspace-tabs" :aria-label="labels.lobbyViews">
@@ -290,10 +297,19 @@ export const PlayerList = defineComponent({
               <button type="button" :class="{ 'is-active': affiliationFilter === 'clan' }" @click="$emit('update:affiliation-filter', 'clan')">{{ labels.clan }}</button>
               <button type="button" :class="{ 'is-active': affiliationFilter === 'followed' }" @click="$emit('update:affiliation-filter', 'followed')">{{ labels.followed }}</button>
             </div>
+            <div class="fx-custom-lobby-filters" role="group" :aria-label="labels.gameFilters">
+              <button type="button" :class="{ 'is-active': entryFilter === 'all' }" @click="$emit('update:entry-filter', 'all')">{{ labels.allGames }}</button>
+              <button type="button" :class="{ 'is-active': entryFilter === 'current' }" :disabled="!currentEntryAvailable" @click="$emit('update:entry-filter', 'current')">{{ labels.currentMapSelection }}</button>
+            </div>
             <button type="button" class="fx-custom-lobby-filter-reset" @click="$emit('reset-filters')">{{ labels.resetFilters }}</button>
+            <nav class="fx-custom-lobby-player-view-switcher" role="group" aria-label="Player list view">
+              <button type="button" :class="{ 'is-active': playerViewMode === 'grid' }" :aria-pressed="playerViewMode === 'grid'" :aria-label="labels.viewGrid" :title="labels.viewGrid" @click="setPlayerViewMode('grid')"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg></button>
+              <button type="button" :class="{ 'is-active': playerViewMode === 'table' }" :aria-pressed="playerViewMode === 'table'" :aria-label="labels.viewTable" :title="labels.viewTable" @click="setPlayerViewMode('table')"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M3 9h18M9 9v11m6-11v11"/></svg></button>
+              <button type="button" :class="{ 'is-active': playerViewMode === 'list' }" :aria-pressed="playerViewMode === 'list'" :aria-label="labels.viewList" :title="labels.viewList" @click="setPlayerViewMode('list')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h12M9 12h12M9 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg></button>
+            </nav>
           </div>
         </div>
-        <div class="fx-custom-lobby-table-wrap">
+        <div v-if="playerViewMode === 'table'" class="fx-custom-lobby-table-wrap">
           <table class="fx-custom-lobby-table">
             <thead><tr><th>#</th><th>{{ labels.players }}</th><th>{{ labels.clan }}</th><th>{{ labels.rank }}</th><th>{{ labels.status }}</th></tr></thead>
             <tbody>
@@ -302,11 +318,25 @@ export const PlayerList = defineComponent({
                 <td class="fx-custom-lobby-player-name"><i class="fx-custom-lobby-status-dot" :class="'is-' + player.readiness"></i>{{ player.name }}</td>
                 <td class="fx-custom-lobby-player-clan">{{ player.clan ? '[' + player.clan + ']' : '—' }}</td>
                 <td>{{ player.rankText || (player.rank ? '#' + player.rank.toLocaleString() : '-') }}</td>
-                <td class="fx-custom-lobby-player-status" :class="'is-' + player.readiness"><span>{{ player.readiness === 'ready' ? labels.ready : player.readiness === 'not-ready' ? labels.notReady : labels.online }}</span><small v-if="player.readiness === 'ready' && player.readyEntryLabel"> · {{ player.readyEntryLabel }}</small><button v-if="player.readiness === 'ready' && player.entryId != null && !player.self" type="button" class="fx-custom-lobby-follow-join" :title="labels.followJoin" @click.stop.prevent="$emit('follow-join', player)">{{ labels.followJoin }}</button></td>
+                <td class="fx-custom-lobby-player-status" :class="'is-' + player.readiness"><span v-if="player.readiness === 'ready' && readyModeKey(player)" class="fx-custom-lobby-player-mode-icon" :data-mode="readyModeKey(player)" role="img" :aria-label="readyModeLabel(player)" :title="readyModeLabel(player)"><svg v-if="readyModeKey(player) === 'team'" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1M16 5a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 5v1"/></svg><svg v-else-if="readyModeKey(player) === 'battle-royale'" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 1v3m0 16v3M1 12h3m16 0h3"/></svg><svg v-else-if="readyModeKey(player) === 'duel'" viewBox="0 0 24 24"><circle cx="6.5" cy="7" r="2.7"/><path d="M2 19v-2a4.5 4.5 0 0 1 9 0v2z"/><circle cx="17.5" cy="7" r="2.7"/><path d="M13 19v-2a4.5 4.5 0 0 1 9 0v2zM10 11.5h4"/></svg><svg v-else-if="readyModeKey(player) === 'zombie'" viewBox="0 0 24 24"><path d="M12 3a8 8 0 0 0-5 14.2V21h3v-2h4v2h3v-3.8A8 8 0 0 0 12 3Z"/><circle cx="9" cy="11" r="1"/><circle cx="15" cy="11" r="1"/><path d="M10 15h4"/></svg></span><span v-else>{{ player.readiness === 'ready' ? labels.ready : player.readiness === 'not-ready' ? labels.notReady : labels.online }}</span><small v-if="player.readiness === 'ready' && player.readyEntryLabel"> · {{ player.readyEntryLabel }}</small></td>
               </tr>
               <tr v-if="!visiblePlayers.length"><td colspan="5" class="fx-custom-lobby-empty">{{ activeTab === 'team' && !teamClan ? labels.noClan : labels.noPlayers }}</td></tr>
             </tbody>
           </table>
+        </div>
+        <div v-else-if="playerViewMode === 'grid'" class="fx-custom-lobby-player-grid">
+          <article v-for="(player, index) in visiblePlayers" :key="player.id || player.name + ':' + index" class="fx-custom-lobby-player-grid-card" :class="{ 'is-self': player.self }" :style="player.color ? { '--fx-custom-player-color': player.color } : null" :title="player.title || player.name" @click.stop.prevent="$emit('select-player', player, $event)">
+            <header><i class="fx-custom-lobby-status-dot" :class="'is-' + player.readiness"></i><strong>{{ player.name }}</strong></header>
+            <div v-if="entryFilter !== 'current'" class="fx-custom-lobby-player-grid-meta"><span class="fx-custom-lobby-player-status" :class="'is-' + player.readiness"><span v-if="player.readiness === 'ready' && readyModeKey(player)" class="fx-custom-lobby-player-mode-icon" :data-mode="readyModeKey(player)" role="img" :aria-label="readyModeLabel(player)" :title="readyModeLabel(player)"><svg v-if="readyModeKey(player) === 'team'" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1M16 5a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 5v1"/></svg><svg v-else-if="readyModeKey(player) === 'battle-royale'" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 1v3m0 16v3M1 12h3m16 0h3"/></svg><svg v-else-if="readyModeKey(player) === 'duel'" viewBox="0 0 24 24"><circle cx="6.5" cy="7" r="2.7"/><path d="M2 19v-2a4.5 4.5 0 0 1 9 0v2z"/><circle cx="17.5" cy="7" r="2.7"/><path d="M13 19v-2a4.5 4.5 0 0 1 9 0v2zM10 11.5h4"/></svg><svg v-else-if="readyModeKey(player) === 'zombie'" viewBox="0 0 24 24"><path d="M12 3a8 8 0 0 0-5 14.2V21h3v-2h4v2h3v-3.8A8 8 0 0 0 12 3Z"/><circle cx="9" cy="11" r="1"/><circle cx="15" cy="11" r="1"/><path d="M10 15h4"/></svg></span><span v-else>{{ player.readiness === 'ready' ? labels.ready : player.readiness === 'not-ready' ? labels.notReady : labels.online }}</span><small v-if="player.readiness === 'ready' && player.readyEntryLabel"> · {{ player.readyEntryLabel }}</small></span></div>
+
+          </article>
+          <p v-if="!visiblePlayers.length" class="fx-custom-lobby-empty">{{ activeTab === 'team' && !teamClan ? labels.noClan : labels.noPlayers }}</p>
+        </div>
+        <div v-else class="fx-custom-lobby-player-list">
+          <article v-for="(player, index) in visiblePlayers" :key="player.id || player.name + ':' + index" class="fx-custom-lobby-player-list-row" :class="{ 'is-self': player.self }" :style="player.color ? { '--fx-custom-player-color': player.color } : null" :title="player.title || player.name" @click.stop.prevent="$emit('select-player', player, $event)">
+            <span class="fx-custom-lobby-player-list-index">{{ index + 1 }}</span><i class="fx-custom-lobby-status-dot" :class="'is-' + player.readiness"></i><strong>{{ player.name }}</strong><span class="fx-custom-lobby-player-clan">{{ player.clan ? '[' + player.clan + ']' : '—' }}</span><span>{{ player.rankText || (player.rank ? '#' + player.rank.toLocaleString() : '-') }}</span><span class="fx-custom-lobby-player-status" :class="'is-' + player.readiness"><span v-if="player.readiness === 'ready' && readyModeKey(player)" class="fx-custom-lobby-player-mode-icon" :data-mode="readyModeKey(player)" role="img" :aria-label="readyModeLabel(player)" :title="readyModeLabel(player)"><svg v-if="readyModeKey(player) === 'team'" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1M16 5a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 5v1"/></svg><svg v-else-if="readyModeKey(player) === 'battle-royale'" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 1v3m0 16v3M1 12h3m16 0h3"/></svg><svg v-else-if="readyModeKey(player) === 'duel'" viewBox="0 0 24 24"><circle cx="6.5" cy="7" r="2.7"/><path d="M2 19v-2a4.5 4.5 0 0 1 9 0v2z"/><circle cx="17.5" cy="7" r="2.7"/><path d="M13 19v-2a4.5 4.5 0 0 1 9 0v2zM10 11.5h4"/></svg><svg v-else-if="readyModeKey(player) === 'zombie'" viewBox="0 0 24 24"><path d="M12 3a8 8 0 0 0-5 14.2V21h3v-2h4v2h3v-3.8A8 8 0 0 0 12 3Z"/><circle cx="9" cy="11" r="1"/><circle cx="15" cy="11" r="1"/><path d="M10 15h4"/></svg></span><span v-else>{{ player.readiness === 'ready' ? labels.ready : player.readiness === 'not-ready' ? labels.notReady : labels.online }}</span><small v-if="player.readiness === 'ready' && player.readyEntryLabel"> · {{ player.readyEntryLabel }}</small></span>
+          </article>
+          <p v-if="!visiblePlayers.length" class="fx-custom-lobby-empty">{{ activeTab === 'team' && !teamClan ? labels.noClan : labels.noPlayers }}</p>
         </div>
       </div>
       <section v-else-if="activeTab === 'overview'" class="fx-custom-lobby-overview">
@@ -394,6 +424,27 @@ export const PlayerList = defineComponent({
     },
   },
   methods: {
+    readyModeKey(player) {
+      if (player?.readyEntryModeKey) return player.readyEntryModeKey;
+      const entryLabel = String(player?.readyEntryLabel || "").toLocaleLowerCase();
+      if (entryLabel.includes("battle") && entryLabel.includes("royal")) return "battle-royale";
+      if (entryLabel.includes("1v1") || entryLabel.includes("duel")) return "duel";
+      if (entryLabel.includes("zombie")) return "zombie";
+      if (entryLabel.includes("team")) return "team";
+      return "";
+    },
+    readyModeLabel(player) {
+      const key = this.readyModeKey(player);
+      return key === "battle-royale" ? this.labels.modeBattleRoyale
+        : key === "duel" ? this.labels.modeDuel
+          : key === "zombie" ? this.labels.modeZombie
+            : key === "team" ? this.labels.modeTeamGame : "";
+    },
+    setPlayerViewMode(mode) {
+      if (!["grid", "table", "list"].includes(mode)) return;
+      this.playerViewMode = mode;
+      localStorage.setItem("fx_lobby_player_view", mode);
+    },
     sendChat(message, callback) { this.$emit("send-chat", message, callback); },
     insertMentionToken(token) { return this.$refs.lobbyChat?.insertMentionToken(token) ?? false; },
     sendTeamMessage() {

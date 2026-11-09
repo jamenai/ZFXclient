@@ -32,6 +32,7 @@ const settingsTextDe = {
   "Custom main menu background:": "Eigenes Hintergrundbild für das Hauptmenü:", "Enter an image URL here": "Bild-URL eingeben",
   "A custom image to be shown on the main menu instead of the currently selected map.": "Dieses Bild wird im Hauptmenü anstelle der ausgewählten Karte angezeigt.",
   "Hide propaganda popup": "Propaganda-Popup ausblenden",
+  "Show lobby notification close button": "Schließen-Schaltfläche für Lobby-Benachrichtigungen anzeigen",
   "Display win counter": "Siegzähler anzeigen", "The win counter tracks multiplayer solo wins (not in team games)": "Der Siegzähler erfasst Solo-Siege im Mehrspielermodus, keine Teamsiege.",
   "Reset win counter": "Siegzähler zurücksetzen", "Display tick number near the balance": "Tick-Nummer neben dem Kontostand anzeigen",
   "Show Unicode country flags on the map": "Unicode-Länderflaggen auf der Karte anzeigen",
@@ -646,6 +647,11 @@ const settingsManager = new (function () {
       for: "hidePropagandaPopup",
       type: "checkbox",
       label: "Hide propaganda popup"
+    },
+    {
+      for: "showLobbyNotificationCloseButton",
+      type: "checkbox",
+      label: "Show lobby notification close button",
     },
     LobbyReminderRulesInput,
     MutePingSection,

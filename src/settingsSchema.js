@@ -26,6 +26,7 @@ const defaultValues = Object.freeze({
   startingPercentageEnabled: false,
   startingPercentage: 50,
   hidePropagandaPopup: false,
+  showLobbyNotificationCloseButton: false,
   showReplayTimebar: true,
   customQuickEmojisEnabled: false,
   customQuickEmojis: [],

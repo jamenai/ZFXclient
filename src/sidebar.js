@@ -223,7 +223,7 @@ function createLegacySidebar() {
       : typeof window.__fx?.openVueSettings === "function"
         ? window.__fx.openVueSettings() : window.__fx?.WindowManager?.openWindow("settings")],
     ["🔑", "sidebarAccount", () => window.__fx?.openVueMyAccount?.()],
-    ["🧈", "sidebarGoldTransfer", () => window.__fx?.openGameMenuAction?.("goldTransfer")],
+    ["🧈", "sidebarGoldTransfer", () => window.__fx?.openVueGoldTransfer?.()],
   ]);
 
   const updateNavigationVisibility = () => {

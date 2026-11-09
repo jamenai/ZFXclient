@@ -8,9 +8,10 @@ export default definePatch(({ matchCode, replaceOne }) => {
 
     // The current native build queues decoded messages in aGR.aIa as aHS.
     // Filtering at the queue boundary also prevents muted mentions from
-    // opening a notification popup or playing its sound.
+    // opening a notification popup or playing its sound. When Vue owns the
+    // lobby, defer the native sound until its notification has been surfaced.
     replaceOne(
         /aIa\.push\(aHS\);!bm\.buffer\.data\[14\]\.value&&aHS\.id!==7&&bs\.play\(\);/g,
-        'if(__fx.pingFilter.isMuted(aHS,"s"))return;aIa.push(aHS);!bm.buffer.data[14].value&&aHS.id!==7&&bs.play();'
+        'if(__fx.pingFilter.isMuted(aHS,"s"))return;aHS.__fxSoundAllowed=!bm.buffer.data[14].value&&aHS.id!==7;aIa.push(aHS);if(aHS.__fxSoundAllowed){if(window.__fx&&window.__fx.isCustomLobbyViewVisible&&window.__fx.isCustomLobbyViewVisible())window.__fx.playLobbyNotificationSound=function(){bs.play();};else bs.play();}'
     );
 })

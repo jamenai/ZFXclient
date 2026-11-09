@@ -34,6 +34,8 @@ function normalizePlayer(player) {
     readiness: ["ready", "not-ready"].includes(player.readiness) ? player.readiness : "unknown",
     entryId: player.entryId != null && Number.isInteger(Number(player.entryId)) ? Number(player.entryId) : null,
     readyEntryLabel: String(player.readyEntryLabel ?? ""),
+    readyEntryModeKey: ["team", "battle-royale", "duel", "zombie"].includes(player.readyEntryModeKey) ? player.readyEntryModeKey : "",
+    readyEntryModeLabel: String(player.readyEntryModeLabel ?? ""),
     rank: Number.isFinite(Number(player.rank)) && Number(player.rank) > 0 ? Number(player.rank)
       : Number.isFinite(Number(player.rankCode)) && Number(player.rankCode) >= 0 ? Number(player.rankCode) + 1 : null,
     rankText: String(player.rankText ?? ""),

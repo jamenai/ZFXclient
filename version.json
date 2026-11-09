@@ -1,13 +1,23 @@
 {
-    "version": "0.1.25",
+    "version": "0.1.26",
     "lastUpdated": "November 9, 2026",
     "changes": [
-        "Show native upcoming contest timers beside the Vue lobby progress bar",
-        "Display MaxPlayers capacity on lobby game entries and the joined-game card",
-        "Use localized native table headings and formatted values in Leaderboards and Logs"
+        "Add grid, table, and list views for lobby players, plus a filter for the current game selection",
+        "Compact player cards when filtering by the current selection and show the matching game-mode icon",
+        "Improve lobby notifications with sound, minimize and read controls, and an optional close button",
+        "Add a Vue Gold Transfer view that preserves the current client view when opened and closed"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.25",
+            "lastUpdated": "November 9, 2026",
+            "changes": [
+                "Show native upcoming contest timers beside the Vue lobby progress bar",
+                "Display MaxPlayers capacity on lobby game entries and the joined-game card",
+                "Use localized native table headings and formatted values in Leaderboards and Logs"
+            ]
+        },
         {
             "version": "0.1.22",
             "lastUpdated": "November 9, 2026",

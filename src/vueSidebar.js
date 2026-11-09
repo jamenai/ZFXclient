@@ -82,7 +82,7 @@ const VueSidebar = defineComponent({
       { title: t("sidebarAccountGroup"), items: [
         { icon: "⚙", label: t("sidebarSettings"), action: () => typeof window.__fx?.openVueGameSettings === "function" ? window.__fx.openVueGameSettings() : window.__fx?.openVueSettings?.() },
         { icon: "account", label: t("sidebarAccount"), action: () => window.__fx?.openVueMyAccount?.() },
-        { icon: "◆", label: t("sidebarGoldTransfer"), action: openNativeAction(() => window.__fx?.openGameMenuAction?.("goldTransfer")) },
+        { icon: "◆", label: t("sidebarGoldTransfer"), action: () => window.__fx?.openVueGoldTransfer?.() },
       ] },
     ]);
     const isCollapsed = computed(() => mode.value !== "expanded" || window.innerWidth < 700);

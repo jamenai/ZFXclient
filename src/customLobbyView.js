@@ -376,19 +376,20 @@ const getLobbyLabels = (language = window.__fx?.getGameLanguage?.() || "en") => 
   const selectedLanguage = String(language || "en");
   const german = selectedLanguage.toLowerCase().startsWith("de");
   return german ? {
+    viewGrid: "Kacheln", viewTable: "Tabelle", viewList: "Liste",
     title: "Lobby-Übersicht", currentMap: "Aktuelle Karte", nextMap: "Ausgewähltes Spiel", selectedGame: "Ausgewähltes Spiel", joinedGame: "Beigetretenes Spiel", selectGame: "Spiel auswählen", noGameSelected: "Kein Spiel ausgewählt", chooseGameHint: "Wähle oben ein anstehendes Spiel aus.", modes: "Spielmodi", upcomingGames: "Anstehende Spiele", noOtherUpcomingGames: "Keine weiteren anstehenden Spiele", gameEntry: "Spiel", map: "Karte", modeTeamGame: "Team", modeTeams: "Teams", modeBattleRoyale: "Battle Royale", modeDuel: "1v1", modeZombie: "Zombie", modeUnknown: "Spielmodus", selected: "Ausgewählt", joinGame: "Beitreten", leaveGame: "Verlassen", joinSelected: "Ausgewählt · beitreten", waitingForGames: "Warte auf anstehende Spiele …", unknownPlayer: "Unbekannter Spieler", clans: "Clans",
     lobbyRating: "Lobby-Rating", lobbyRatingUnavailable: "Warte auf bereite Spieler mit Rang",
     teams: "Teams", currentPlayer: "Du spielst als", changeName: "Namen ändern", upcomingContests: "Nächste Contests", gameMode: "Spielmodus", readyPlayers: "Bereite Spieler", quickFilters: "Schnellfilter", lobbyInfo: "Lobby-Info", lobbyViews: "Lobby-Bereiche",
     overview: "Übersicht", topReadyPlayers: "Top 3 bereite Spieler", noReadyPlayers: "Keine bereiten Spieler",
     topReadyClan: "Top-Clan (bereit)",
     overviewLeadersNote: "Beste Weltränge unter den bereiten Spielern",
-    progress: "Spielstart", players: "Spieler", team: "Team", search: "Spieler suchen …",
+    progress: "Spielstart", players: "Spieler", team: "Team", search: "Spieler suchen …", allGames: "Alle Spiele", currentMapSelection: "Current Map",
     etaUnavailable: "Warte auf Startzeit …", startsIn: "Start in", startingNow: "Spiel startet jetzt",
     readyClansByClan: "Bereite Spieler nach Clan", noReadyClanPlayers: "Keine bereiten Clan-Spieler", others: "Andere",
     all: "Alle", ready: "Bereit", notReady: "Nicht bereit", clan: "Clan", followed: "Following", noClans: "Keine Clans in der Lobby", noClanMembers: "Keine Mitglieder des eigenen Clans in der Lobby",
     onlyReadyClans: "Nur Clans mit Bereiten", noReadyClans: "Keine Clans mit bereiten Spielern",
-    readinessFilters: "Bereitschaftsfilter", affiliationFilters: "Zugehörigkeitsfilter", resetFilters: "Filter zurücksetzen",
-    rank: "Rang", status: "Status", online: "Online", followJoin: "Mitbeitreten", noPlayers: "Keine Spieler gefunden",
+    readinessFilters: "Bereitschaftsfilter", affiliationFilters: "Zugehörigkeitsfilter", gameFilters: "Spielauswahl", resetFilters: "Filter zurücksetzen",
+    rank: "Rang", status: "Status", online: "Online", followJoin: "Mitbeitreten", sendGold: "Gold senden", noPlayers: "Keine Spieler gefunden",
     sort: "Sortierung", sortRankDesc: "Rang absteigend", sortRankAsc: "Rang aufsteigend", sortName: "Name (A–Z)",
     clanTitle: "Clan-Übersicht", chat: "Chat", calls: "Calls", joinCont: "Join Cont", join: "Join", joinNext: "Join {map} {count} teams", nextGame: "nächstes Spiel", chatPlaceholder: "Nachricht an die Lobby …", clear: "Leeren",
     teamMessagePlaceholder: "Nachricht ans Team schreiben …", send: "Senden", messageSent: "Clan-Nachricht gesendet", messageSendFailed: "Clan-Nachricht konnte nicht gesendet werden",
@@ -399,19 +400,20 @@ const getLobbyLabels = (language = window.__fx?.getGameLanguage?.() || "en") => 
     playersCount: "Spieler", noClan: "Kein eigener Clan erkannt", lobbyUnavailable: "Lobby wird geladen …",
     chatUnavailable: "Lobby-Chat konnte nicht geöffnet werden",
   } : {
+    viewGrid: "Grid", viewTable: "Table", viewList: "List",
     title: "Lobby overview", currentMap: "Current map", nextMap: "Your selection", selectedGame: "Your selection", joinedGame: "Joined game", selectGame: "Select game", noGameSelected: "No game selected", chooseGameHint: "Choose an upcoming game above.", modes: "Game modes", upcomingGames: "Upcoming games", noOtherUpcomingGames: "No other upcoming games", gameEntry: "Game", map: "Map", modeTeamGame: "Team", modeTeams: "Teams", modeBattleRoyale: "Battle Royale", modeDuel: "1v1", modeZombie: "Zombie", modeUnknown: "Game mode", selected: "Selected", joinGame: "Join", leaveGame: "Leave", joinSelected: "Selected · join", waitingForGames: "Waiting for upcoming games …", unknownPlayer: "Unknown player", clans: "Clans",
     lobbyRating: "Lobby rating", lobbyRatingUnavailable: "Waiting for ready players with rank data",
     teams: "Teams", currentPlayer: "Playing as", changeName: "Change name", upcomingContests: "Upcoming contests", gameMode: "Game mode", readyPlayers: "Ready players", quickFilters: "Quick filters", lobbyInfo: "Lobby info", lobbyViews: "Lobby views",
     overview: "Overview", topReadyPlayers: "Top 3 ready players", noReadyPlayers: "No ready players",
     topReadyClan: "Top ready clan",
     overviewLeadersNote: "Highest global ranks among ready players",
-    progress: "Game start", players: "Players", team: "Team", search: "Search players …",
+    progress: "Game start", players: "Players", team: "Team", search: "Search players …", allGames: "All games", currentMapSelection: "Current map",
     etaUnavailable: "Waiting for start time …", startsIn: "Starts in", startingNow: "Starting now",
     readyClansByClan: "Ready players by clan", noReadyClanPlayers: "No ready clan players", others: "Others",
     all: "All", ready: "Ready", notReady: "Not ready", clan: "Clan", followed: "Following", noClans: "No clans in this lobby", noClanMembers: "No members of your clan are in this lobby",
     onlyReadyClans: "Only clans with ready players", noReadyClans: "No clans with ready players",
-    readinessFilters: "Readiness filters", affiliationFilters: "Affiliation filters", resetFilters: "Reset filters",
-    rank: "Rank", status: "Status", online: "Online", followJoin: "Follow join", noPlayers: "No players found",
+    readinessFilters: "Readiness filters", affiliationFilters: "Affiliation filters", gameFilters: "Game selection", resetFilters: "Reset filters",
+    rank: "Rank", status: "Status", online: "Online", followJoin: "Follow join", sendGold: "Send Gold", noPlayers: "No players found",
     sort: "Sort", sortRankDesc: "Rank descending", sortRankAsc: "Rank ascending", sortName: "Name (A–Z)",
     clanTitle: "Clan overview", chat: "Chat", calls: "Calls", joinCont: "Join Cont", join: "Join", joinNext: "Join {map} {count} teams", nextGame: "next game", chatPlaceholder: "Message the lobby …", clear: "Clear",
     teamMessagePlaceholder: "Write a message to your team …", send: "Send", messageSent: "Clan message sent", messageSendFailed: "Could not send clan message",
@@ -442,10 +444,13 @@ const LobbyView = defineComponent({
     const sortBy = ref("rank-asc");
     const readyFilter = ref("all");
     const affiliationFilter = ref("all");
+    const entryFilter = ref("all");
     const chatStatus = ref("");
     const lobbyNotifications = ref([]);
     const notificationIndex = ref(-1);
     const notificationPanelOpen = ref(false);
+    const notificationPanelMinimized = ref(true);
+    const showLobbyNotificationCloseButton = ref(Boolean(window.__fx?.settings?.showLobbyNotificationCloseButton));
     const currentLobbyNotification = computed(() => lobbyNotifications.value[notificationIndex.value] ?? null);
     const propagandaDialog = ref(null);
     const propagandaMessage = shallowRef(null);
@@ -602,6 +607,8 @@ const LobbyView = defineComponent({
         if (needle && !player.name.toLocaleLowerCase().includes(needle)) return false;
         if (readyFilter.value === "ready" && player.readiness !== "ready") return false;
         if (readyFilter.value === "not-ready" && player.readiness !== "not-ready") return false;
+        if (entryFilter.value === "current" && (selectedGameEntry.value?.id == null
+          || Number(player.entryId) !== Number(selectedGameEntry.value.id))) return false;
         if (activeTab.value !== "team" && affiliationFilter.value === "clan" && !player.clan) return false;
         if (activeTab.value !== "team" && affiliationFilter.value === "followed" && !player.followed) return false;
         return true;
@@ -900,6 +907,10 @@ const LobbyView = defineComponent({
         entryId: player.entryId,
         readiness: player.ready ? "ready" : "not-ready",
         ready: player.ready === true,
+        readyEntryModeKey: player.ready && player.entryId != null
+          ? resolveMode(entriesById.get(Number(player.entryId))?.modeCode).key : "",
+        readyEntryModeLabel: player.ready && player.entryId != null
+          ? resolveMode(entriesById.get(Number(player.entryId))?.modeCode).label : "",
           readyEntryLabel: player.ready && player.entryId != null
           ? (() => {
             const entry = entriesById.get(Number(player.entryId));
@@ -1071,6 +1082,9 @@ const LobbyView = defineComponent({
             ? window.__fx?.getGameMapNames?.()?.[Number(sdkEntry.mapIndex)] || getMapName(Number(sdkEntry.mapIndex))
             : "");
         const sdkEntryModeCode = Number(sdkEntry?.modeCode);
+        const sdkEntryModeKey = sdkEntryModeCode >= 0 && sdkEntryModeCode <= 6 ? "team"
+          : sdkEntryModeCode === 7 || sdkEntryModeCode === 10 ? "battle-royale"
+            : sdkEntryModeCode === 8 ? "duel" : sdkEntryModeCode === 9 ? "zombie" : "";
         const sdkEntryMode = sdkEntryModeCode >= 0 && sdkEntryModeCode <= 6 ? labels.modeTeamGame
           : sdkEntryModeCode === 7 || sdkEntryModeCode === 10 ? labels.modeBattleRoyale
             : sdkEntryModeCode === 8 ? labels.modeDuel : sdkEntryModeCode === 9 ? labels.modeZombie : "";
@@ -1087,6 +1101,8 @@ const LobbyView = defineComponent({
           readyEntryLabel: sdkPlayer?.ready && sdkEntry
             ? [sdkEntryMapName || `${labels.gameEntry} #${sdkEntry.id}`, sdkEntryMode].filter(Boolean).join(" · ")
             : "",
+          readyEntryModeKey: sdkPlayer?.ready ? sdkEntryModeKey : "",
+          readyEntryModeLabel: sdkPlayer?.ready ? sdkEntryMode : "",
           followJoinAvailable: Boolean(sdkPlayer?.ready && sdkEntry),
           clan: metadata.dataset.fxClan || row.dataset.fxClan
             || getPlayerClan(name) || getPlayerClan(rawText),
@@ -1353,13 +1369,14 @@ const LobbyView = defineComponent({
         ?? snapshot.value.players.find(candidate => normalizeLobbyPlayerName(candidate.name) === normalizeLobbyPlayerName(player.name));
       playerContextMenu.value = {
         senderId: player.senderId,
+        accountId: player.accountId ?? null,
         senderName: player.name,
         senderColor: player.color || "",
         entryId: player.entryId ?? matchedPlayer?.entryId ?? null,
         ready: player.readiness === "ready" || player.ready === true || matchedPlayer?.readiness === "ready",
         self: player.self === true || matchedPlayer?.self === true,
         x: Math.max(8, Math.min(event?.clientX ?? 8, window.innerWidth - 176)),
-        y: Math.max(8, Math.min(event?.clientY ?? 8, window.innerHeight - 54)),
+        y: Math.max(8, Math.min(event?.clientY ?? 8, window.innerHeight - 150)),
       };
     }
 
@@ -1368,6 +1385,20 @@ const LobbyView = defineComponent({
       playerContextMenu.value = null;
       if (!player?.ready || player.self || player.entryId == null) return false;
       return followPlayerJoin(player);
+    }
+
+    function sendGoldFromContextMenu() {
+      const player = playerContextMenu.value;
+      playerContextMenu.value = null;
+      if (!player) return false;
+      // Resolve against the native lobby player records. Their `ua` is the ID
+      // consumed by the native gold transfer action; SDK/session IDs and the
+      // chat name index are not used as fallbacks.
+      const accountId = player.accountId
+        ?? window.__fx?.goldTransferAdapter?.resolveRecipientId?.(player.senderName)
+        ?? "";
+      const accountCode = accountId ? window.__fx?.getLobbyChatMentionToken?.(Number(accountId)) : "";
+      return window.__fx?.openVueGoldTransfer?.(String(accountCode || "")) ?? false;
     }
 
     async function mentionPlayerFromContextMenu() {
@@ -1438,6 +1469,7 @@ const LobbyView = defineComponent({
           categoryKey, category: labels[categoryKey],
         };
         notificationIndex.value = existingIndex;
+        notificationPanelMinimized.value = false;
         notificationPanelOpen.value = true;
         return;
       }
@@ -1453,7 +1485,40 @@ const LobbyView = defineComponent({
       while (nextNotifications.length > 100) nextNotifications.shift();
       lobbyNotifications.value = nextNotifications;
       notificationIndex.value = nextNotifications.length - 1;
+      notificationPanelMinimized.value = false;
       notificationPanelOpen.value = true;
+      if (event.detail?.soundAllowed) window.__fx?.playLobbyNotificationSound?.();
+    }
+
+    function minimizeLobbyNotifications() {
+      notificationPanelOpen.value = false;
+      notificationPanelMinimized.value = true;
+    }
+
+    function restoreLobbyNotifications() {
+      notificationPanelMinimized.value = false;
+      notificationPanelOpen.value = Boolean(currentLobbyNotification.value);
+    }
+
+    function closeLobbyNotifications() {
+      notificationPanelOpen.value = false;
+      notificationPanelMinimized.value = false;
+    }
+
+    function markLobbyNotificationRead() {
+      if (notificationIndex.value < 0 || notificationIndex.value >= lobbyNotifications.value.length) return;
+      const nextNotifications = [...lobbyNotifications.value];
+      nextNotifications.splice(notificationIndex.value, 1);
+      lobbyNotifications.value = nextNotifications;
+      if (!nextNotifications.length) {
+        notificationIndex.value = -1;
+        notificationPanelOpen.value = false;
+        notificationPanelMinimized.value = true;
+        return;
+      }
+      notificationIndex.value = Math.min(notificationIndex.value, nextNotifications.length - 1);
+      notificationPanelOpen.value = true;
+      notificationPanelMinimized.value = false;
     }
 
     function previousLobbyNotification() {
@@ -1715,6 +1780,7 @@ const LobbyView = defineComponent({
       refreshLobbyLanguage();
       notificationIndex.value = lobbyNotifications.value.length - 1;
       notificationPanelOpen.value = lobbyNotifications.value.length > 0;
+      notificationPanelMinimized.value = lobbyNotifications.value.length === 0;
       unsubscribe = adapter.subscribe(value => {
         snapshot.value = value;
         refreshLobbyRating();
@@ -1818,15 +1884,15 @@ const LobbyView = defineComponent({
     });
 
     return {
-      active, labels, snapshot, lobbyRating, lobbyBackgroundStyle, scale, query, sortBy, readyFilter, affiliationFilter, filteredPlayers, filteredTeamPlayers, clanGroups, topReadyClan, readyClanSlices, readyClanTotal, activeTab,
-      lobbyNotifications, notificationIndex, notificationPanelOpen, currentLobbyNotification,
+      active, labels, snapshot, lobbyRating, lobbyBackgroundStyle, scale, query, sortBy, readyFilter, affiliationFilter, entryFilter, filteredPlayers, filteredTeamPlayers, clanGroups, topReadyClan, readyClanSlices, readyClanTotal, activeTab,
+      lobbyNotifications, notificationIndex, notificationPanelOpen, notificationPanelMinimized, showLobbyNotificationCloseButton, currentLobbyNotification,
       propagandaDialog, propagandaMessage, closePropagandaMessage,
-      previousLobbyNotification, nextLobbyNotification,
+      previousLobbyNotification, nextLobbyNotification, minimizeLobbyNotifications, restoreLobbyNotifications, closeLobbyNotifications, markLobbyNotificationRead,
       ownClan, currentPlayerName, clanOverviewGroup, clanPlayers, clanReadyCount, teamCount, clanCount, playerCountLabel, onlyReadyClans, visibleClanGroups, chatStatus, nextGameMeta, isTeamMode,
       displayedUpcomingGames, selectedGameEntry, joinedGameEntry, joinCardEntry, selectedEntryReadyCount,
       currentMapEntry,
       selectedGameJoined,
-      playerContextMenu, playerListComponent, mentionPlayerFromContextMenu, followJoinFromContextMenu,
+      playerContextMenu, playerListComponent, mentionPlayerFromContextMenu, followJoinFromContextMenu, sendGoldFromContextMenu,
       selectUpcomingGame,
       changePlayerName,
       followPlayerJoin,
@@ -1835,8 +1901,9 @@ const LobbyView = defineComponent({
       setSort: value => { sortBy.value = ["rank-desc", "rank-asc", "name"].includes(value) ? value : "rank-asc"; },
       setReadyFilter: value => { readyFilter.value = readyFilter.value === value ? "all" : value; },
       setAffiliationFilter: value => { affiliationFilter.value = affiliationFilter.value === value ? "all" : value; },
-      resetFilterGroups: () => { readyFilter.value = "all"; affiliationFilter.value = "all"; },
-      resetFilters: () => { query.value = ""; readyFilter.value = "all"; affiliationFilter.value = "all"; },
+      setEntryFilter: value => { entryFilter.value = ["all", "current"].includes(value) ? value : "all"; },
+      resetFilterGroups: () => { readyFilter.value = "all"; affiliationFilter.value = "all"; entryFilter.value = "all"; },
+      resetFilters: () => { query.value = ""; readyFilter.value = "all"; affiliationFilter.value = "all"; entryFilter.value = "all"; },
       sendChat: (message, callback) => sendMessage(message, callback),
       sendCall: sendSpawnCall,
       sendJoin: sendJoinCall,
@@ -1858,18 +1925,24 @@ const LobbyView = defineComponent({
           <button type="button" :disabled="notificationIndex <= 0" aria-label="Vorherige Meldung" @click="previousLobbyNotification">◀</button>
           <strong>{{ notificationIndex + 1 }} / {{ lobbyNotifications.length }}</strong>
           <button type="button" :disabled="notificationIndex >= lobbyNotifications.length - 1" aria-label="Nächste Meldung" @click="nextLobbyNotification">▶</button>
-          <button type="button" aria-label="Meldung schließen" @click="notificationPanelOpen = false">×</button>
+          <button type="button" class="fx-lobby-notification-read" aria-label="Als gelesen markieren" title="Gelesen" @click="markLobbyNotificationRead">✓</button>
+          <button type="button" aria-label="Meldungen minimieren" title="Minimieren" @click="minimizeLobbyNotifications">−</button>
+          <button v-if="showLobbyNotificationCloseButton" type="button" class="fx-lobby-notification-close" aria-label="Close notifications" title="Close" @click="closeLobbyNotifications">?</button>
         </div>
         <article class="fx-lobby-notification" :class="{ 'is-followers': currentLobbyNotification.kind === 'followers' }">
           <span class="fx-lobby-notification-category">{{ currentLobbyNotification.category }}</span>
-          <LobbyPlayerName v-if="currentLobbyNotification.senderName" class="fx-lobby-notification-sender" :name="currentLobbyNotification.senderName" :color="currentLobbyNotification.senderColor" @activate="openPlayerContextMenu({ name: currentLobbyNotification.senderName, senderId: currentLobbyNotification.senderId, color: currentLobbyNotification.senderColor }, $event)" />
-          <p><template v-if="currentLobbyNotification.bodySegments?.length"><template v-for="(segment, index) in currentLobbyNotification.bodySegments" :key="index"><LobbyPlayerName v-if="segment.resolvedPlayer" :name="segment.text" :color="segment.color" @activate="openPlayerContextMenu({ name: segment.text, senderId: segment.mentionId, color: segment.color }, $event)" /><span v-else :style="segment.color ? { color: segment.color } : null">{{ segment.text }}</span></template></template><template v-else>{{ currentLobbyNotification.body || currentLobbyNotification.text }}</template></p>
+          <LobbyPlayerName v-if="currentLobbyNotification.senderName" class="fx-lobby-notification-sender" :name="currentLobbyNotification.senderName" :color="currentLobbyNotification.senderColor" @activate="openPlayerContextMenu({ name: currentLobbyNotification.senderName, senderId: currentLobbyNotification.senderId, accountId: currentLobbyNotification.senderId, color: currentLobbyNotification.senderColor }, $event)" />
+          <p><template v-if="currentLobbyNotification.bodySegments?.length"><template v-for="(segment, index) in currentLobbyNotification.bodySegments" :key="index"><LobbyPlayerName v-if="segment.resolvedPlayer" :name="segment.text" :color="segment.color" @activate="openPlayerContextMenu({ name: segment.text, senderId: segment.mentionId, accountId: segment.mentionId, color: segment.color }, $event)" /><span v-else :style="segment.color ? { color: segment.color } : null">{{ segment.text }}</span></template></template><template v-else>{{ currentLobbyNotification.body || currentLobbyNotification.text }}</template></p>
         </article>
+      </aside>
+      <aside v-else-if="notificationPanelMinimized" class="fx-lobby-notifications is-minimized" aria-label="Minimierte Lobby-Benachrichtigungen" @pointerdown.stop @mousedown.stop @click.stop>
+        <button type="button" class="fx-lobby-notification-restore" :disabled="!currentLobbyNotification" :aria-label="lobbyNotifications.length + ' notifications'" title="Notifications" @click="restoreLobbyNotifications"><svg class="fx-lobby-notification-bell" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><strong>{{ lobbyNotifications.length }}</strong></button>
       </aside>
       <div v-if="playerContextMenu" class="fx-custom-lobby-chat-menu-backdrop" @click="playerContextMenu = null" @keydown.esc="playerContextMenu = null">
         <div class="fx-custom-lobby-chat-context-menu" role="menu" :style="{ left: playerContextMenu.x + 'px', top: playerContextMenu.y + 'px' }" @click.stop>
           <strong :style="playerContextMenu.senderColor ? { color: playerContextMenu.senderColor } : null">{{ playerContextMenu.senderName }}</strong>
           <button v-if="playerContextMenu.ready && !playerContextMenu.self && playerContextMenu.entryId != null" type="button" role="menuitem" @click="followJoinFromContextMenu">{{ labels.followJoin }}</button>
+          <button v-if="!playerContextMenu.self" type="button" role="menuitem" @click="sendGoldFromContextMenu">{{ labels.sendGold }}</button>
           <button type="button" role="menuitem" @click="mentionPlayerFromContextMenu">@ {{ labels.mention }}</button>
         </div>
       </div>
@@ -1877,7 +1950,7 @@ const LobbyView = defineComponent({
       <MapHeader :map="selectedGameEntry?.mapName || snapshot.currentMap" :map-image="selectedGameEntry?.mapImage || snapshot.currentMapImage" :next-map="joinCardEntry?.mapName || ''" :next-map-image="joinCardEntry?.mapImage || ''" :next-team-count-label="joinCardEntry?.teamCountLabel || ''" :next-game-mode-label="joinCardEntry?.modeLabel || ''" :game-mode-key="selectedGameEntry?.modeKey || snapshot.currentGameModeKey" :next-game-mode-key="joinCardEntry?.modeKey || ''" :next-game-meta="nextGameMeta" :is-contest="selectedGameEntry ? selectedGameEntry.isContest : snapshot.isContest" :next-is-contest="joinCardEntry ? joinCardEntry.isContest : null" :no-fullsend="selectedGameEntry ? Number(selectedGameEntry.modeCode) === 10 : snapshot.noFullsend" :next-no-fullsend="Number(joinCardEntry?.modeCode) === 10" :labels="labels" :entries="displayedUpcomingGames" :current-map-entry-id="snapshot.currentMapEntryId" :selected-game-joined="selectedGameJoined" :selection-disabled="!joinCardEntry" :entry-title="getEntryTitle" :ready-count="selectedEntryReadyCount" :ready-clans="readyClanSlices" :ready-clan-total="readyClanTotal" :team-count="selectedGameEntry?.teamCountLabel || snapshot.currentTeamCountLabel" :game-mode-label="selectedGameEntry?.modeLabel || snapshot.currentGameModeLabel" :lobby-rating="lobbyRating" @select-entry="selectUpcomingGame" @join-selected="toggleSelectedGameJoin" />
       <LobbyProgress :snapshot="{ ...snapshot, nextGameEntryId: selectedGameEntry?.id ?? null, nextGameCountdownSeconds: selectedGameEntry?.countdownSeconds ?? null }" :labels="labels" />
       <main class="fx-custom-lobby-content">
-        <PlayerList ref="playerListComponent" :players="filteredPlayers" :all-players="snapshot.players" :clans="visibleClanGroups" :labels="labels" :count="snapshot.playerCount" :player-count-label="playerCountLabel" :query="query" :sort-by="sortBy" :ready-filter="readyFilter" :affiliation-filter="affiliationFilter" :active-tab="activeTab" :chat-messages="snapshot.chatMessages" :chat-status="chatStatus" :team-mode="isTeamMode" :team-players="filteredTeamPlayers" :team-clan="ownClan" :team-count="teamCount" :clan-count="clanCount" :top-ready-clan="topReadyClan" :only-ready-clans="onlyReadyClans" :current-map="snapshot.currentMap" :next-map="snapshot.nextMap" :next-team-count="snapshot.nextTeamCountLabel" @update:query="query = $event" @update:sort="setSort" @update:ready-filter="setReadyFilter" @update:affiliation-filter="setAffiliationFilter" @reset-filter-groups="resetFilterGroups" @reset-filters="resetFilters" @filter-ready-clans="onlyReadyClans = $event" @select-player="selectPlayer" @follow-join="followPlayerJoin" @select-tab="selectLobbyTab" @send-chat="sendChat" @send-call="sendCall" @send-join="sendJoin" @send-team-message="sendTeamMessage" />
+        <PlayerList ref="playerListComponent" :players="filteredPlayers" :all-players="snapshot.players" :clans="visibleClanGroups" :labels="labels" :count="snapshot.playerCount" :player-count-label="playerCountLabel" :query="query" :sort-by="sortBy" :ready-filter="readyFilter" :affiliation-filter="affiliationFilter" :entry-filter="entryFilter" :current-entry-available="selectedGameEntry?.id != null" :active-tab="activeTab" :chat-messages="snapshot.chatMessages" :chat-status="chatStatus" :team-mode="isTeamMode" :team-players="filteredTeamPlayers" :team-clan="ownClan" :team-count="teamCount" :clan-count="clanCount" :top-ready-clan="topReadyClan" :only-ready-clans="onlyReadyClans" :current-map="snapshot.currentMap" :next-map="snapshot.nextMap" :next-team-count="snapshot.nextTeamCountLabel" @update:query="query = $event" @update:sort="setSort" @update:ready-filter="setReadyFilter" @update:affiliation-filter="setAffiliationFilter" @update:entry-filter="setEntryFilter" @reset-filter-groups="resetFilterGroups" @reset-filters="resetFilters" @filter-ready-clans="onlyReadyClans = $event" @select-player="selectPlayer" @follow-join="followPlayerJoin" @select-tab="selectLobbyTab" @send-chat="sendChat" @send-call="sendCall" @send-join="sendJoin" @send-team-message="sendTeamMessage" />
         <aside class="fx-custom-lobby-side-stack">
           <article class="fx-custom-lobby-current-player-card"><span class="fx-custom-lobby-current-player-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg></span><div><span>{{ labels.currentPlayer }}</span><strong :title="currentPlayerName">{{ currentPlayerName }}</strong></div><button type="button" class="fx-custom-lobby-current-player-edit" :title="labels.changeName" :aria-label="labels.changeName" @click.stop.prevent="changePlayerName">{{ labels.changeName }}</button></article>
           <ClanOverview :clan="clanOverviewGroup?.tag || ownClan" :ready-count="clanReadyCount" :member-count="clanPlayers.length" :members="clanPlayers" :labels="labels" @select-player="selectPlayer" />

@@ -1,6 +1,5 @@
 import { getSettings } from "./settings.js";
 import { getVar } from "./gameInterface.js";
-import { leaderboardFilter } from "./clanFilters.js";
 import { escapeHtml } from "./utils.js";
 import { drawPlayerNameWithCountryFlags } from "./countryFlagRenderer.js";
 
@@ -99,7 +98,6 @@ const duplicateIpColorPalette = [
     "hsla(315, 80%, 58%, 0.5)",
     "hsla(330, 80%, 58%, 0.5)",
 ];
-const sameClanColor = "hsla(0, 85%, 50%, 0.5)";
 
 function hashInt(n) {
     n = (n ^ (n >>> 16)) >>> 0;
@@ -158,16 +156,9 @@ function getDuplicateIpHighlightColor(player, entries, ipField) {
     return getIpColors(entries, ipField).get(ip) || null;
 }
 
-function getSameClanHighlightColor(player, ownPlayer, nameField) {
-    if (!ownPlayer) return null;
-    const ownClan = leaderboardFilter.parseClanFromPlayerName(ownPlayer[nameField]);
-    if (!ownClan) return null;
-    return leaderboardFilter.parseClanFromPlayerName(player[nameField]) === ownClan ? sameClanColor : null;
-}
-
 function parseAccountId(value) {
     const match = /^[a-zA-Z0-9_-]{1,5}/.exec(value);
     return match ? match[0] : null;
 }
 
-export default { getMaxTroops, getDensity, getLobbyPlayerRank, getEstimatedEliminationAttack, drawEstimatedEliminationAttack, drawPlayerNameWithCountryFlags, isPointInRectangle, fillTextMultiline, textStyleBasedOnDensity, getDuplicateIpHighlightColor, getSameClanHighlightColor, escapeHtml, parseAccountId }
+export default { getMaxTroops, getDensity, getLobbyPlayerRank, getEstimatedEliminationAttack, drawEstimatedEliminationAttack, drawPlayerNameWithCountryFlags, isPointInRectangle, fillTextMultiline, textStyleBasedOnDensity, getDuplicateIpHighlightColor, escapeHtml, parseAccountId }

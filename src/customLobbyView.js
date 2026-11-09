@@ -9,7 +9,6 @@ import { getMapName } from "./lobbyFilters.js";
 import { ClanOverview, LobbyPlayerName, LobbyProgress, MapHeader, PlayerList } from "./lobbyComponents.js";
 
 const APP_ID = "fx-app-mount";
-const LOBBY_VIEW_MIGRATION_KEY = "fx_custom_lobby_view_enabled_v1";
 const lastDiagnostic = new Map();
 const mapImageCache = new Map();
 let nativeLobbyBackgroundImage = "";
@@ -112,20 +111,6 @@ function logLobbyDiagnostic(stage, signature, details) {
   if (lastDiagnostic.get(stage) === signature) return;
   lastDiagnostic.set(stage, signature);
   console.log(`[ZFX Client LobbyView] ${stage}`, details);
-}
-
-function migrateLobbyViewPreference() {
-  try {
-    if (localStorage.getItem(LOBBY_VIEW_MIGRATION_KEY) === "done") return;
-    const settings = window.__fx?.settings;
-    if (!settings) return;
-    // The Vue lobby view replaces the former preview. Enable it once for existing
-    // installs that persisted the old default-off value; users can still turn it off.
-    settings.customLobbyView = true;
-    localStorage.setItem("fx_settings", JSON.stringify(settings));
-    localStorage.setItem(LOBBY_VIEW_MIGRATION_KEY, "done");
-    console.log("[ZFX Client LobbyView] Migrated saved preference to enabled.");
-  } catch { /* Keep startup resilient when storage is unavailable. */ }
 }
 
 function cleanText(element) {
@@ -496,7 +481,6 @@ const LobbyView = defineComponent({
     }
 
     function showPropagandaInVue(message, colors, id, suppliedTheme = null) {
-      if (window.__fx?.settings?.customLobbyView !== true) return false;
       propagandaMessage.value = {
         text: String(message ?? "").trim(),
         id: Number(id),
@@ -567,8 +551,7 @@ const LobbyView = defineComponent({
     // This component is only mounted on /lobby, so do not gate its first render
     // on native DOM selectors. Those selectors vary between game builds and
     // previously left the native lobby visible with no Vue replacement.
-    const active = ref(window.__fx?.settings?.customLobbyView !== false
-      && (Number(window.__fx?.nativeMenuState) !== 5 || multiplayerLobbyRequested));
+    const active = ref(Number(window.__fx?.nativeMenuState) !== 5 || multiplayerLobbyRequested);
     let nativeRoot = null;
     let savedStyles = null;
     if (active.value) suppressNativeRoot(startupLobbyCandidate);
@@ -999,7 +982,6 @@ const LobbyView = defineComponent({
           markedPlayerSpans: markedRows,
           statusLikeSpans: statusRows,
           totalSpans: spans.length,
-          settingsEnabled: window.__fx?.settings?.customLobbyView,
           gameState: window.__fx?.getGameVar?.("gameState"),
         });
         // Some native builds only render the selected Chat or roster panel.
@@ -1419,8 +1401,7 @@ const LobbyView = defineComponent({
         return;
       }
       if (nextState !== 0
-        || (Number(window.__fx?.getGameVar?.("gameState")) === 1 && !multiplayerLobbyRequested)
-        || window.__fx?.settings?.customLobbyView === false) return;
+        || (Number(window.__fx?.getGameVar?.("gameState")) === 1 && !multiplayerLobbyRequested)) return;
       active.value = true;
       suppressNativeRoot(findLobbyRoot(shell));
       scheduleRead();
@@ -1880,7 +1861,6 @@ let multiplayerLobbyStateObserved = false;
 let nativeMatchActive = false;
 
 export function initializeCustomLobbyView() {
-  migrateLobbyViewPreference();
   const shell = document.getElementById("fx-game-shell");
   if (!shell || document.getElementById(APP_ID)) return () => {};
   const onNativeMapPreview = (mapIndex, mapSeed, canvas) => {
@@ -1971,7 +1951,7 @@ export function initializeCustomLobbyView() {
     // users may want to take a screenshot or watch the replay. Stay on the
     // native in-game view until the native menu explicitly returns to lobby.
     if (nativeMatchActive) return "/game";
-    if (multiplayerLobbyRequested && window.__fx?.settings?.customLobbyView !== false) return "/lobby";
+    if (multiplayerLobbyRequested) return "/lobby";
     // The visible native lobby is the strongest signal. Menu/game state can
     // lag during startup, which used to route to the empty in-game view.
     const nativeLobbyConfirmed = nativeMenuState === 0 || nativeLobbyVisible;
@@ -1998,7 +1978,7 @@ export function initializeCustomLobbyView() {
       nativeLobbySuppressionRoot = null;
     }
     previousGameState = gameState;
-    if (customLobbyReturnLatched && window.__fx?.settings?.customLobbyView !== false) {
+    if (customLobbyReturnLatched) {
       if (!inGame) {
         classicSessionDisabled = false;
         return "/lobby";
@@ -2006,8 +1986,7 @@ export function initializeCustomLobbyView() {
       return "/game";
     }
     return inGame ? "/game"
-      : classicSessionDisabled || window.__fx?.settings?.customLobbyView === false
-        || (nativeMenuState !== 0 && !nativeLobbyVisible) ? "/classic" : "/lobby";
+      : classicSessionDisabled || (nativeMenuState !== 0 && !nativeLobbyVisible) ? "/classic" : "/lobby";
   };
   const syncRoute = () => {
     const target = getTargetRoute();
@@ -2015,7 +1994,6 @@ export function initializeCustomLobbyView() {
       console.log("[ZFX Client LobbyView] Route change requested", {
         from: router.currentRoute.value.path,
         to: target,
-        enabled: window.__fx?.settings?.customLobbyView,
         gameState: window.__fx?.getGameVar?.("gameState"),
         nativeMenuState: window.__fx?.nativeMenuState,
       });
@@ -2035,7 +2013,6 @@ export function initializeCustomLobbyView() {
   }) ?? (() => {});
   window.__fx.navigateFxView = path => router.push(path);
   window.__fx.requestCustomLobbyView = () => {
-    if (window.__fx?.settings?.customLobbyView === false) return false;
     multiplayerLobbyRequested = true;
     multiplayerLobbyStateObserved = false;
     nativeMatchActive = false;
@@ -2043,8 +2020,7 @@ export function initializeCustomLobbyView() {
     router.replace("/lobby").catch(error => console.error("[ZFX Client] Multiplayer lobby navigation failed:", error));
     return true;
   };
-  window.__fx.isCustomLobbyViewVisible = () => window.__fx?.settings?.customLobbyView === true
-    && router.currentRoute.value.path === "/lobby"
+  window.__fx.isCustomLobbyViewVisible = () => router.currentRoute.value.path === "/lobby"
     && Boolean(mount.querySelector("#fx-custom-lobby-view"));
   window.__fx.hideCustomLobbyView = () => {
     if (!window.__fx.isCustomLobbyViewVisible()) return false;
@@ -2080,16 +2056,10 @@ export function initializeCustomLobbyView() {
     nativeLobbySuppressionRoot = null;
     nativeLobbySuppressionSawDeparture = false;
     nativeLobbySuppressionReturnState = null;
-    if (window.__fx?.settings?.customLobbyView === false) {
-      customLobbyReturnLatched = false;
-      nativeLobbyReturnPending = false;
-      nativeLobbyReturnUntil = 0;
-      return;
-    }
     syncRoute();
     let attempts = 0;
     const restoreLobby = () => {
-      if (window.__fx?.settings?.customLobbyView === false || attempts++ >= 24) {
+      if (attempts++ >= 24) {
         nativeLobbyReturnPending = false;
         return;
       }
@@ -2145,7 +2115,7 @@ export function initializeCustomLobbyView() {
       && !nativeLobbyReturnPending && !multiplayerLobbyRequested) {
       window.__fx.onGameReturnedToLobby?.();
     }
-    if (nextState === 0 && window.__fx?.settings?.customLobbyView !== false) syncRoute();
+    if (nextState === 0) syncRoute();
     else if (multiplayerLobbyRequested) syncRoute();
     if (!classicSessionDisabled) return;
     const returnedToOriginalLobbyState = nativeLobbySuppressionReturnState !== null
@@ -2163,7 +2133,6 @@ export function initializeCustomLobbyView() {
   };
   router.onError(error => console.error("[ZFX Client] View navigation failed:", error));
   console.log("[ZFX Client LobbyView] Vue app mounted", {
-    enabled: window.__fx?.settings?.customLobbyView,
     gameState: window.__fx?.getGameVar?.("gameState"),
     shellFound: Boolean(shell),
     routerPath: router.currentRoute.value.path,

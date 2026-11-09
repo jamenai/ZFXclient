@@ -138,10 +138,8 @@ const FxHomeView = defineComponent({
       }
     }
 
-    if (window.__fx?.settings?.customHomeView !== false) {
-      setNativeHomeButtonsHidden(true);
-      setNativeHomeExtrasHidden(true);
-    }
+    setNativeHomeButtonsHidden(true);
+    setNativeHomeExtrasHidden(true);
 
     function refresh() {
       const game = window.__fx;
@@ -167,10 +165,10 @@ const FxHomeView = defineComponent({
         if (navigationTimeout) window.clearTimeout(navigationTimeout);
         navigationTimeout = 0;
       }
-      if (!navigationPending) visible.value = game?.settings?.customHomeView !== false && onHomeScreen;
+      if (!navigationPending) visible.value = onHomeScreen;
       const customLobbyVisible = game?.isCustomLobbyViewVisible?.() === true;
       setNativeHomeButtonsHidden(visible.value || customLobbyVisible);
-      setNativeHomeExtrasHidden(game?.settings?.customHomeView !== false);
+      setNativeHomeExtrasHidden(true);
     }
 
     function openNameEditor() {
@@ -242,19 +240,18 @@ const FxHomeView = defineComponent({
     const openScenario = () => navigateFromHome(() => window.__fx?.openCustomScenario?.());
     const openAccount = () => navigateFromHome(() => window.__fx?.openVueMyAccount?.());
     const openGameMenu = () => navigateFromHome(() => window.__fx?.openGameMenu?.());
-    const openSettings = () => navigateFromHome(() => window.__fx?.openVueSettings?.());
+    const openSettings = () => navigateFromHome(() => typeof window.__fx?.openVueGameSettings === "function"
+      ? window.__fx.openVueGameSettings() : window.__fx?.openVueSettings?.());
     const openCustomLobby = () => navigateFromHome(() => window.__fx?.customLobby?.showJoinPrompt?.());
 
     onMounted(() => {
       refresh();
       timer = window.setInterval(refresh, 300);
       window.addEventListener("fx-native-menu-state-change", refresh);
-      if (window.__fx?.settings?.customHomeView !== false) {
-        nativeHomeExtrasObserver = new MutationObserver(() => {
-          if (visible.value) setNativeHomeExtrasHidden(true);
-        });
-        nativeHomeExtrasObserver.observe(document.body, { childList: true, subtree: true });
-      }
+      nativeHomeExtrasObserver = new MutationObserver(() => {
+        if (visible.value) setNativeHomeExtrasHidden(true);
+      });
+      nativeHomeExtrasObserver.observe(document.body, { childList: true, subtree: true });
       window.__fx.openPlayerNameView = openNameEditor;
     });
     onBeforeUnmount(() => {

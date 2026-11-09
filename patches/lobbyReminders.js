@@ -33,7 +33,7 @@ export default definePatch(({ replaceRawCode, replaceOne }) => {
     // The original message manager renders its notification corner directly.
     // Keep the queue intact for Vue, but close both native notification panels
     // whenever the custom lobby is active.
-    const nativeLobbyNotification = `window.__fx&&window.__fx.settings&&window.__fx.settings.customLobbyView===true&&window.__fx.getGameVar("gameState")!==1`;
+    const nativeLobbyNotification = `window.__fx&&window.__fx.getGameVar("gameState")!==1`;
     // In the current build aIg/aIh render the native single card and history
     // panel. Preserve the shared queue while Vue owns the lobby display.
     replaceOne(/function aIg\(\)\{if\(aIa\.length===0\)\{return\}/g,

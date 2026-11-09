@@ -98,7 +98,7 @@ function makeButton(text, title, action, className = "") {
 }
 
 function createLegacySidebar() {
-  let enabled = window.__fx?.settings?.showSidebar !== false;
+  let enabled = true;
   let hasLobbySnapshot = false;
   let mode = window.innerWidth < 900 ? "collapsed" : "expanded";
   try {
@@ -218,8 +218,10 @@ function createLegacySidebar() {
     ["📜", "sidebarLogs", () => window.__fx?.openVueLogs?.()],
   ]);
   appendSection("sidebarAccountGroup", [
-    ["settings", "sidebarSettings", () => typeof window.__fx?.openVueSettings === "function"
-      ? window.__fx.openVueSettings() : window.__fx?.WindowManager?.openWindow("settings")],
+    ["settings", "sidebarSettings", () => typeof window.__fx?.openVueGameSettings === "function"
+      ? window.__fx.openVueGameSettings()
+      : typeof window.__fx?.openVueSettings === "function"
+        ? window.__fx.openVueSettings() : window.__fx?.WindowManager?.openWindow("settings")],
     ["🔑", "sidebarAccount", () => window.__fx?.openAccount?.()],
     ["🧈", "sidebarGoldTransfer", () => window.__fx?.openGameMenuAction?.("goldTransfer")],
   ]);
@@ -490,9 +492,7 @@ function createLegacySidebar() {
 }
 
 export function createSidebar() {
-  return window.__fx?.settings?.vueSidebar === true
-    ? createVueSidebar()
-    : createLegacySidebar();
+  return createVueSidebar();
 }
 
 function createVueSidebar() {

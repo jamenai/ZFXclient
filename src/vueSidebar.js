@@ -38,7 +38,7 @@ const VueSidebar = defineComponent({
   components: { ZfxLogoMark },
   setup() {
     const mode = ref(localStorage.getItem(STORAGE_KEY) || (window.innerWidth < 900 ? "collapsed" : "expanded"));
-    const enabled = ref(window.__fx?.settings?.showSidebar !== false);
+    const enabled = ref(true);
     const languageVersion = ref(0);
     const profileVersion = ref(0);
     const accountId = ref("");
@@ -80,7 +80,7 @@ const VueSidebar = defineComponent({
         { icon: "▤", label: t("sidebarLogs"), action: () => window.__fx?.openVueLogs?.() },
       ] },
       { title: t("sidebarAccountGroup"), items: [
-        { icon: "⚙", label: t("sidebarSettings"), action: () => window.__fx?.openVueSettings?.() },
+        { icon: "⚙", label: t("sidebarSettings"), action: () => typeof window.__fx?.openVueGameSettings === "function" ? window.__fx.openVueGameSettings() : window.__fx?.openVueSettings?.() },
         { icon: "account", label: t("sidebarAccount"), action: () => window.__fx?.openVueMyAccount?.() },
         { icon: "◆", label: t("sidebarGoldTransfer"), action: openNativeAction(() => window.__fx?.openGameMenuAction?.("goldTransfer")) },
       ] },
@@ -143,7 +143,7 @@ const VueSidebar = defineComponent({
         return Number.isFinite(input?.clientX) && target === canvas ? input.clientX - width.value : input?.clientX;
       },
       getClockSlot: () => clockSlot.value,
-      setEnabled(value) { enabled.value = value !== false; setMode(mode.value); },
+      setEnabled() { enabled.value = true; setMode(mode.value); },
       isEnabled: () => enabled.value,
       requestResize() {},
       setResizeHandler() {},
@@ -153,8 +153,7 @@ const VueSidebar = defineComponent({
     };
     window.__fx.vueSidebarApi = api;
 
-    return { root, clockSlot, mode, enabled, width, playerName, clanName, accountId, sections, gameState, isCollapsed, t, setMode, refresh, openPlayerNameView,
-      customLobbyView: window.__fx?.settings?.customLobbyView === true };
+    return { root, clockSlot, mode, enabled, width, playerName, clanName, accountId, sections, gameState, isCollapsed, t, setMode, refresh, openPlayerNameView };
   },
   template: `
     <aside id="fx-sidebar" ref="root" class="fx-vue-sidebar" :class="{'is-collapsed': isCollapsed, 'is-expanded': mode === 'expanded'}"
@@ -170,7 +169,6 @@ const VueSidebar = defineComponent({
         <section v-for="(section, sectionIndex) in sections" :key="section.title" class="fx-vue-sidebar-section">
           <h2>{{ section.title }}</h2>
           <button v-for="item in section.items" :key="item.label" type="button" class="fx-sidebar-button fx-sidebar-action"
-            :class="{'is-current': item.label === t('sidebarLobbyLabel') && customLobbyView}"
             :title="item.label" :aria-label="item.label" @click="item.action">
             <span class="fx-sidebar-icon" aria-hidden="true"><svg v-if="item.icon === 'account'" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg><template v-else>{{ item.icon }}</template></span><span class="fx-sidebar-label">{{ item.label }}</span>
           </button>

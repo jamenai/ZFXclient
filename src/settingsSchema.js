@@ -3,8 +3,6 @@ const defaultValues = Object.freeze({
   displayTickNumber: true,
   showCountryFlagsOnLand: false,
   showWorldClock: true,
-  showSidebar: true,
-  vueSidebar: true,
   useFullscreenMode: false,
   hoveringTooltip: true,
   realisticNames: false,
@@ -16,11 +14,10 @@ const defaultValues = Object.freeze({
   densityDisplayStyle: "absoluteQuotient",
   hideBotNames: false,
   highlightClanSpawns: false,
-  highlightSelfTerritory: true,
+  highlightSelfTerritory: false,
   selfTerritoryOutlineWidth: 3,
   selfTerritoryGlow: 6,
   highlightDuplicateIps: false,
-  highlightSameClan: false,
   detailedTeamPercentage: false,
   openDonationHistoryFromLb: true,
   customBackgroundUrl: "",
@@ -33,10 +30,6 @@ const defaultValues = Object.freeze({
   customQuickEmojisEnabled: false,
   customQuickEmojis: [],
   lobbyReminderRules: [],
-  enhancedLobbyLayout: true,
-  customLobbyView: true,
-  customHomeView: true,
-  showClanLobbyDashboard: true,
   lobbyFontScale: 100,
   uiTransparency: 15,
   uiSkin: "zfx",
@@ -72,7 +65,10 @@ for (const definition of Object.values(schemaEntries)) Object.freeze(definition)
 Object.freeze(schemaEntries.densityDisplayStyle.values);
 export const SETTINGS_SCHEMA = Object.freeze(schemaEntries);
 
-export const DISCONTINUED_SETTINGS = Object.freeze(["hideAllLinks", "fontName"]);
+export const DISCONTINUED_SETTINGS = Object.freeze([
+  "hideAllLinks", "fontName", "showSidebar", "vueSidebar", "enhancedLobbyLayout",
+  "customLobbyView", "customHomeView", "showClanLobbyDashboard", "highlightSameClan",
+]);
 
 export function createDefaultSettings() {
   return {

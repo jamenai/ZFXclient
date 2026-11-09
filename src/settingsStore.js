@@ -1,6 +1,7 @@
-import { isValidSettingValue } from "./settingsSchema.js";
+import { DISCONTINUED_SETTINGS, isValidSettingValue } from "./settingsSchema.js";
 
 const isRecord = value => value !== null && typeof value === "object" && !Array.isArray(value);
+const discontinuedSettings = new Set(DISCONTINUED_SETTINGS);
 
 /** Merges persisted settings while keeping defaults for values with invalid types. */
 export function mergeSettings(defaults, candidate) {
@@ -8,6 +9,7 @@ export function mergeSettings(defaults, candidate) {
 
   const merged = { ...defaults };
   for (const [key, value] of Object.entries(candidate)) {
+    if (discontinuedSettings.has(key)) continue;
     if (Object.hasOwn(defaults, key) && !isValidSettingValue(key, value, defaults[key])) continue;
     Object.defineProperty(merged, key, { value, enumerable: true, configurable: true, writable: true });
   }

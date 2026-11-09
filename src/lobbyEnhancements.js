@@ -6,7 +6,6 @@ let disposeLobbyEnhancements = null;
 export function initializeLobbyEnhancements() {
   if (disposeLobbyEnhancements) return disposeLobbyEnhancements;
   const searchClass = "fx-lobby-roster-search";
-  if (window.__fx?.settings?.enhancedLobbyLayout === false) return () => {};
   const translate = key => window.__fx?.translateFX?.(key) ?? key;
   const fontScale = () => Math.max(0.75, Math.min(3, Number(window.__fx?.settings?.lobbyFontScale ?? 100) / 100));
   const filterFontSize = () => `clamp(11px, ${0.4 * fontScale()}em, 42px)`;
@@ -508,14 +507,12 @@ export function initializeLobbyEnhancements() {
       const clanReadyCount = clanRows.filter(({ readiness }) => readiness === "ready").length;
       const clanWaitingCount = clanRows.filter(({ readiness }) => readiness === "not-ready").length;
       const clanUnknownCount = clanRows.length - clanReadyCount - clanWaitingCount;
-      const dashboardEnabled = window.__fx?.settings?.showClanLobbyDashboard !== false;
       const dashboardFontSize = `clamp(12px, ${0.58 * fontScale()}em, 36px)`;
       if (clanDashboard.style.fontSize !== dashboardFontSize) {
         clanDashboard.style.fontSize = dashboardFontSize;
       }
-      clanDashboard.style.display = dashboardEnabled && ownClan ? "flex" : "none";
+      clanDashboard.style.display = ownClan ? "flex" : "none";
       const dashboardState = JSON.stringify([
-        dashboardEnabled,
         ownClan,
         clanReadyCount,
         clanWaitingCount,
@@ -529,7 +526,7 @@ export function initializeLobbyEnhancements() {
       if (clanDashboard.dataset.fxState !== dashboardState) {
         clanDashboard.dataset.fxState = dashboardState;
         clanDashboard.replaceChildren();
-        if (dashboardEnabled && ownClan) {
+        if (ownClan) {
         const title = document.createElement("strong");
         title.textContent = `[${ownClan}]`;
         const joinAction = document.createElement("button");

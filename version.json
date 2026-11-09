@@ -1,15 +1,26 @@
 {
-    "version": "0.1.22",
+    "version": "0.1.23",
     "lastUpdated": "November 9, 2026",
     "changes": [
-        "Separate the locally previewed game entry from the next game selected by the server",
-        "Show per-entry lobby rating emblems and player capacity in game cards",
-        "Scope clan ready states and counts to the game shown in the Join card",
-        "Automatically select the next available game when an unjoined entry starts",
-        "Improve countdown visibility and preserve MaxPlayers data from the native game"
+        "Remove obsolete native lobby layout and styling patches now that the Vue lobby owns the interface",
+        "Fix Game Settings language selection and restore editable native shortcut groups",
+        "Open Game Settings first from the HomeView and sidebar",
+        "Remove the unused same-clan highlight setting and disable own-territory highlighting by default",
+        "Remove discontinued client feature toggles from the settings UI and runtime"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.22",
+            "lastUpdated": "November 9, 2026",
+            "changes": [
+                "Separate the locally previewed game entry from the next game selected by the server",
+                "Show per-entry lobby rating emblems and player capacity in game cards",
+                "Scope clan ready states and counts to the game shown in the Join card",
+                "Automatically select the next available game when an unjoined entry starts",
+                "Improve countdown visibility and preserve MaxPlayers data from the native game"
+            ]
+        },
         {
             "version": "0.1.21",
             "lastUpdated": "November 9, 2026",

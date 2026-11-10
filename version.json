@@ -1,11 +1,18 @@
 {
-    "version": "0.1.32",
+    "version": "0.1.33",
     "lastUpdated": "November 10, 2026",
     "changes": [
-        "Reconnect the lobby chat subscription when returning from a match"
+        "Add shareable links that automatically join an upcoming lobby game"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.32",
+            "lastUpdated": "November 10, 2026",
+            "changes": [
+                "Reconnect the lobby chat subscription when returning from a match"
+            ]
+        },
         {
             "version": "0.1.31",
             "lastUpdated": "November 10, 2026",

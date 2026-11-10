@@ -35,7 +35,8 @@ const server = http.createServer((request, response) => {
     return;
   }
 
-  const relativePath = requestPath === "/" ? "index.html" : requestPath.slice(1);
+  const isGameJoinLink = /^\/join\/[1-9][0-9]*\/?$/.test(requestPath);
+  const relativePath = requestPath === "/" || isGameJoinLink ? "index.html" : requestPath.slice(1);
   const filePath = path.resolve(buildRoot, relativePath);
 
   // Keep the preview server restricted to the generated build directory.

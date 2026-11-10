@@ -8,3 +8,4 @@ services:
     # Deploy runs before the framework switches current-artifact, so bind this release directly.
     volumes:
       - "${RELEASES_DIR}/${RELEASE_ID}/artifact:/usr/share/nginx/html:ro"
+      - "${RELEASES_DIR}/${RELEASE_ID}/artifact/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro"

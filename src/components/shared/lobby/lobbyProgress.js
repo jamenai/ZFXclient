@@ -10,7 +10,7 @@ export const LobbyProgress = defineComponent({
       <article class="fx-custom-lobby-progress-card">
         <div class="fx-custom-lobby-progress-track"><div class="fx-custom-lobby-progress-fill" :style="{ width: progressPercent + '%' }"></div></div>
         <strong class="fx-custom-lobby-progress-percent">{{ percentLabel }}</strong>
-        <span class="fx-custom-lobby-progress-eta">{{ etaLabel }}</span>
+        <span class="fx-custom-lobby-progress-eta" :class="{ 'is-counting': remainingSeconds > 0, 'is-starting': remainingSeconds === 0, 'is-unavailable': remainingSeconds == null }"><template v-if="remainingSeconds > 0"><small>{{ labels.startsIn }}</small><strong>{{ countdownTime }}</strong></template><strong v-else>{{ etaLabel }}</strong></span>
       </article>
       <aside v-if="contestTimers.length" class="fx-custom-lobby-contest-timers" :aria-label="labels.upcomingContests">
         <strong>{{ labels.upcomingContests }}</strong>
@@ -62,6 +62,13 @@ export const LobbyProgress = defineComponent({
       if (!Number.isFinite(this.countdownServerValue)) return null;
       return Math.max(0, this.countdownServerValue - Math.floor((this.currentTime - this.countdownReceivedAt) / 1000));
     },
+    countdownTime() {
+      if (this.remainingSeconds == null) return "";
+      const seconds = this.remainingSeconds;
+      return seconds >= 3600
+        ? `${Math.floor(seconds / 3600)}:${String(Math.floor(seconds % 3600 / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`
+        : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+    },
     progressPercent() {
       if (!Number.isFinite(this.countdownBaseline) || this.countdownBaseline <= 0 || this.remainingSeconds == null) return 0;
       return Math.min(100, Math.max(0, (this.countdownBaseline - this.remainingSeconds) / this.countdownBaseline * 100));
@@ -69,11 +76,7 @@ export const LobbyProgress = defineComponent({
     etaLabel() {
       if (this.remainingSeconds == null) return this.labels.etaUnavailable;
       if (this.remainingSeconds === 0) return this.labels.startingNow;
-      const seconds = this.remainingSeconds;
-      const time = seconds >= 3600
-        ? `${Math.floor(seconds / 3600)}:${String(Math.floor(seconds % 3600 / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`
-        : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
-      return `${this.labels.startsIn} ${time}`;
+      return `${this.labels.startsIn} ${this.countdownTime}`;
     },
   },
   methods: {

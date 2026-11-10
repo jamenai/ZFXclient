@@ -44,6 +44,10 @@ export const LobbyChat = defineComponent({
     });
   },
   methods: {
+    formatMessageTime(value) {
+      const date = new Date(Number(value));
+      return Number.isNaN(date.getTime()) ? "" : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    },
     openSenderMenu(event, entry) {
       if (!entry?.senderName) return;
       this.senderMenu = {
@@ -99,7 +103,7 @@ export const LobbyChat = defineComponent({
   template: `
     <section class="fx-custom-lobby-chat-view" :aria-label="labels.chat">
       <div ref="messages" class="fx-custom-lobby-chat-messages" aria-live="polite">
-        <p v-for="entry in messages" :key="entry.id" :style="entry.senderTerritoryColor ? { '--fx-chat-sender-territory-color': entry.senderTerritoryColor } : null"><template v-if="entry.senderName"><LobbyPlayerName :name="entry.senderName" :color="entry.senderColor" @activate="openSenderMenu($event, entry)" />:</template><template v-if="entry.segments && entry.segments.length"><template v-for="(segment, index) in entry.segments" :key="index"><LobbyPlayerName v-if="segment.resolvedPlayer" :name="segment.text" :color="segment.color" @activate="openMentionMenu($event, segment)" /><span v-else :style="segment.color ? { color: segment.color } : null">{{ segment.text }}</span></template></template><template v-else>{{ entry.text }}</template></p>
+        <p v-for="entry in messages" :key="entry.id" :style="entry.senderTerritoryColor ? { '--fx-chat-sender-territory-color': entry.senderTerritoryColor } : null"><time v-if="entry.receivedAt" class="fx-custom-lobby-chat-time" :datetime="new Date(entry.receivedAt).toISOString()">{{ formatMessageTime(entry.receivedAt) }}</time><span class="fx-custom-lobby-chat-message-content"><template v-if="entry.senderName"><LobbyPlayerName :name="entry.senderName" :color="entry.senderColor" @activate="openSenderMenu($event, entry)" /><span class="fx-custom-lobby-chat-sender-separator" aria-hidden="true">·</span></template><template v-if="entry.segments && entry.segments.length"><template v-for="(segment, index) in entry.segments" :key="index"><LobbyPlayerName v-if="segment.resolvedPlayer" :name="segment.text" :color="segment.color" @activate="openMentionMenu($event, segment)" /><span v-else :style="segment.color ? { color: segment.color } : null">{{ segment.text }}</span></template></template><template v-else>{{ entry.text }}</template></span></p>
         <span v-if="!messages.length" class="fx-custom-lobby-chat-empty">{{ labels.chatEmpty }}</span>
       </div>
       <Teleport to="body">

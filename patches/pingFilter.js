@@ -14,6 +14,6 @@ export default definePatch((modUtils) => {
     const nativeSoundHook = /aJD\.push\(aI1\)[;,]!?bm\.buffer\.data\[14\]\.value&&aI1\.id!==7&&bs\.play\(\);?/g;
     const before = modUtils.script;
     replace(nativeSoundHook,
-        'if(window.__fx?.pingFilter?.isMuted?.(aI1,"s"))return;aI1.__fxSoundAllowed=!bm.buffer.data[14].value&&aI1.id!==7;aJD.push(aI1);if(aI1.__fxSoundAllowed){if(window.__fx&&window.__fx.isCustomLobbyViewVisible&&window.__fx.isCustomLobbyViewVisible())window.__fx.playLobbyNotificationSound=function(){bs.play();};else bs.play();}');
+        'if(window.__fx?.pingFilter?.isMuted?.(aI1,"s"))return;aI1.__fxSoundAllowed=!bm.buffer.data[14].value&&aI1.id!==7;var fxCustomLobbyVisible=window.__fx&&window.__fx.isCustomLobbyViewVisible&&window.__fx.isCustomLobbyViewVisible();if(aI1.__fxSoundAllowed&&fxCustomLobbyVisible)window.__fx.playLobbyNotificationSound=function(){bs.play();};aJD.push(aI1);if(aI1.__fxSoundAllowed&&!fxCustomLobbyVisible)bs.play();');
     if (modUtils.script === before) console.info("[ZFX Client] Native lobby notification sound hook is absent in this game version.");
 })

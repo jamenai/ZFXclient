@@ -28,7 +28,7 @@ export default definePatch((modUtils) => {
     "this.aID=function(wy,a7G,aGp){if(window.__fx)window.__fx.getNativeLobbyPlayerRankText=player=>bq.ll.aID(player.wy,player.a7G,player.aGp);",
     "lobby player rank formatting");
   optional(/this\.wx\s*=\s*function\(wy\)\s*\{/g,
-    "if(window.__fx){window.__fx.getNativeLobbyPlayerColor=player=>{var color=Number(player?.color);return Number.isInteger(color)?bD.color.pM((color>>12&63)<<2,(color>>6&63)<<2,(color&63)<<2,.82):bq.ll.wx(player.wy);};window.__fx.getNativeLobbyPlayerTerritoryBorderColor=player=>{var color=Number(player?.color);return Number.isInteger(color)?bD.color.pM((color>>12&63)<<2,(color>>6&63)<<2,(color&63)<<2,.82):null;};}this.wx=function(wy){",
+    "if(window.__fx){window.__fx.getNativeLobbyPlayerColor=player=>{var color=Number(player?.color);return Number.isInteger(color)?bD.color.pM((color>>12&63)<<2,(color>>6&63)<<2,(color&63)<<2,.82):null;};window.__fx.getNativeLobbyPlayerTerritoryBorderColor=player=>{var color=Number(player?.color);return Number.isInteger(color)?bD.color.pM((color>>12&63)<<2,(color>>6&63)<<2,(color&63)<<2,.82):null;};}this.wx=function(wy){",
     "lobby player colors");
 
   // The current client creates its match data in aHu(), then initializes the

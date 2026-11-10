@@ -28,6 +28,8 @@ const defaultValues = Object.freeze({
   startingPercentage: 50,
   hidePropagandaPopup: false,
   showLobbyNotificationCloseButton: false,
+  "lobbyNotifications.autoMinimize": true,
+  "lobbyNotifications.autoMinimizeDelaySeconds": 6,
   showReplayTimebar: true,
   customQuickEmojisEnabled: false,
   customQuickEmojis: [],
@@ -61,6 +63,7 @@ schemaEntries.selfTerritoryGlow = { type: "number", min: 0, max: 12 };
 schemaEntries.startingPercentage = { type: "number", min: 0, max: 100 };
 schemaEntries.lobbyFontScale = { type: "number", min: 75, max: 300 };
 schemaEntries.uiTransparency = { type: "number", min: 0, max: 45 };
+schemaEntries["lobbyNotifications.autoMinimizeDelaySeconds"] = { type: "number", min: 1, max: 30 };
 schemaEntries.uiSkin = { type: "string", values: ["zfx", "blue", "violet", "amber", "rose"] };
 schemaEntries.densityDisplayStyle = { type: "string", values: ["percentage", "absoluteQuotient"] };
 for (const definition of Object.values(schemaEntries)) Object.freeze(definition);

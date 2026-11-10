@@ -21,7 +21,7 @@ function makeId() {
 
 export const SettingsProfilesToolbar = defineComponent({
   name: "SettingsProfilesToolbar",
-  emits: ["dirty-change"],
+  emits: ["dirty-change", "active-profile-saved"],
   setup(_props, { emit, expose }) {
     const profiles = ref([]);
     const activeId = ref(localStorage.getItem(ACTIVE_PROFILE_STORAGE_KEY) || SYSTEM_DEFAULT_PROFILE_ID);
@@ -112,6 +112,7 @@ export const SettingsProfilesToolbar = defineComponent({
           applyProfileToRuntime(saved);
           loadProfile(saved.id);
           status.value = text.value.saved;
+          emit("active-profile-saved");
         } else status.value = text.value.savedInactive;
         return true;
       } catch (error) {

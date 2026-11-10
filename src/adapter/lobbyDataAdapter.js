@@ -39,6 +39,8 @@ function normalizePlayer(player) {
     readyEntryLabel: String(player.readyEntryLabel ?? ""),
     readyEntryModeKey: ["team", "battle-royale", "duel", "zombie"].includes(player.readyEntryModeKey) ? player.readyEntryModeKey : "",
     readyEntryModeLabel: String(player.readyEntryModeLabel ?? ""),
+    readyEntryMapName: String(player.readyEntryMapName ?? ""),
+    readyEntryTeamCountLabel: String(player.readyEntryTeamCountLabel ?? ""),
     rank: Number.isFinite(Number(player.rank)) && Number(player.rank) > 0 ? Number(player.rank)
       : Number.isFinite(Number(player.rankCode)) && Number(player.rankCode) >= 0 ? Number(player.rankCode) + 1 : null,
     rankText: String(player.rankText ?? ""),
@@ -93,6 +95,7 @@ function normalizeSnapshot(snapshot, source, previousSnapshot = EMPTY_SNAPSHOT) 
       selected: game.selected === true,
       active: game.active === true,
       joined: game.joined === true,
+      spectating: game.spectating === true,
     })) : [],
     chatMessages: Array.isArray(snapshot?.chatMessages) ? snapshot.chatMessages
       .map((message, index) => ({
@@ -103,6 +106,7 @@ function normalizeSnapshot(snapshot, source, previousSnapshot = EMPTY_SNAPSHOT) 
         senderName: String(message.senderName ?? ""),
         senderColor: typeof message.senderColor === "string" ? message.senderColor : "",
         senderTerritoryColor: typeof message.senderTerritoryColor === "string" ? message.senderTerritoryColor : "",
+        receivedAt: Number.isFinite(Number(message.receivedAt)) ? Number(message.receivedAt) : Date.now(),
         system: message.system === true,
         nativeType: message.nativeType != null && Number.isInteger(Number(message.nativeType)) ? Number(message.nativeType) : null,
         segments: Array.isArray(message.segments) ? message.segments.map(segment => ({

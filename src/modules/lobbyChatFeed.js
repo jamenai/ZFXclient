@@ -51,6 +51,7 @@ function publish(message) {
     id: String(message?.id ?? `${Date.now()}:${Math.random().toString(36).slice(2)}`),
     text,
     senderId: message?.senderId != null && Number.isInteger(Number(message.senderId)) ? Number(message.senderId) : null,
+    receivedAt: Number.isFinite(Number(message?.receivedAt)) ? Number(message.receivedAt) : Date.now(),
     system: message?.system === true,
     nativeType: Number.isInteger(Number(message?.nativeType)) ? Number(message.nativeType) : null,
   };

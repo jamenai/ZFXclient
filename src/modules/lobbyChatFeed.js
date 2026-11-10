@@ -29,7 +29,7 @@ function observeSocketEntry(entry, queueIndex = null, nativeText = null) {
   const nativeType = Number(entry?.id);
   const text = String(nativeType === 0 ? entry?.s ?? "" : nativeText ?? entry?.s ?? "").trim();
   if (!text) return;
-  const senderId = nativeType === 0 ? entry?.ue : null;
+  const senderId = nativeType === 0 ? (entry?.uu ?? entry?.ur ?? entry?.ue) : null;
   // A room message may be observed once as a live packet and again when the
   // native client appends/replays its history queue. Those observations have
   // different queue IDs, so correlate identical entries briefly by payload.

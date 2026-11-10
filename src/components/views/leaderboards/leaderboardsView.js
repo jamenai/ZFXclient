@@ -175,6 +175,11 @@ const LeaderboardsView = defineComponent({
       nativeTableOpen = false;
       const adapter = ensureAdapter();
       if (typeof adapter?.requestCategory === "function") fetchCategory(selectedCategory.value.id);
+      else {
+        loading.value = false;
+        requestPending = false;
+        error.value = labels.value.noAdapter;
+      }
     }
     function close() {
       if (requestPending) {

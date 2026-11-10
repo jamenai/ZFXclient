@@ -62,7 +62,11 @@ export function applyPatchRegistry(modUtils, registry = patchRegistry, options =
         const handlers = Array.isArray(modUtils.postMinifyHandlers) ? modUtils.postMinifyHandlers : null;
         const originalHandlers = handlers ? [...handlers] : null;
         try {
-            patch(modUtils);
+            const outcome = patch(modUtils);
+            if (outcome && typeof outcome === "object" && outcome.status === "skipped") {
+                console.warn(`[ZFX Client] SKIPPED patch: ${name} — ${outcome.reason || "native hook is unavailable"}`);
+                continue;
+            }
             console.info(`[ZFX Client] SUCCESS patch: ${name}`);
         } catch (error) {
             if (originalScript !== undefined) modUtils.script = originalScript;

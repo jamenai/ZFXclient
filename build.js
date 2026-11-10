@@ -1,12 +1,12 @@
 // @ts-check
 import beautifier from 'js-beautify';
 const { js: beautify } = beautifier;
-import UglifyJS from 'uglify-js';
+import { minify } from 'terser';
 import fs from 'fs';
 import webpack from 'webpack';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import ModUtils, { minifyCode } from './modUtils.js';
+import ModUtils from './modUtils.js';
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const buildPath = path.join(projectRoot, 'build');
@@ -108,7 +108,11 @@ async function patchGameCode(buildTimestamp) {
 		console.warn("Native logo renderer changed; skipping logo canvas suppression.");
 	}
 
-	const modUtils = new ModUtils(minifyCode(script));
+	// Keep the complete native game script available to patch matchers. The
+	// minifyCode helper intentionally truncates snippets at its /*...*/ marker,
+	// which is useful for patch templates but drops most of the game when used
+	// on the downloaded source itself.
+	const modUtils = new ModUtils(script);
 
 	/** @type {{ code: string, addToDictionary: string[] }[]} */
 	const codeSegments = [{
@@ -132,7 +136,17 @@ async function patchGameCode(buildTimestamp) {
 		addToDictionary: ["strs", "gIsSingleplayer"]
 	}];
 	codeSegments.forEach(({ code, addToDictionary }) => {
-		modUtils.matchCode(code, { addToDictionary })
+		try { modUtils.matchCode(code, { addToDictionary }); }
+		catch (error) { console.info(`[ZFX Client] Optional native dictionary signature changed: ${error.message}`); }
+	});
+
+	// Current native game 2.17.4 data layout shared by patches and adapters.
+	Object.assign(modUtils.dictionary, {
+		game: "aE", playerId: "fM", playerData: "ah", rawPlayerNames: "a4O", playerNames: "a2A",
+		playerTerritories: "hQ", playerBalances: "he", playerBalance: "he", playerCommitted: "a7G",
+		playerStates: "a77", gHumans: "ky", gBots: "lK", gMaxPlayers: "fZ", gameState: "a3c",
+		gIsSingleplayer: "lI", gIsReplay: "i1", gIsTeamGame: "gIsTeamGame", gGameType: "gGameType",
+		gLobbyMaxJoin: "gLobbyMaxJoin", gSelectableSpawn: "i1",
 	});
 
 	const { default: applyPatches } = await import('./patches/main.js');
@@ -140,12 +154,12 @@ async function patchGameCode(buildTimestamp) {
 	applyPatches(modUtils);
 
 	// for versions ^1.99.5.2
-	const minificationResult = UglifyJS.minify(modUtils.script, {
+	const minificationResult = await minify(modUtils.script, {
 		"compress": { "arrows": false },
 		"mangle": false
 	});
 	if (minificationResult.error) {
-		console.log("error while passing through UglifyJS, replaceCode replacements might have caused errors");
+		console.log("error while passing through Terser, replaceCode replacements might have caused errors");
 		throw minificationResult.error;
 	}
 	if (minificationResult.warnings) console.log(minificationResult.warnings);
@@ -157,24 +171,7 @@ async function patchGameCode(buildTimestamp) {
 	} = modUtils;
 	const dictionary = modUtils.dictionary;
 
-	[
-		/=function\((\w+),(\w+),\w+\){\1===(?<game>\w+)\.(?<playerId>\w+)\?\w+\(175," "\+\w+\(\d+,\[(?<playerData>\w+)\.(?<playerNames>\w+)\[\2\]\]\)\+": ",1001,\2,\w+\(/g,
-		/function \w+\(\)\{if\(2===(?<game>\w+)\.(?<gameState>\w+)\)return 1;\w+\.\w+\(\),\1\.\2=2,\1\.\w+=\1.\w+\}/g,
-		/(function \w+\((\w+),(?<fontSize>\w+),(?<x>\w+),(?<y>\w+),(?<canvas>\w+)\){)(\6\.fillText\((?<playerData>\w+)\.(?<playerNames>\w+)\[\2\],\4,\5\)),(\2<(?<game>\w+)\.(?<gHumans>\w+)&&2!==\8\.(?<playerStates>\w+)\[[^}]+)}/g,
-		/\w+\.font=(?<fontGeneratorFunction>\w+\.\w+\.\w+)\(1,\.39\*this\.\w+\),/g
-	].forEach(matchDictionaryExpression);
-
-	const rawCodeSegments = [
-		"1===a.b?this.@gLobbyMaxJoin=this.@gHumans:this.gLobbyMaxJoin=this.@data.@playerCount,this.tZ=this.gLobbyMaxJoin,this.@gBots=this.gLobbyMaxJoin-this.gHumans,this.sg=0,",
-		"?(this.gB=Math.floor(.066*aK.fw),g5=aK.g5-4*@uiSizes.@gap-this.gB):",
-		`for(a0L=new Array(@game.@gMaxPlayers),a0A.font=a07,@i=game.gMaxPlayers-1;0<=i;i--)a0L[i]=i+1+".",@playerData.@playerNames[i]=aY.qW.tm(playerData.@rawPlayerNames[i],a07,a0W),a0K[i]=Math.floor(a0A.measureText(playerData.playerNames[i]).width);`,
-	]
-
-	rawCodeSegments.forEach(code => {
-		const { expression } = generateRegularExpression(code, true);
-		//console.log(expression);
-		matchDictionaryExpression(expression);
-	});
+	try { matchDictionaryExpression(/\w+\.font=(?<fontGeneratorFunction>\w+\.\w+\.\w+)\(1,\.39\*this\.\w+\),/g); } catch {}
 
 	modUtils.executePostMinifyHandlers({ continueOnError: true });
 	script = modUtils.script;

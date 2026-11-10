@@ -10,7 +10,25 @@ export default definePatch((modUtils) => {
 	const beforeCommandAdapter = modUtils.script;
 	replace(commandAdapterHook, `$&window.__fx.leaderboardsAdapter=window.__fx.leaderboardsAdapter||{};window.__fx.leaderboardsAdapter.requestCategory=function(type,start,end){b1.aVI.aVJ(type,Number(start)||0,end===undefined?10:Number(end)||0)};window.__fx.leaderboardsAdapter.requestRange=function(type,start,end){b1.aVI.aVJ(type,Number(start)||0,Number(end)||0)};window.__fx.leaderboardsAdapter.searchName=function(type,name,quantity){b1.aVI.aVK(type,String(name||"").slice(0,20),Math.max(1,Math.floor(Number(quantity)||10)))};window.__fx.leaderboardsAdapter.searchId=function(type,id,quantity){b1.aVI.aVP(type,String(id||"").slice(0,5),Math.max(1,Math.floor(Number(quantity)||5)))};window.__fx.leaderboardsAdapter.closeNative=function(count){for(var fxStep=0;fxStep<(count||1);fxStep++)u.a4a()};window.__fx.logsAdapter=window.__fx.logsAdapter||{};window.__fx.logsAdapter.requestCategory=window.__fx.leaderboardsAdapter.requestCategory;window.__fx.logsAdapter.requestRange=window.__fx.leaderboardsAdapter.requestRange;window.__fx.logsAdapter.searchName=window.__fx.leaderboardsAdapter.searchName;window.__fx.logsAdapter.searchId=window.__fx.leaderboardsAdapter.searchId;window.__fx.logsAdapter.closeNative=window.__fx.leaderboardsAdapter.closeNative;window.__fx.formatNativeTable=function(ux,data){var heads=[[L(394),L(25)+" ↗",L(395)],[L(394),L(396),L(397),L(398)+" ↗"],[L(394),L(25)+" ↗",L(397)],[L(394),L(25)+" ↗",L(397)],[L(391),L(399),L(400)+" ↗",L(401)+" ↗",L(127)],[L(391),L(399),L(402)+" ↗",L(403)+" ↗",L(404)],[L(391),L(399),L(405)+" ↗",L(406)+" ↗",L(407)],[L(391),L(399),L(402)+" ↗",L(403)+" ↗",L(408)],[L(391),L(399),L(400)+" ↗",L(401)+" ↗",L(127)],[L(394),L(25)+" ↗",L(397)],[L(394),L(25)+" ↗",L(409)],[L(394),L(25)+" ↗",L(397)],[L(391),L(399),L(400)+" ↗",L(401)+" ↗",L(410)],[L(394),L(25)+" ↗",L(397)]][ux]||[],rows=[],scale=[.1,.001,.01,1,100,1,1,.1,100,.01,.01,.01,1,.01][ux]||1,decimals=[1,3,2,0,0,0,0,1,0,2,2,2,0,2][ux]||0;for(var i=0;i<data.length;i++){var r=data[i];if([0,2,3,9,10,11,13].includes(ux))rows.push([r[0],r[1],(scale*r[2]).toFixed(decimals)]);else if(ux===1)rows.push([r[0],r[1],(scale*r[2]).toFixed(decimals),r[3]]);else if(ux===12){var s=r[4]<60?r[4]+(r[4]===1?" Second":" Seconds"):r[4]<3600?Math.floor(r[4]/60)+(Math.floor(r[4]/60)===1?" Minute":" Minutes"):r[4]<172800?Math.floor(r[4]/3600)+(Math.floor(r[4]/3600)===1?" Hour":" Hours"):Math.floor(r[4]/172800)+" Days";rows.push([r[0],s,r[5],r[6],br.eP(r[3],bI.f1.a2h(r[1],5))])}else if(ux>=4&&ux<=8){var v=r[5];v=ux===4||ux===8?(v%64*100/(v>>6)).toFixed(0)+"%":ux===5?(32768<=v?-(v-32768):v):(scale*v).toFixed(decimals);if((ux===4||ux===8)&&v==="100%")v+=" ("+L(ux===4?411:412)+")";rows.push([r[0],r[6]<60?r[6]+(r[6]===1?" Second":" Seconds"):r[6]<3600?Math.floor(r[6]/60)+(Math.floor(r[6]/60)===1?" Minute":" Minutes"):r[6]<172800?Math.floor(r[6]/3600)+(Math.floor(r[6]/3600)===1?" Hour":" Hours"):Math.floor(r[6]/172800)+" Days",r[7],r[8],String(v)])}}return{category:ux,headers:heads,widths:heads.map(function(_,i){return ([ [25,40,35],[15,25,25,35],[25,40,35],[25,40,35],[10,18,30,30,12],[10,18,30,30,12],[10,18,30,30,12],[10,18,30,30,12],[10,18,30,30,12],[25,40,35],[25,40,35],[25,40,35],[10,15,25,25,25],[25,40,35]][ux]||[])[i]||100/Math.max(1,heads.length)}),rows:rows.map(function(row){return row.map(function(value){return{text:String(value??"")}})}),nativeOpen:false}};`);
 	modUtils.script = modUtils.script.replace("window.__fx.leaderboardsAdapter.closeNative=function(count){for(var fxStep=0;fxStep<(count||1);fxStep++)u.a4a()};", "$&window.__fx.getNativePlayerTeamId=id=>bj?.aEM?.[id];");
-	if (modUtils.script === beforeCommandAdapter) console.info("[ZFX Client] Native leaderboard command adapter hook is absent in this game version.");
+	if (modUtils.script === beforeCommandAdapter && !/function aEp\(data\)/.test(modUtils.script)) console.info("[ZFX Client] Native leaderboard command adapter hook is absent in this game version.");
+
+	// The current native leaderboard is driven through ux(21), with the
+	// native search dialogs using ux(22) and ux(28). Install these adapters
+	// inside the game's closure so requests continue through its own protocol.
+	if (/function aEp\(data\)/.test(modUtils.script) && /function aWS\(a7c\)/.test(modUtils.script)) {
+		replaceOne(
+			/window\.onload=function\(\)\{by\(\);\};/g,
+			'window.onload=function(){by();};window.__fx.leaderboardsAdapter=window.__fx.leaderboardsAdapter||{};window.__fx.leaderboardsAdapter.requestCategory=function(type,start,end){u.v(8,u.uw,new ux(21,{vD:Number(type),vE:Number(start)||0,vF:Number(end)||10}));};window.__fx.leaderboardsAdapter.requestRange=window.__fx.leaderboardsAdapter.requestCategory;window.__fx.leaderboardsAdapter.searchName=function(type,name,quantity){u.v(8,u.uw,new ux(22,{vD:Number(type),aVg:String(name||"").slice(0,20),aVh:Math.max(1,Math.floor(Number(quantity)||10))}));};window.__fx.leaderboardsAdapter.searchId=function(type,id,quantity){u.v(8,u.uw,new ux(28,{vD:Number(type),aVg:String(id||"").slice(0,5),aVh:Math.max(1,Math.floor(Number(quantity)||5))}));};window.__fx.leaderboardsAdapter.closeNative=function(count){for(var fxStep=0;fxStep<(count||1);fxStep++)u.a4q();};window.__fx.logsAdapter=window.__fx.logsAdapter||{};window.__fx.logsAdapter.requestCategory=window.__fx.leaderboardsAdapter.requestCategory;window.__fx.logsAdapter.requestRange=window.__fx.leaderboardsAdapter.requestRange;window.__fx.logsAdapter.searchName=window.__fx.leaderboardsAdapter.searchName;window.__fx.logsAdapter.searchId=window.__fx.leaderboardsAdapter.searchId;window.__fx.logsAdapter.closeNative=window.__fx.leaderboardsAdapter.closeNative;'
+		);
+		// aWT builds the native header and already-formatted row cells. Forward
+		// those exact values to Vue before constructing the hidden native table.
+		modUtils.replace(/(function aWT\(\)[\s\S]*?)(function aWY\()/g, (match, tableBuilder, nextFunction) =>
+			tableBuilder.replace(
+				"aWP=new ud(aSu.y9,ff);",
+				'var fxBoardAdapter=window.__fx.logsViewActive?window.__fx.logsAdapter:window.__fx.leaderboardsViewActive?window.__fx.leaderboardsAdapter:null;if(fxBoardAdapter&&fxBoardAdapter.receiveTable)fxBoardAdapter.receiveTable({category:data.vD,headers:ff.uk,widths:ff.ur,rows:ff.ue.map(function(row){return row.map(function(cell){return{text:String(cell.g4==null?"":cell.g4),interactive:cell.ed===1,id:cell.uu,secondaryId:cell.uv};});}),nativeOpen:true});aWP=new ud(aSu.y9,ff);'
+			) + nextFunction
+		);
+	}
 	// The current game parses leaderboard/log rows in aXm.aYR(). Forward the
 	// decoded response before the native menu visibility check, because the Vue
 	// views keep the native table hidden while their request is in flight.
@@ -25,7 +43,7 @@ export default definePatch((modUtils) => {
 		if (tableBuilderCount === 0) {
 			const nativeTableResponse = /u\.a4Z\(\)\.aFq\(21,true,\{ut:ut,data:data\}\)/g;
 			const nativeTableCount = [...modUtils.script.matchAll(nativeTableResponse)].length;
-			if (nativeTableCount === 0) console.warn("[ZFX Client] Native leaderboard response hook was not found.");
+			if (nativeTableCount === 0 && !/function aEp\(data\)/.test(modUtils.script)) console.warn("[ZFX Client] Native leaderboard response hook was not found.");
 			else modUtils.script = modUtils.script.replace(nativeTableResponse, match => `(window.__fx.logsViewActive?window.__fx.logsAdapter:window.__fx.leaderboardsViewActive?window.__fx.leaderboardsAdapter:null)?.receiveTable?.({category:ut,headers:(data[0]||[]).map((_,index)=>"Column "+(index+1)),widths:(data[0]||[]).map(()=>100/Math.max(1,(data[0]||[]).length)),rows:data.map(row=>row.map(value=>({text:String(value??"")})))}),${match}`);
 		} else {
 			modUtils.script = modUtils.script.replace(tableBuilder, match => `Number.isInteger(data?.uq)&&Array.isArray(fc.uN)&&Array.isArray(fc.uH)&&(window.__fx.logsViewActive?window.__fx.logsAdapter:window.__fx.leaderboardsViewActive?window.__fx.leaderboardsAdapter:null)?.receiveTable?.({category:data.uq,headers:fc.uN,widths:fc.uU,rows:fc.uH.map(row=>row.map(cell=>({text:String(cell?.g1??""),interactive:cell?.ea===1,id:cell?.uX??null,secondaryId:cell?.uY??null})))}),${match}`);
@@ -37,18 +55,24 @@ export default definePatch((modUtils) => {
 	// Player names are identified by build.js after patch application. Seed the
 	// current native field names early so this patch can install its hooks.
 	if (!modUtils.dictionary.playerData) modUtils.dictionary.playerData = "ah";
-	if (!modUtils.dictionary.rawPlayerNames) modUtils.dictionary.rawPlayerNames = "a48";
-	if (!modUtils.dictionary.playerTerritories) modUtils.dictionary.playerTerritories = "hO";
-	if (!modUtils.dictionary.playerBalances) modUtils.dictionary.playerBalances = "hc";
-	if (!modUtils.dictionary.playerBalance) modUtils.dictionary.playerBalance = "hc";
-	if (!modUtils.dictionary.playerCommitted) modUtils.dictionary.playerCommitted = "a70";
+	if (!modUtils.dictionary.rawPlayerNames) modUtils.dictionary.rawPlayerNames = "a4O";
+	if (!modUtils.dictionary.playerNames) modUtils.dictionary.playerNames = "a2A";
+	if (!modUtils.dictionary.playerTerritories) modUtils.dictionary.playerTerritories = "hQ";
+	if (!modUtils.dictionary.playerBalances) modUtils.dictionary.playerBalances = "he";
+	if (!modUtils.dictionary.playerBalance) modUtils.dictionary.playerBalance = "he";
+	if (!modUtils.dictionary.playerCommitted) modUtils.dictionary.playerCommitted = "a7G";
+	if (!modUtils.dictionary.playerStates) modUtils.dictionary.playerStates = "a77";
 	// Player list and leaderboard filter tabs
 	if (!dict.playerData || !dict.rawPlayerNames || !dict.playerTerritories) {
 		console.info("[ZFX Client] Native player-data fields could not be identified; leaderboard filters are unavailable.");
 		return;
 	}
 
-    const uiOffset = dict.uiSizes + "." + dict.gap
+	if (!modUtils.dictionary.uiSizes || !modUtils.dictionary.gap) {
+		console.info("[ZFX Client] Native leaderboard layout hook is absent; data adapters remain enabled.");
+		return;
+	}
+	const uiOffset = dict.uiSizes + "." + dict.gap
     const rawPlayerNames = dict.playerData + "." + dict.rawPlayerNames
     // This game version no longer exposes territories through a stable
     // dictionary field; use the runtime adapter and keep the rivals patch safe.

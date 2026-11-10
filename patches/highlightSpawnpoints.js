@@ -1,35 +1,10 @@
 import ModUtils from "../modUtils.js";
 
-// Highlight clan spawnpoints
-export default (/** @type {ModUtils} */ { replaceCode }) => {
-    // when rendered on game start
-    replaceCode(
-        `var x = (d.minX[i] + d.maxX[i] + 1 - hQ - 2) >> 1;
-        var y = (d.minY[i] + d.maxY[i] + 1 - hQ - 2) >> 1;
-        ctx.drawImage(a1e[game.gIsTeamGame ? ((game.gGameType === 9 && aD.a[i] === 5) ? 3 : t.ids[i]) : (i < game.gHumans ? 1 : 0)], x, y);`,
-        `var highlight = __fx.settingsApi.getBoolean("highlightClanSpawns") && __fx.clanFilter.inOwnClan[i];
-        if (highlight) hQ *= 2;
-        var x = (d.minX[i] + d.maxX[i] + 1 - hQ - 2) >> 1;
-        var y = (d.minY[i] + d.maxY[i] + 1 - hQ - 2) >> 1;
-        if (highlight) ctx.drawImage(a1e[game.gIsTeamGame ? ((game.gGameType === 9 && aD.a[i] === 5) ? 3 : t.ids[i]) : (i < game.gHumans ? 1 : 0)], x, y, hQ, hQ);
-        else ctx.drawImage(a1e[game.gIsTeamGame ? ((game.gGameType === 9 && aD.a[i] === 5) ? 3 : t.ids[i]) : (i < game.gHumans ? 1 : 0)], x, y);`,
-    )
-
-    // when rendered during spawn selection
-    replaceCode(
-        `var x = f.w * ((playerData.minX[i] + playerData.maxX[i] + 1) / 2 - gE) / (li - gE) - 0.5 * j7;
-		var y = f.h * ((playerData.minY[i] + playerData.maxY[i] + 1) / 2 - ex) / (lj - ex) - 0.5 * j7;
-		if (x > f.w || y > f.h || x < -j7 || y < -j7) { return; }
-		mainCanvas.setTransform(bg, 0, 0, bg, x, y);
-		mainCanvas.drawImage(vL[game.gIsTeamGame ? TeamManager.ids[i] : 1], 0, 0);`,
-
-        `var highlight = __fx.settingsApi.getBoolean("highlightClanSpawns") && __fx.clanFilter.inOwnClan[i];
-        if (highlight) j7 *= 2;
-		var x = f.w * ((playerData.minX[i] + playerData.maxX[i] + 1) / 2 - gE) / (li - gE) - 0.5 * j7;
-		var y = f.h * ((playerData.minY[i] + playerData.maxY[i] + 1) / 2 - ex) / (lj - ex) - 0.5 * j7;
-		if (x > f.w || y > f.h || x < -j7 || y < -j7) { return; }
-		if (highlight) mainCanvas.setTransform(bg*2, 0, 0, bg*2, x, y);
-		else mainCanvas.setTransform(bg, 0, 0, bg, x, y);
-		mainCanvas.drawImage(vL[game.gIsTeamGame ? TeamManager.ids[i] : 1], 0, 0);`
-    )
-}
+// The native renderer draws all spawn markers through aez() in the current
+// game version, including the markers shown during spawn selection.
+export default (/** @type {ModUtils} */ { replaceRawCode }) => {
+  replaceRawCode(
+    "function aez(aC,ih,a6X,iZ){if(ah.na[aC]===0||ah.hQ[aC]===0){return;}var fj=(ah.jW[aC]+ah.jX[aC]+1-iZ-2)>>1;var fl=(ah.jY[aC]+ah.jZ[aC]+1-iZ-2)>>1;ih.drawImage(a6X[aE.iX?((aE.lG===9&&aF.iM[aC]===5)?3:bj.fa[aC]):(aC<aE.ky?1:0)],fj,fl);}",
+    "function aez(aC,ih,a6X,iZ){if(ah.na[aC]===0||ah.hQ[aC]===0){return;}var fxHighlight=__fx.settingsApi.getBoolean(\"highlightClanSpawns\")&&__fx.clanFilter.inOwnClan[aC];if(fxHighlight)iZ*=2;var fj=(ah.jW[aC]+ah.jX[aC]+1-iZ-2)>>1;var fl=(ah.jY[aC]+ah.jZ[aC]+1-iZ-2)>>1;var fxImage=a6X[aE.iX?((aE.lG===9&&aF.iM[aC]===5)?3:bj.fa[aC]):(aC<aE.ky?1:0)];if(fxHighlight)ih.drawImage(fxImage,fj,fl,iZ,iZ);else ih.drawImage(fxImage,fj,fl);}",
+  );
+};

@@ -2,7 +2,43 @@ import ModUtils, { insert } from "../modUtils.js"
 
 // Name rendering patches - Display density of other players & Hide bot names features
 
-export default (/** @type {ModUtils} */ { modifyCode, waitForMinification, matchCode, replaceOne }) => {
+export default (/** @type {ModUtils} */ modUtils) => {
+  const { modifyCode, waitForMinification, matchCode, replaceOne } = modUtils;
+
+  // Current name renderer is aP8. Preserve native balance text while adding
+  // ZFX name filtering, optional bot hiding, density, and elimination estimate.
+  if (/function aP8\(aC,fontSize,fj,fl,ih\)\{ih\.fillText\(ah\.a2A\[aC\],fj,fl\);/.test(modUtils.script)) {
+    const nativeFields = {
+      game: "aE", playerId: "fM", playerData: "ah", playerNames: "a2A", rawPlayerNames: "a4O",
+      playerTerritories: "hQ", playerBalances: "he", playerBalance: "he", playerCommitted: "a7G",
+      playerStates: "a77", gHumans: "ky", gameState: "a3c",
+    };
+    for (const [key, value] of Object.entries(nativeFields)) {
+      if (modUtils.dictionary[key] === undefined) modUtils.dictionary[key] = value;
+    }
+    replaceOne(/function aP8\(aC,fontSize,fj,fl,ih\)\{ih\.fillText\(ah\.a2A\[aC\],fj,fl\);/g,
+      'function aP8(aC,fontSize,fj,fl,ih){if(aC>=aE.ky&&__fx.settingsApi.getBoolean("hideBotNames"))return;var fxAccountLabel=__fx.followedAccounts.getLobbyDetails(ah.a2A[aC]);var fxDisplayName=__fx.nameFilter.filter(fxAccountLabel.nickname||ah.a2A[aC]),fxOldNameColor=ih.fillStyle;if(fxAccountLabel.color)ih.fillStyle=fxAccountLabel.color;if(!__fx.settingsApi.getBoolean("showCountryFlagsOnLand")||!__fx.utils.drawPlayerNameWithCountryFlags(ih,fxDisplayName,fj,fl))ih.fillText(fxDisplayName,fj,fl);ih.fillStyle=fxOldNameColor;if(aC<aE.ky&&ah.a77[aC]!==2)return;if(__fx.settingsApi.getBoolean("showPlayerDensity")){var fxOldFill=ih.fillStyle;__fx.settingsApi.getBoolean("coloredDensity")&&(ih.fillStyle=__fx.utils.textStyleBasedOnDensity(aC));ih.fillText(__fx.utils.getDensity(aC),fj,fl+fontSize);var fxAttack=__fx.settingsApi.getBoolean("showEstimatedEliminationAttack")?__fx.utils.getEstimatedEliminationAttack(aC,ah.he[aC]-ah.a7G[aC]):"";fxAttack&&__fx.utils.drawEstimatedEliminationAttack(ih,aC,fxAttack,fj,fl+2*fontSize);ih.fillStyle=fxOldFill;}');
+    return;
+  }
+
+  // Current native code renders names in aP5 and balances in aP4.
+  if (/function aP5\(aC,fontSize,fj,fl,ih\)\{ih\.fillText\(ah\.a2A\[aC\],fj,fl\);/.test(modUtils.script)) {
+    const nativeFields = {
+      game: "aE", playerId: "fM", playerData: "ah", playerNames: "a2A", rawPlayerNames: "a4O",
+      playerTerritories: "hQ", playerBalances: "he", playerBalance: "he", playerCommitted: "a7G",
+      playerStates: "a77", gHumans: "ky", gameState: "a3c",
+    };
+    for (const [key, value] of Object.entries(nativeFields)) {
+      if (modUtils.dictionary[key] === undefined) modUtils.dictionary[key] = value;
+    }
+    replaceOne(/function aP5\(aC,fontSize,fj,fl,ih\)\{ih\.fillText\(ah\.a2A\[aC\],fj,fl\);/g,
+      'function aP5(aC,fontSize,fj,fl,ih){if(aC>=aE.ky&&__fx.settingsApi.getBoolean("hideBotNames"))return;var fxAccountLabel=__fx.followedAccounts.getLobbyDetails(ah.a2A[aC]);var fxDisplayName=__fx.nameFilter.filter(fxAccountLabel.nickname||ah.a2A[aC]),fxOldNameColor=ih.fillStyle;if(fxAccountLabel.color)ih.fillStyle=fxAccountLabel.color;if(!__fx.settingsApi.getBoolean("showCountryFlagsOnLand")||!__fx.utils.drawPlayerNameWithCountryFlags(ih,fxDisplayName,fj,fl))ih.fillText(fxDisplayName,fj,fl);ih.fillStyle=fxOldNameColor;');
+    waitForMinification(() => replaceOne(
+      /if\(aOl\)\{aP5\(aC,aP1,aOy,aOz,ih\);\}else\{aP4\(ih,aC,aP1,aOy,aOz,aP0\);\}/g,
+      '$&;if(__fx.settingsApi.getBoolean("showPlayerDensity")){var fxOldFill=ih.fillStyle;__fx.settingsApi.getBoolean("coloredDensity")&&(ih.fillStyle=__fx.utils.textStyleBasedOnDensity(aC));ih.fillText(__fx.utils.getDensity(aC),aOy,aOz+aP1);var fxAttack=__fx.settingsApi.getBoolean("showEstimatedEliminationAttack")?__fx.utils.getEstimatedEliminationAttack(aC,ah.he[aC]-ah.a7G[aC]):"";fxAttack&&__fx.utils.drawEstimatedEliminationAttack(ih,aC,fxAttack,aOy,aOz+2*aP1);ih.fillStyle=fxOldFill;}'
+    ));
+    return;
+  }
 
   const playerDataFieldNames = matchCode(`var playerCommitted = playerData.playerCommitted[playerID];
     var balanceText = formatter.one.two(playerData.playerBalance[playerID] - playerCommitted);`, {

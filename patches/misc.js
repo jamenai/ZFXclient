@@ -2,56 +2,46 @@ import { definePatch, insert } from "../modUtils.js"
 import { styleText } from "node:util";
 
 export default definePatch(({ insertCode, modifyCode, replaceCode, replaceRawCode, matchOne, replaceOne }) => {
+  const optional = (label, action) => {
+    try { action(); }
+    catch (error) { console.info(`[ZFX Client] Native ${label} hook is absent in this game version.`, error?.message || error); }
+  };
 
-  // Display tick number near the moving bars in the balance box
-  modifyCode(`zH.fillStyle = eh === 9 ? bD.pD : bD.o5;
-		var aB7 = ae.aB8;
-		var aB9 = "+" + aB7;
-		var tS = zH.measureText(aB9).width;
-		var aBA = Math.floor(this.j / 12);
-		var nV = 0.5 * (i + tR) + aBA;
-		if (nV + tS + aAv <= i) {
-			zH.fillText(aB9, Math.floor(nV + 0.5 * tS), Math.floor(0.3 * this.j));
-		} else if (aB7 >= 1000) {
-			aB9 = "+" + Math.floor(aB7 / 1000) + "K";
-			tS = zH.measureText(aB9).width;
-			if (nV + tS + aAv <= i) {
-				zH.fillText(aB9, Math.floor(nV + 0.5 * tS), Math.floor(0.3 * this.j));
-			}
-		}
-		${insert(`if (__fx.settingsApi.getBoolean("displayTickNumber"))
-      zH.fillText(9 - eh, Math.floor(aAv * 2 + aBA), Math.floor(0.3 * this.j));`)}`)
+  // The latest native balance renderer keeps the same coordinates but its
+  // surrounding function changed. Hook the final balance draw directly.
+  try {
+    replaceOne(
+      /if\(nV\+tS\+aAv<=i\)\{zH\.fillText\(aB9,Math\.floor\(nV\+\.5\*tS\),Math\.floor\(\.3\*this\.j\)\)\}\}/g,
+      '$&if(__fx.settingsApi.getBoolean("displayTickNumber"))zH.fillText(9-eh,Math.floor(aAv*2+aBA),Math.floor(.3*this.j));'
+    );
+  } catch { console.info("[ZFX Client] Native tick-number renderer hook is absent in this game version."); }
 
-  // Add ZFX Client version info to the game version window
-  modifyCode(`4, 1, new g(__L(), b.c + "<br>" + d.e.f("/changelog")
-    ${insert(` + "<br><br><b>" + "ZFX Client v" + __fx.version
-      + "<br><a href='https://discord.gg/Hzqm6NSRp' target='_blank'>ZFX Client Discord server</a>"
-      + "<br><a href='https://github.com/jamenai/ZFXclient' target='_blank'>Github repository</a></b>"`)} /*...*/)`)
+  // Version links are provided by the ZFX UI; the native version dialog was
+  // removed in the current game build.
   
   // Hide propaganda popup
   // The native propaganda dialog is appended directly to body; put its backdrop
   // above custom lobby and Vue views so the whole prompt remains visible.
   replaceRawCode('w9.style.zIndex="6"', 'w9.id="fx-propaganda-overlay";w9.style.zIndex="2147483647"');
-  insertCode(`/* here */
-    a = b.c + 60 * 1000;
-    (new ea()).show(eS.eb, eS.colors, eS.id);
-    eS = null;
-    return true;`, `if (__fx.settingsApi.getBoolean("hidePropagandaPopup")) return;`)
   const propagandaShowPattern = /\(new (?<dialogClass>\w+)\(\)\)\.(?<showMethod>\w+)\(\s*(?<messageState>\w+)\.(?<messageKey>\w+)\s*,\s*\k<messageState>\.(?<colorsKey>\w+)\s*,\s*\k<messageState>\.(?<idKey>\w+)\s*\)/g;
   const { groups: propagandaShow } = matchOne(propagandaShowPattern);
   const propagandaAckPattern = /if\((?<idArg>\w+)>=0\)\{if\((?<manager>\w+)\.(?<socketManager>\w+)\.(?<socketActiveMethod>\w+)\(0\)\)\{\k<manager>\.(?<messageManager>\w+)\.(?<ackMethod>\w+)\(0,\k<idArg>\)\}\}/g;
-  const { groups: propagandaAck } = matchOne(propagandaAckPattern);
-  replaceOne(
-    propagandaShowPattern,
-    `window.__fx?.showPropagandaInVue?.(${propagandaShow.messageState}.${propagandaShow.messageKey},${propagandaShow.messageState}.${propagandaShow.colorsKey},${propagandaShow.messageState}.${propagandaShow.idKey})===true?(0<=${propagandaShow.messageState}.${propagandaShow.idKey}&&${propagandaAck.manager}.${propagandaAck.socketManager}.${propagandaAck.socketActiveMethod}(0)&&${propagandaAck.manager}.${propagandaAck.messageManager}.${propagandaAck.ackMethod}(0,${propagandaShow.messageState}.${propagandaShow.idKey}),void 0):(new ${propagandaShow.dialogClass}).${propagandaShow.showMethod}(${propagandaShow.messageState}.${propagandaShow.messageKey},${propagandaShow.messageState}.${propagandaShow.colorsKey},${propagandaShow.messageState}.${propagandaShow.idKey})`,
-  );
-  modifyCode(`if (!a.b.c(0)) {
-			d = e.f + 1000 * 1;
-			return;
-		} ${insert(`if (!__fx.settingsApi.getBoolean("hidePropagandaPopup"))`)} a.g.h(5);`)
+  try {
+    const { groups: propagandaAck } = matchOne(propagandaAckPattern);
+    replaceOne(
+      propagandaShowPattern,
+      `window.__fx?.showPropagandaInVue?.(${propagandaShow.messageState}.${propagandaShow.messageKey},${propagandaShow.messageState}.${propagandaShow.colorsKey},${propagandaShow.messageState}.${propagandaShow.idKey})===true?(0<=${propagandaShow.messageState}.${propagandaShow.idKey}&&${propagandaAck.manager}.${propagandaAck.socketManager}.${propagandaAck.socketActiveMethod}(0)&&${propagandaAck.manager}.${propagandaAck.messageManager}.${propagandaAck.ackMethod}(0,${propagandaShow.messageState}.${propagandaShow.idKey}),void 0):(new ${propagandaShow.dialogClass}).${propagandaShow.showMethod}(${propagandaShow.messageState}.${propagandaShow.messageKey},${propagandaShow.messageState}.${propagandaShow.colorsKey},${propagandaShow.messageState}.${propagandaShow.idKey})`,
+    );
+  } catch {
+    console.info("[ZFX Client] Native propaganda acknowledgement hook is absent; using the native dialog fallback.");
+    try {
+      replaceOne(propagandaShowPattern,
+        `!__fx.settingsApi.getBoolean("hidePropagandaPopup")&&(new ${propagandaShow.dialogClass}).${propagandaShow.showMethod}(${propagandaShow.messageState}.${propagandaShow.messageKey},${propagandaShow.messageState}.${propagandaShow.colorsKey},${propagandaShow.messageState}.${propagandaShow.idKey})`);
+    } catch { console.info("[ZFX Client] Native propaganda dialog hook is absent in this game version."); }
+  }
 
   // Don't reload FX users to main terri page.
-  replaceCode(
+  try { replaceCode(
     `var url = new URL("https://territorial.io/");
     url.searchParams.set("v", "" + Math.floor(Math.random() * 1000));
     window.location.href = url.toString();`,
@@ -59,26 +49,26 @@ export default definePatch(({ insertCode, modifyCode, replaceCode, replaceRawCod
     `var url = new URL(window.location);
     url.searchParams.set("v", "" + Math.floor(Math.random() * 1000));
     window.location.href = url.toString();`
-  )
+  ) } catch { console.info("[ZFX Client] Native refresh URL hook is absent in this game version."); }
 
   // Disable built-in Territorial.io error reporting
-  insertCode(
+  optional("native error reporting", () => insertCode(
     `window.removeEventListener("error", err);
     msg = e.lineno + " " + e.colno + "|" + stack; /* here */`,
     `__fx.reportError(e, msg);
     return alert("Error:\\n" + e.filename + " " + e.lineno + " " + e.colno + " " + e.message);`
-  )
+  ));
 
   // use textContent so that usernames dont get parsed that contain html code
-  replaceCode(
+  optional("native leaderboard text rendering", () => replaceCode(
     `cell.style.width = data.columnWidths[columnIndex] + "%";
     cell.innerHTML = rows[rowIndex][columnIndex].content;`,
 
     `cell.style.width = data.columnWidths[columnIndex] + "%";
     cell.textContent = rows[rowIndex][columnIndex].content;`
-  )
+  ));
 
-  replaceCode(
+  optional("native account summary", () => replaceCode(
     `d0 = a.b.c(d0, 1, 1000000);
     var rW = __L([tQ]);
     rW += "<br>";
@@ -88,7 +78,7 @@ export default definePatch(({ insertCode, modifyCode, replaceCode, replaceRawCod
     var rW = __L([tQ]);
     rW += "<br>";
     rW += __L([__fx.utils.escapeHtml("" + lp)]);`
-  )
+  ));
 
   try { insertCode(
     `var value = getParam("account");

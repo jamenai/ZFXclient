@@ -1,34 +1,26 @@
-import { definePatch } from "../modUtils.js"
+import { definePatch } from "../modUtils.js";
 
-export default definePatch(({ insertCode, replaceRawCode, matchRawCode, matchCode }) => {
-
-  matchCode(`ctx.drawImage(emojiHolder.emojiPicker.emojiTiles[pl - 1024 + emojiHolder.data.tileCount], 0, 0)`,
-    { addToDictionary: ["emojiHolder", "emojiPicker", "emojiTiles"] })
-
-  insertCode(
-    `this.zw = 676; /* here */`,
-    `__fx.quickEmojis = __fx.quickEmojis || {}; __fx.quickEmojis.emojiList = this.emojis; __fx.quickEmojis.emojiBaseCode = this.zw;`
-  )
-
-  insertCode(
-    `var zx = ak.sI.zy(bN.zx); /* here */`,
-    `__fx.quickEmojis = __fx.quickEmojis || {}; __fx.quickEmojis.realFlagCodes = zx.slice();`
-  )
-
-  // dont let sending emojis reshuffle the custom picks
-  const { quickEmojiSlots } = replaceRawCode(
-    `function a01(pl){var aC;for(aC=0;aC<9;aC++){quickEmojiSlots[aC].kZ=Math.floor(quickEmojiSlots[aC].kZ*.99)}`,
-    `function a01(pl){if(__fx.settingsApi.getBoolean("customQuickEmojisEnabled"))return;var aC;for(aC=0;aC<9;aC++){quickEmojiSlots[aC].kZ=Math.floor(quickEmojiSlots[aC].kZ*.99)}`
-  )
-
-  const { emojiCodeField, usageCountField } = matchRawCode(
-    `var val1=parseInt(arr[idx]);val1=val1>=0&&val1<container.mid.threshold?val1:0;var val2=parseInt(arr[idx+9]);val2=val2>=0&&val2<1e3?val2:0;quickEmojiSlots[idx]={emojiCodeField:val1,usageCountField:val2}`,
-    { quickEmojiSlots }
-  )
-
+export default definePatch(({ replaceRawCode, replaceOne }) => {
+  // Publish the native emoji catalog and flag codes to the settings UI.
   replaceRawCode(
-    `function zz(){var aC;var qj=bm.eU.data[120].value;var h=qj.split(",");if(h.length!==18){`,
-    `function zz(){var customEmojis=__fx.settingsApi.getArray("customQuickEmojis");if(__fx.settingsApi.getBoolean("customQuickEmojisEnabled")&&9===customEmojis.length){for(var q=0;q<9;q++){var qcode=parseInt(customEmojis[q],10);quickEmojiSlots[q]={emojiCodeField:isNaN(qcode)?1015+q:qcode,usageCountField:0};}return;}var aC;var qj=bm.eU.data[120].value;var h=qj.split(",");if(h.length!==18){`,
-    { quickEmojiSlots, emojiCodeField, usageCountField }
-  )
-})
+    "this.a2T=1024;",
+    "this.a2T=1024;window.__fx.quickEmojis=window.__fx.quickEmojis||{};window.__fx.quickEmojis.emojiList=this.emojis;window.__fx.quickEmojis.emojiBaseCode=this.a2T;",
+  );
+  replaceRawCode(
+    "var a2W=ak.tx.a2X(bN.a2W);",
+    "var a2W=ak.tx.a2X(bN.a2W);window.__fx.quickEmojis.realFlagCodes=a2W.slice();",
+  );
+
+  // Native quick slots are stored in setting 120. When the custom profile
+  // option is enabled, populate the current nine slots from the ZFX setting.
+  replaceOne(
+    /function a2Y\(\)\{/g,
+    "$&if(__fx.settingsApi.getBoolean(\"customQuickEmojisEnabled\")){var customEmojis=__fx.settingsApi.getArray(\"customQuickEmojis\");for(var q=0;q<9;q++){var code=parseInt(customEmojis[q],10);a2J[q]={rF:isNaN(code)?1015+q:code,l3:0};}return;}",
+  );
+
+  // Keep the chosen custom slots fixed when a player uses an emoji.
+  replaceOne(
+    /function a2a\(rF\)\{/g,
+    "$&if(__fx.settingsApi.getBoolean(\"customQuickEmojisEnabled\"))return;",
+  );
+});

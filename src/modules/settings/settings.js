@@ -55,20 +55,17 @@ const settingsTextDe = {
   "Display the density with a color between red and green depending on the density value": "FÃ¤rbt die Dichte abhÃ¤ngig vom Wert zwischen Rot und GrÃ¼n.",
   "Density value display style:": "Darstellung des Dichtewerts:", "Controls how the territorial density value should be rendered": "Legt fest, wie der Gebietsdichtewert dargestellt wird.",
   Percentage: "Prozent", "Value from 0 to 150 (BetterTT style)": "Wert von 0 bis 150 (BetterTT-Stil)",
-  "Realistic Bot Names": "Realistische Bot-Namen", "Hide bot names": "Bot-Namen ausblenden",
   "Inappropriate name hider": "Unpassende Namen ausblenden", "Hidden Name": "Verborgener Name",
   "Replaces player names that contain common offensive or inappropriate words with \"Hidden Name\".": "Ersetzt Spielernamen mit hÃ¤ufigen beleidigenden oder unpassenden Begriffen durch â€žVerborgener Nameâ€œ.",
-  "Keybind buttons": "TastenkÃ¼rzel-SchaltflÃ¤chen", "Show keybind buttons above the troop selector (max 6)": "Zeigt bis zu sechs TastenkÃ¼rzel oberhalb der Truppenauswahl.",
-  "Duplicate IP highlighting": "Doppelte IP-Adressen hervorheben",
+  "Keybind buttons": "TastenkÃ¼rzel-SchaltflÃ¤chen",
+  "Show keybind buttons above the troop selector (max 6)": "Zeigt bis zu sechs TastenkÃ¼rzel oberhalb der Truppenauswahl.",
   "Highlights players in the lobby's team list who share the same IP hash (the same one shown when hovering over a player's name). Each group of matching IPs gets its own color, so distinct duplicates are easy to tell apart at a glance.": "Hebt Spieler mit derselben IP-Kennung in der Lobby-Spielerliste hervor. Jede Gruppe erhÃ¤lt eine eigene Farbe.",
-  "Replay timebar": "Replay-Zeitleiste", "Show a seek bar when watching replays, allowing you to skip to any point of the replay. Seeking backward re-simulates the replay from the start, which can take a few seconds.": "Zeigt beim Abspielen eine Zeitleiste zum Springen an. RÃ¼ckwÃ¤rts zu springen simuliert das Replay vom Anfang an neu und kann kurz dauern.",
+  "Replay timebar": "Replay-Zeitleiste",
   "ZFX Client Discord": "ZFX-Client-Discord", "Github repository": "GitHub-Repository", Changelog: "Ã„nderungsprotokoll", "Clear cache": "Cache leeren",
   "A custom image to be shown on the main menu as the background instead of the currently selected map.": "Dieses Bild wird im HauptmenÃ¼ als Hintergrund anstelle der ausgewÃ¤hlten Karte angezeigt.",
   "Realistic Bot Names": "Realistische Bot-Namen", "Hide bot names": "Bot-Namen ausblenden",
   "Duplicate IP highlighting": "Doppelte IP-Adressen hervorheben",
-  "Replay timebar": "Replay-Zeitleiste",
   "Show a seek bar when watching replays, allowing you to skip to any point of the replay. Seeking backward re-simulates the replay from the start, which can take a few seconds.": "Zeigt beim Abspielen eine Zeitleiste zum Springen an. RÃ¼ckwÃ¤rts zu springen simuliert das Replay vom Anfang an neu und kann kurz dauern.",
-  "Show keybind buttons above the troop selector (max 6)": "Zeigt bis zu sechs TastenkÃ¼rzel oberhalb der Truppenauswahl.",
   "Custom starting attack percentage": "Benutzerdefinierter Start-Angriffsprozentsatz",
   "Use custom quick emojis": "Eigene Schnell-Emojis verwenden",
   "Choose the 9 emojis shown in the in-game quick-emoji bar, in order, instead of them being picked automatically based on usage. Click \"Save Settings\" below to apply.": "WÃ¤hle die neun Emojis fÃ¼r die Schnell-Emoji-Leiste im Spiel. Sie werden dann nicht mehr automatisch nach Verwendung ausgewÃ¤hlt. Klicke unten auf \u201eEinstellungen speichern\u201c, um die Ã„nderung anzuwenden.",
@@ -357,7 +354,6 @@ const settingPathAliases = Object.freeze({
   "zfx.ui.transparency": "uiTransparency",
   "zfx.ui.skin": "uiSkin",
   "zfx.ui.showLobbyTabLabels": "showLobbyTabLabels",
-  "zfx.leaderboard.showTabs": "showLeaderboardTabs",
   "zfx.leaderboard.openDonationHistory": "openDonationHistoryFromLb",
   "zfx.leaderboard.showTabs": "showLeaderboardTabs",
 });
@@ -378,6 +374,8 @@ export const settingsApi = Object.freeze({
   },
   resolve(path) {
     const value = String(path || "");
+    if (value.startsWith("native.")) return { namespace: "native", key: value.slice("native.".length) };
+    if (value.startsWith("zfx.")) return { namespace: "zfx", key: resolveZfxSettingPath(value) };
     const separator = value.indexOf(".");
     if (separator > 0 && __fx.settingsNamespaces?.[value.slice(0, separator)]) {
       const namespace = value.slice(0, separator);
@@ -387,31 +385,31 @@ export const settingsApi = Object.freeze({
   },
   getBoolean(key) {
     const path = this.resolve(key);
-    if (path.namespace !== "zfx") return path.namespace === "native" ? Boolean(__fx.settingsNamespaces.native.get(path.key)) : false;
+    if (path.namespace !== "zfx") return path.namespace === "native" ? Boolean(__fx.settingsNamespaces?.native?.get?.(path.key)) : false;
     assertSettingType(path.key, "boolean");
     return typeof settings[path.key] === "boolean" ? settings[path.key] : false;
   },
   getNumber(key, fallback = 0) {
     const path = this.resolve(key);
-    if (path.namespace !== "zfx") { const value = path.namespace === "native" ? Number(__fx.settingsNamespaces.native.get(path.key)) : NaN; return Number.isFinite(value) ? value : fallback; }
+    if (path.namespace !== "zfx") { const nativeValue = path.namespace === "native" ? __fx.settingsNamespaces?.native?.get?.(path.key) : undefined; const value = Number(nativeValue); return nativeValue !== undefined && Number.isFinite(value) ? value : fallback; }
     assertSettingType(path.key, "number");
     return typeof settings[path.key] === "number" && Number.isFinite(settings[path.key]) ? settings[path.key] : fallback;
   },
   getString(key, fallback = "") {
     const path = this.resolve(key);
-    if (path.namespace !== "zfx") { const value = path.namespace === "native" ? __fx.settingsNamespaces.native.get(path.key) : undefined; return typeof value === "string" ? value : fallback; }
+    if (path.namespace !== "zfx") { const value = path.namespace === "native" ? __fx.settingsNamespaces?.native?.get?.(path.key) : undefined; return typeof value === "string" ? value : fallback; }
     assertSettingType(path.key, "string");
     return typeof settings[path.key] === "string" ? settings[path.key] : fallback;
   },
   getArray(key) {
     const path = this.resolve(key);
-    if (path.namespace !== "zfx") { const value = path.namespace === "native" ? __fx.settingsNamespaces.native.get(path.key) : null; return Array.isArray(value) ? value : []; }
+    if (path.namespace !== "zfx") { const value = path.namespace === "native" ? __fx.settingsNamespaces?.native?.get?.(path.key) : null; return Array.isArray(value) ? value : []; }
     assertSettingType(path.key, "array");
     return Array.isArray(settings[path.key]) ? settings[path.key] : [];
   },
   getRecord(key) {
     const path = this.resolve(key);
-    if (path.namespace !== "zfx") { const value = path.namespace === "native" ? __fx.settingsNamespaces.native.get(path.key) : null; return value !== null && typeof value === "object" && !Array.isArray(value) ? value : {}; }
+    if (path.namespace !== "zfx") { const value = path.namespace === "native" ? __fx.settingsNamespaces?.native?.get?.(path.key) : null; return value !== null && typeof value === "object" && !Array.isArray(value) ? value : {}; }
     assertSettingType(path.key, "object");
     const value = settings[path.key];
     return value !== null && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -421,7 +419,7 @@ export const settingsApi = Object.freeze({
   },
   set(key, value) {
     const path = this.resolve(key);
-    if (path.namespace !== "zfx") return path.namespace === "native" ? __fx.settingsNamespaces.native.set(path.key, value) : false;
+    if (path.namespace !== "zfx") return path.namespace === "native" ? Boolean(__fx.settingsNamespaces?.native?.set?.(path.key, value)) : false;
     if (!Object.hasOwn(originalSettingsDefaults, path.key)
       || !isValidSettingValue(path.key, value, originalSettingsDefaults[path.key])) return false;
     settings[path.key] = value;
@@ -810,9 +808,9 @@ const settingsManager = new (function () {
       versionInfo.innerText = `ZFX Client v${versionData.version}`;
       const links = document.createElement("p");
       links.innerHTML = `<a href="https://discord.gg/Hzqm6NSRp" target="_blank">ZFX Client Discord</a> |
-        <a href="https://github.com/jamenai/ZFXclient#readme">Github repository</a>`;
+        <a href="https://git.elords.io/zfx/zfx-client/-/blob/main/readme.md?ref_type=heads">Gitlab repository</a>`;
       bindSettingsText("ZFX Client Discord", value => { links.querySelector("a")?.replaceChildren(value); });
-      bindSettingsText("Github repository", value => { links.querySelectorAll("a")[1]?.replaceChildren(value); });
+      bindSettingsText("Gitlab repository", value => { links.querySelectorAll("a")[1]?.replaceChildren(value); });
       const changelogButton = document.createElement("button");
       bindSettingsText("Changelog", value => { changelogButton.innerText = value; });
       changelogButton.addEventListener("click", displayChangelog);

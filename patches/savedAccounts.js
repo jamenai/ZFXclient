@@ -1,31 +1,16 @@
-import { definePatch, insert } from "../modUtils.js";
+import { definePatch } from "../modUtils.js";
 
-export default definePatch(({ matchCode, modifyCode }) => {
-  try {
-
-    const { options } = matchCode(`entry = document.createElement("p");
-        entry.textContent = "⚪ " + source.options[i];`);
-
-    const { Button } = matchCode(`buttons = [new Button(__L(), function() {
-        var index = Math.min(storage.buffer.data[117].value, accountList.entries.length - 1);
-        /*...*/
-    })]`);
-    modifyCode(`accountList = new RadioList(storage.buffer.data[117], updateButtons);
-        ${insert(`__fx.savedAccounts.decorate(accountList.entries, storage.buffer.data[117].options);`)}
-        updateButtons(0);
-        ${insert(`__fx.myAccountAdapter?.setSavedAccounts?.(storage.buffer.data[117], function(index) {
-            if (accountList.entries[index]) accountList.entries[index].click();
-            else { storage.buffer.data[117].value = index; updateButtons(index); }
-        }, function() { buttons[0].button.click(); }, function() { buttons[1].button.click(); });`)}
-        accountList.entries[0].style.marginTop = "0.5em";
-        section.addRadioList(accountList);
-        section.add(new ButtonRow([buttons[0].button]));
-        ${insert(`section.add(new ButtonRow([new Button("✏️ Edit Label", function() {
-            __fx.savedAccounts.edit(storage.buffer.data[117].value);
-        }).button]));`)}
-        section.add(new ButtonRow([buttons[1].button]));`,
-        { dictionary: { options, Button } });
-  } catch (error) {
-    console.warn("[ZFX Client] Native saved-account dialog changed; saved-account UI bridge is unavailable.");
-  }
+export default definePatch(({ replaceOne, replace }) => {
+  // The current saved-account selector is built by aT8.
+  replace(/(function aT8\(\)[\s\S]*?)(function aTB\()/g, (match, accountBlock, nextFunction) => {
+    accountBlock = accountBlock.replace(
+      /sZ=new xz\(bm\.buffer\.data\[117\],\w+\);\w+\(0\);/,
+      "$&__fx.savedAccounts.decorate(sZ.sa,bm.buffer.data[117].oS);",
+    );
+    accountBlock = accountBlock.replace(
+      "wc.sY(sZ);",
+      "wc.sY(sZ);wc.sb((new u9([(new x(\"Edit Label\",function(){__fx.savedAccounts.edit(bm.buffer.data[117].value);},bE.pg,1)).button])));",
+    );
+    return accountBlock + nextFunction;
+  });
 });

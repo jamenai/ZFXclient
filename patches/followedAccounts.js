@@ -1,23 +1,11 @@
-import { definePatch, insert } from "../modUtils.js"
+import { definePatch } from "../modUtils.js";
 
-export default definePatch(({ matchCode, modifyCode }) => {
-
-    const { Button } = matchCode(`new Button(__L(), function() {
-        storage.followList.unfollow(index);
-        accountList.entries[index].remove();
-        /*...*/
-    }, colors.disabled, 1)`);
-    modifyCode(`accountList = new RadioList(storage.followList.getListData(), function(i) {
-            index = i;
-            updateButtons()
-        });
-        ${insert(`__fx.followedAccounts.decorate(accountList.entries, storage.followList.get());`)}
-        accountList.entries[0].style.marginTop = "0.5em";
-        section.addRadioList(accountList);
-        section.add(new ButtonRow([buttons[0].button]));
-        ${insert(`section.add(new ButtonRow([new Button("✏️ Edit Nickname", function() {
-            __fx.followedAccounts.edit(index);
-        }).button]));`)}
-        section.add(new ButtonRow([buttons[1].button]));`,
-        { dictionary: { Button } });
-})
+export default definePatch(({ script }) => {
+  // The latest native game no longer contains the old Settings > Follow list
+  // view this patch extended. Followed account identities are now synchronized
+  // from the live native lobby roster in gameSdk.js; nickname/color editing is
+  // still provided by the ZFX account-label editor.
+  if (!script.includes("storage.followList") && !script.includes("getListData")) {
+    console.info("[ZFX Client] Native followed-account settings view was removed; using the ZFX account-label bridge.");
+  }
+});

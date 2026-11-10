@@ -1,4 +1,12 @@
-export default (/** @type {import('../modUtils.js').default} */ { insertCode, replaceCode, matchCode }) => {
+export default (/** @type {import('../modUtils.js').default} */ modUtils) => {
+    if (!/this\.te=function\(\)/.test(modUtils.script)) {
+        return {
+            status: "skipped",
+            reason: "Native mobile attack-bar render and hit-test hooks are absent in this game version.",
+        };
+    }
+
+    const { insertCode, replaceCode, matchCode } = modUtils;
 
     const { mainCanvas, x, y } = insertCode(`this.te = function() {
 		if (!this.b()) { return; }

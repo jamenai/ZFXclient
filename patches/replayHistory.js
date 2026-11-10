@@ -1,59 +1,24 @@
-import { definePatch, insert } from "../modUtils.js"
+import { definePatch } from "../modUtils.js";
 
-export default definePatch(({ matchCode, modifyCode, replace, waitForMinification }) => {
-  // keep a rolling history of last 5 replays.
-  modifyCode(`this.a3d = function(eY) {
-		if (!bC.re.a6x.length) {
-			this.a6l = bC.a6y.a1i();
-		} else {
-			this.a6l = bC.re.a6x;
-		} ${insert(`__fx.replayHistory.save(this.a6l);`)} /*...*/}`)
+export default definePatch(({ replaceOne }) => {
+  // The current game finalizes replay data when leaving a match. Save that
+  // native replay string into the rolling ZFX history at this point.
+  replaceOne(
+    /(this\.a55=function\(eb\)\{if\(!bC\.rq\.a8X\.length\)\{this\.a8K=bC\.a8Y\.a39\(\);\}else\{this\.a8K=bC\.rq\.a8X;\})/g,
+    "$1;__fx.replayHistory.save(this.a8K);",
+  );
 
-  const { protocol, stripPrefix, parser, parseReplay, watchReplay, menuSystem, closeMenu,
-    textArea, getText, game, gameState, recorder, replayData, input } = matchCode(`
-    function watchInput() {
-      menuSystem.closeMenu();
-      var input = protocol.stripPrefix(textArea.getText());
-      if (game.gameState && input.length > 0 && input === protocol.recorder.replayData) {
-        protocol.watchReplay();
-        return;
-      }
-      if (!protocol.parser.parseReplay(input)) {
-        return;
-      }
-      protocol.watchReplay();
-    }`)
+  // Expose the current native parser and replay start routine to the Vue
+  // history view so saved entries can launch through the game's own loader.
+  replaceOne(
+    /this\.aXN=function\(\)\{/g,
+    "$&window.__fx.replayHistory.load=function(saved,timestamp){saved=bC.aXM(String(saved||\"\"));if(!bC.aNq.a00(saved))return false;window.__fx.replayHistory.setActiveReplay(timestamp);bC.aXN();return true;};",
+  );
 
-  modifyCode(`function watchInput() {
-    ${menuSystem}.${closeMenu}();
-    var ${input} = ${protocol}.${stripPrefix}(${textArea}.${getText}());
-    if (${game}.${gameState} && ${input}.length > 0 && ${input} === ${protocol}.${recorder}.${replayData}) {
-      /*insert line:*/ __fx.replayHistory.setActiveReplay(null);
-      ${protocol}.${watchReplay}();
-      return;
-    }
-    if (!${protocol}.${parser}.${parseReplay}(${input})) {
-      return;
-    }
-    /*insert line:*/ __fx.replayHistory.setActiveReplay(null);
-    ${protocol}.${watchReplay}();
-  }`)
-  waitForMinification(() => {
-    try {
-      replace(/__fx\.replay\.restartReplay\s*=\s*\(\)\s*=>\s*this\.aWC\(\)\s*,\s*this\.aWC\s*=\s*function\(\)\s*\{\s*var\s+\w+\s*=/,
-        `__fx.replayHistory.load = function(saved, timestamp) {
-          saved = ${protocol}.${stripPrefix}(saved);
-          ${menuSystem}.${closeMenu}();
-          if (${protocol}.${parser}.${parseReplay}(saved)) {
-            __fx.replayHistory.setActiveReplay(timestamp);
-            ${protocol}.${watchReplay}();
-            return true;
-          }
-          __fx.replayHistory.setActiveReplay(null);
-          return false;
-        };$&`);
-    } catch (error) {
-      console.warn("[ZFX Client] Native replay input adapter changed; replay history loading is unavailable.", error);
-    }
-  });
-})
+  // Pasted or otherwise native-loaded replays are not entries from our saved
+  // history, so clear the active history marker before playback starts.
+  replaceOne(
+    /if\(!bC\.aNq\.a00\(sA\)\)\{return;\}bC\.aXN\(\);/g,
+    "if(!bC.aNq.a00(sA)){return;}__fx.replayHistory.setActiveReplay(null);bC.aXN();",
+  );
+});

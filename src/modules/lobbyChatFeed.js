@@ -6,6 +6,7 @@ let duplicateMessageCount = 0;
 let chatModeCommandCount = 0;
 let lastChatModeCommand = null;
 const packetCounts = Object.create(null);
+const recentSocketEntries = new Map();
 
 function observeSocketPacket(packetType) {
   packetCounts[packetType] = (packetCounts[packetType] ?? 0) + 1;
@@ -29,6 +30,9 @@ function observeSocketEntry(entry, queueIndex = null, nativeText = null) {
   const text = String(nativeType === 0 ? entry?.s ?? "" : nativeText ?? entry?.s ?? "").trim();
   if (!text) return;
   const senderId = nativeType === 0 ? entry?.ue : null;
+  // A room message may be observed once as a live packet and again when the
+  // native client appends/replays its history queue. Those observations have
+  // different queue IDs, so correlate identical entries briefly by payload.
   publish({
     id: `native:${queueIndex}:${nativeType}:${senderId ?? ""}:${text}`,
     senderId,
@@ -55,6 +59,22 @@ function publish(message) {
     system: message?.system === true,
     nativeType: Number.isInteger(Number(message?.nativeType)) ? Number(message.nativeType) : null,
   };
+  if (entry.nativeType != null) {
+    const fingerprint = `${entry.nativeType}:${entry.senderId ?? ""}:${entry.text}`;
+    const now = Date.now();
+    const sourceIsLive = entry.id.includes(":live:");
+    const previous = recentSocketEntries.get(fingerprint);
+    if (previous && previous.sourceIsLive !== sourceIsLive && now - previous.timestamp < 5000) {
+      duplicateMessageCount++;
+      return;
+    }
+    recentSocketEntries.set(fingerprint, { timestamp: now, sourceIsLive });
+    if (recentSocketEntries.size > 200) {
+      for (const [key, record] of recentSocketEntries) {
+        if (now - record.timestamp >= 5000 || recentSocketEntries.size > 200) recentSocketEntries.delete(key);
+      }
+    }
+  }
   // Room chat entries can be replayed by the socket parser after a reconnect.
   // Their room/index ID is stable, so ignore only an identical entry with the
   // same ID; two intentionally repeated messages have different IDs.

@@ -18,6 +18,13 @@ export default definePatch(({ replaceRawCode, replaceOne }) => {
     replaceOne(/tU\.push\(aK4\)/g,
         `tU.push(aK4);window.__fx?.lobbyChatFeed?.observeSocketEntry?.(aK4,tU.length-1,bq.ll?.tZ?.(aK4))`);
 
+    // Native @all/@everyone and similar chat actions ask for confirmation
+    // through a lobby notification (id 6), rather than a room-chat packet.
+    // Mirror that prompt into the custom chat so the user can see what needs
+    // a yes/no response.
+    replaceOne(/var sM=bq\.ll\.tY\(aI1,bq\.ll\.tZ\(aI1\)\);/g,
+        `var sM=bq.ll.tY(aI1,bq.ll.tZ(aI1));if(aI1.id===6)window.__fx?.lobbyChatFeed?.publish?.({id:"native-confirm:"+Date.now(),text:sM,system:true,nativeType:6});`);
+
     // Temporary console probes: these native handlers receive the lobby-chat
     // history and individual live messages, respectively. Keep them distinct
     // from the outer socket packet counters while tracing missing chat.

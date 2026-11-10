@@ -22,7 +22,7 @@ export default definePatch((modUtils) => {
     "this.wN=id;this.wO=id?wv:0;window.__fx?.gameSdk?.lobby?.receiveNativeSelection?.(this.wN,this.wO);",
     "lobby selection");
   optional(/this\.a3S=function\(s\)\{/g,
-    "if(window.__fx)window.__fx.sendLobbyMessage=message=>{if(!bq||bq.f7!==1)return false;this.a3S(String(message));return true;};this.a3S=function(s){",
+    "if(window.__fx){var fxLobbyChat=this;window.__fx.sendLobbyMessage=message=>{if(!bq||bq.f7!==1)return false;fxLobbyChat.a3S(String(message));return true;};window.__fx.sendClanMessage=(clan,message)=>{var tag=String(clan||'').trim().replace(/^\\[|\\]$/g,'').toUpperCase();var text=String(message||'').trim();if(!tag||!text||!bq||bq.f7!==1)return false;fxLobbyChat.a3S('@['+tag+'] '+text);fxLobbyChat.a3S('yes');return true;};}this.a3S=function(s){",
     "lobby chat send");
   optional(/this\.aID\s*=\s*function\(wy,\s*a7G,\s*aGp\)\s*\{/g,
     "this.aID=function(wy,a7G,aGp){if(window.__fx)window.__fx.getNativeLobbyPlayerRankText=player=>bq.ll.aID(player.wy,player.a7G,player.aGp);",

@@ -2503,8 +2503,20 @@ export function initializeCustomLobbyView() {
       const fx = window.__fx;
       const lobby = fx?.gameSdk?.lobby;
       const lobbyState = lobby?.getSnapshot?.();
+      const multiplayerConnected = fx?.isMultiplayerConnected?.() === true;
+      const startMultiplayer = fx?.startMultiplayerForJoinLinkFromHome
+        ?? fx?.startMultiplayerFromHome
+        ?? fx?.startMultiplayer;
+      if (!multiplayerStartRequested && typeof startMultiplayer === "function") {
+        multiplayerStartRequested = true;
+        try { startMultiplayer.call(fx); }
+        catch (error) {
+          multiplayerStartRequested = false;
+          console.warn("[ZFX Client LobbyView] Could not open the lobby for a game link:", error);
+        }
+      }
       const entryAvailable = lobbyState?.entries?.some(entry => Number(entry.id) === entryId);
-      if (entryAvailable) {
+      if (multiplayerConnected && entryAvailable) {
         const alreadyJoined = Number(lobbyState.selectedEntryId) === entryId
           && lobbyState.selectedEntryMode === "joined";
         if (alreadyJoined || lobby.selectEntry(entryId, "joined")) {
@@ -2513,15 +2525,6 @@ export function initializeCustomLobbyView() {
           window.history.replaceState(null, "", "/");
           console.info("[ZFX Client LobbyView] Joined game from share link", { entryId });
           return;
-        }
-      }
-      const startMultiplayer = fx?.startMultiplayerFromHome ?? fx?.startMultiplayer;
-      if (!multiplayerStartRequested && typeof startMultiplayer === "function") {
-        multiplayerStartRequested = true;
-        try { startMultiplayer.call(fx); }
-        catch (error) {
-          multiplayerStartRequested = false;
-          console.warn("[ZFX Client LobbyView] Could not open the lobby for a game link:", error);
         }
       }
       if (attempts >= 120) {

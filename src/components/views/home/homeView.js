@@ -280,6 +280,16 @@ const FxHomeView = defineComponent({
     }
 
     const startMultiplayer = () => navigateFromHome(() => window.__fx?.startMultiplayer?.());
+    const startMultiplayerForJoinLink = () => navigateFromHome(() => {
+      const fx = window.__fx;
+      const socketActive = fx?.isSocketActive?.(0) === true;
+      const multiplayerConnected = fx?.isMultiplayerConnected?.() === true;
+      fx?.startMultiplayer?.();
+      // startMultiplayer intentionally waits when a socket exists but is not
+      // connected. A shared link needs the same native button action as a
+      // manual Multiplayer click to finish opening that connection.
+      if (socketActive && !multiplayerConnected) fx?.nativeHomeMenuButtons?.[0]?.click?.();
+    });
     const openScenario = () => navigateFromHome(() => window.__fx?.openCustomScenario?.());
     const openAccount = () => navigateFromHome(() => window.__fx?.openVueMyAccount?.());
     const openGameMenu = () => navigateFromHome(() => window.__fx?.openGameMenu?.());
@@ -297,6 +307,7 @@ const FxHomeView = defineComponent({
       nativeHomeExtrasObserver.observe(document.body, { childList: true, subtree: true });
       window.__fx.openPlayerNameView = openNameEditor;
       window.__fx.startMultiplayerFromHome = startMultiplayer;
+      window.__fx.startMultiplayerForJoinLinkFromHome = startMultiplayerForJoinLink;
     });
     onBeforeUnmount(() => {
       if (timer) window.clearInterval(timer);
@@ -307,6 +318,7 @@ const FxHomeView = defineComponent({
       window.removeEventListener("fx-native-menu-state-change", refresh);
       if (window.__fx?.openPlayerNameView === openNameEditor) delete window.__fx.openPlayerNameView;
       if (window.__fx?.startMultiplayerFromHome === startMultiplayer) delete window.__fx.startMultiplayerFromHome;
+      if (window.__fx?.startMultiplayerForJoinLinkFromHome === startMultiplayerForJoinLink) delete window.__fx.startMultiplayerForJoinLinkFromHome;
     });
 
     return {

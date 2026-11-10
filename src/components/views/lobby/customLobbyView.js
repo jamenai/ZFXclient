@@ -139,11 +139,27 @@ function resolveLobbyChatMentionAccountId(shortId, playerName) {
 function resolveLobbyChatSegments(text) {
   const source = String(text ?? "");
   const segments = [];
-  const mentionPattern = /@([a-zA-Z0-9_-]{5})(?=$|[\s:!.?,)])/g;
+  const tokenPattern = /https:\/\/[^\s<>"']+|@([a-zA-Z0-9_-]{5})(?=$|[\s:!.?,)])/g;
   let previousEnd = 0;
   let match;
-  while ((match = mentionPattern.exec(source))) {
+  while ((match = tokenPattern.exec(source))) {
     if (match.index > previousEnd) segments.push({ text: source.slice(previousEnd, match.index) });
+    if (match[0].startsWith("https://")) {
+      let url = match[0];
+      while (/[.,!?;:]$/.test(url)) url = url.slice(0, -1);
+      for (const [open, close] of [["(", ")"], ["[", "]"], ["{", "}"]]) {
+        while (url.endsWith(close) && (url.split(close).length - 1) > (url.split(open).length - 1)) url = url.slice(0, -1);
+      }
+      try {
+        if (new URL(url).protocol === "https:") segments.push({ text: url, href: url });
+        else segments.push({ text: url });
+      } catch {
+        segments.push({ text: url });
+      }
+      if (url.length < match[0].length) segments.push({ text: match[0].slice(url.length) });
+      previousEnd = match.index + match[0].length;
+      continue;
+    }
     const playerName = window.__fx?.resolveLobbyChatMention?.(match[1]);
     if (playerName) {
       segments.push({
@@ -2097,7 +2113,7 @@ const LobbyView = defineComponent({
         <article class="fx-lobby-notification" :class="{ 'is-followers': currentLobbyNotification.kind === 'followers' }">
           <span class="fx-lobby-notification-category">{{ currentLobbyNotification.category }}</span>
           <LobbyPlayerName v-if="currentLobbyNotification.senderName" class="fx-lobby-notification-sender" :name="currentLobbyNotification.senderName" :color="currentLobbyNotification.senderColor" @activate="openPlayerContextMenu({ name: currentLobbyNotification.senderName, senderId: currentLobbyNotification.senderId, accountId: currentLobbyNotification.senderId, color: currentLobbyNotification.senderColor }, $event)" />
-          <p><template v-if="currentLobbyNotification.bodySegments?.length"><template v-for="(segment, index) in currentLobbyNotification.bodySegments" :key="index"><LobbyPlayerName v-if="segment.resolvedPlayer" :name="segment.text" :color="segment.color" @activate="openPlayerContextMenu({ name: segment.text, senderId: segment.mentionId, accountId: segment.mentionId, color: segment.color }, $event)" /><span v-else :style="segment.color ? { color: segment.color } : null">{{ segment.text }}</span></template></template><template v-else>{{ currentLobbyNotification.body || currentLobbyNotification.text }}</template></p>
+          <p><template v-if="currentLobbyNotification.bodySegments?.length"><template v-for="(segment, index) in currentLobbyNotification.bodySegments" :key="index"><LobbyPlayerName v-if="segment.resolvedPlayer" :name="segment.text" :color="segment.color" @activate="openPlayerContextMenu({ name: segment.text, senderId: segment.mentionId, accountId: segment.mentionId, color: segment.color }, $event)" /><a v-else-if="segment.href" :href="segment.href" target="_blank" rel="noopener noreferrer">{{ segment.text }}</a><span v-else :style="segment.color ? { color: segment.color } : null">{{ segment.text }}</span></template></template><template v-else>{{ currentLobbyNotification.body || currentLobbyNotification.text }}</template></p>
         </article>
       </aside>
       <aside v-else-if="notificationPanelMinimized" class="fx-lobby-notifications is-minimized" aria-label="Minimierte Lobby-Benachrichtigungen" @pointerdown.stop @mousedown.stop @click.stop>

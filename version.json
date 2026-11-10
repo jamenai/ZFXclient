@@ -1,14 +1,21 @@
 {
-    "version": "0.1.29",
+    "version": "0.1.30",
     "lastUpdated": "November 10, 2026",
     "changes": [
-        "Restore lobby notification audio and show chat message timestamps",
-        "Tint chat and player card gradients with territory colors while preserving player name colors",
-        "Restore the active game preview from the Your Selection card",
-        "Offer a refresh after saving changes to the active settings profile"
+        "Make HTTPS links in lobby chat messages clickable"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.29",
+            "lastUpdated": "November 10, 2026",
+            "changes": [
+                "Restore lobby notification audio and show chat message timestamps",
+                "Tint chat and player card gradients with territory colors while preserving player name colors",
+                "Restore the active game preview from the Your Selection card",
+                "Offer a refresh after saving changes to the active settings profile"
+            ]
+        },
         {
             "version": "0.1.28",
             "lastUpdated": "November 10, 2026",

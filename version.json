@@ -1,15 +1,25 @@
 {
-    "version": "0.1.27",
+    "version": "0.1.28",
     "lastUpdated": "November 10, 2026",
     "changes": [
-        "Make Join and Spectate actions clearer and show whether you joined or are spectating",
-        "Remember the selected tabs in both lobby panels",
-        "Restore lobby chat sending and show native system, gold-transfer, and confirmation messages",
-        "Resolve chat account mentions using current and cached lobby player names",
-        "Improve native patch reporting and compatibility with the current game version"
+        "Merge native game and ZFX options into one settings dialog with a shared section navigation",
+        "Add protected Default and editable custom settings profiles with unsaved-change handling",
+        "Use consistent styled checkboxes across native and ZFX settings",
+        "Use native player colors consistently for lobby chat names and mentions"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.27",
+            "lastUpdated": "November 10, 2026",
+            "changes": [
+                "Make Join and Spectate actions clearer and show whether you joined or are spectating",
+                "Remember the selected tabs in both lobby panels",
+                "Restore lobby chat sending and show native system, gold-transfer, and confirmation messages",
+                "Resolve chat account mentions using current and cached lobby player names",
+                "Improve native patch reporting and compatibility with the current game version"
+            ]
+        },
         {
             "version": "0.1.26",
             "lastUpdated": "November 9, 2026",

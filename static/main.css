@@ -1366,16 +1366,49 @@ body[data-fx-bot-protection="active"] #fx-sidebar {
 .fx-settings-profile-new-name { display: grid; flex: 0 1 170px; gap: 5px; min-width: 130px; color: #91a8bd; font-size: .7em; font-weight: 700; }
 .fx-settings-profile-new-name input, .fx-settings-profile-new-name select { box-sizing: border-box; width: 100%; min-width: 0; height: 35px; padding: 6px 9px; border: 1px solid rgba(116,166,199,.2); border-radius: 8px; outline: none; background: rgba(1,8,16,.75); color: #e4f1f8; font: inherit; font-size: .82em; }
 .fx-settings-profile-actions { display: flex; flex: 0 1 auto; flex-wrap: wrap; gap: 6px; }
+.fx-settings-profile-editor > .fx-settings-profile-actions { justify-content: flex-end; margin-left: auto; }
+.fx-settings-global-profile-actions { justify-content: flex-start; margin: 0; }
 .fx-settings-profile-actions button, .fx-settings-profile-editor > button { min-height: 35px; padding: 6px 9px; border: 1px solid rgba(94,216,163,.22); border-radius: 8px; background: rgba(21,114,76,.2); color: #d9ffed; font: inherit; font-size: .7em; font-weight: 650; cursor: pointer; }
 .fx-settings-profile-actions button:hover:not(:disabled), .fx-settings-profile-editor > button:hover:not(:disabled) { background: rgba(21,114,76,.4); }
 .fx-settings-profile-actions button.is-danger, .fx-settings-profile-editor > button.is-danger { border-color: rgba(239,130,120,.2); background: rgba(120,46,49,.17); color: #e9b9b8; }
 .fx-settings-profile-actions button:disabled, .fx-settings-profile-editor > button:disabled { opacity: .42; cursor: not-allowed; }
+.fx-settings-profile-editor > button.fx-profile-add { border-color: rgba(85,190,236,.38); background: linear-gradient(120deg,rgba(28,105,148,.42),rgba(24,76,110,.36)); color: #d7f2ff; }
+.fx-settings-profile-editor > button.fx-profile-export { border-color: rgba(109,158,222,.34); background: rgba(37,75,126,.3); color: #d7e7ff; }
+.fx-settings-profile-editor > button.fx-profile-import { border-color: rgba(166,137,245,.34); background: rgba(87,59,145,.27); color: #e7ddff; }
+.fx-settings-profile-actions button.fx-profile-reset { border-color: rgba(255,190,82,.36); background: rgba(117,70,12,.24); color: #ffd18a; }
+.fx-settings-profile-actions button.fx-profile-save { min-width: 96px; border-color: rgba(75,236,157,.62); background: linear-gradient(115deg,#16835b,#13a66d); color: #f0fff7; font-size: .76em; font-weight: 850; box-shadow: 0 0 0 1px rgba(75,236,157,.08),0 4px 14px rgba(17,133,88,.2); }
+.fx-settings-profile-actions button.fx-profile-save:hover:not(:disabled) { border-color: rgba(111,255,187,.82); background: linear-gradient(115deg,#199969,#16bd7d); box-shadow: 0 0 0 1px rgba(75,236,157,.16),0 5px 18px rgba(17,153,99,.3); }
 .fx-settings-profile-status { flex: 1 0 100%; min-height: 1em; margin: -4px 0 0; color: #8dddb4; font-size: .72em; }
 .fx-settings-profile-status.is-dirty { color: #ffc46b; }
+.fx-settings-profile-editor > .fx-settings-profile-status.is-dirty { box-sizing: border-box; display: flex; align-items: center; gap: 9px; min-height: 42px; margin: 2px 0 0; padding: 9px 12px; border: 1px solid rgba(255,190,82,.48); border-radius: 9px; background: linear-gradient(100deg, rgba(117,70,12,.28), rgba(68,43,12,.2)); color: #ffd18a; font-size: .77em; font-weight: 850; letter-spacing: .025em; }
+.fx-settings-profile-editor > .fx-settings-profile-status.is-dirty span { display: grid; place-items: center; width: 22px; height: 22px; flex: 0 0 22px; border-radius: 7px; background: rgba(255,190,82,.15); font-size: 1.15em; }
+.fx-settings-close-confirm-backdrop { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; box-sizing: border-box; padding: 20px; border-radius: inherit; background: rgba(2,8,15,.84); backdrop-filter: blur(8px); }
+.fx-settings-close-confirm { display: grid; grid-template-columns: 42px minmax(0,1fr); align-items: start; gap: 8px 13px; width: min(470px,100%); box-sizing: border-box; padding: 20px; border: 1px solid rgba(255,190,82,.35); border-radius: 14px; background: linear-gradient(145deg,#13283a,#091624); color: #eaf4fc; box-shadow: 0 18px 55px rgba(0,0,0,.5); }
+.fx-settings-close-confirm-icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: rgba(255,190,82,.13); color: #ffd18a; font-size: 1.35em; }
+.fx-settings-close-confirm h2 { margin: 2px 0 4px; color: #f5f8fb; font-size: 1.05em; }
+.fx-settings-close-confirm p { margin: 0; color: #a4b8c8; font-size: .84em; }
+.fx-settings-close-confirm-actions { display: flex; grid-column: 1/-1; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 9px; }
+.fx-settings-close-confirm-actions button { min-height: 36px; padding: 7px 11px; border: 1px solid rgba(144,183,212,.2); border-radius: 8px; background: rgba(20,39,58,.76); color: #d9e9f5; font: inherit; font-size: .78em; font-weight: 700; cursor: pointer; }
+.fx-settings-close-confirm-actions button.is-primary { border-color: rgba(75,226,150,.34); background: rgba(21,114,76,.35); color: #dfffee; }
+.fx-settings-close-confirm-actions button.is-danger { border-color: rgba(239,130,120,.3); background: rgba(120,46,49,.24); color: #ffd0cc; }
 .fx-settings-profile-file { display: none; }
 .fx-settings-profile-prompt { display: grid; flex: 1 1 auto; place-items: center; padding: 32px; color: #91a8bd; font-size: .9em; text-align: center; }
 .fx-settings-mark, .fx-game-settings-mark { box-sizing: border-box; width: 50px; height: 50px; flex: 0 0 50px; }
 .fx-settings-body { grid-template-columns: 205px minmax(0,1fr); grid-template-rows: minmax(0,1fr); gap: 18px; flex: 1; padding-top: 18px; }
+.fx-settings-merged-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 0; overflow: auto; padding: 2px 4px 14px 1px; }
+.fx-settings-merged-main .fx-game-settings-panel { display: block; flex: 0 0 auto; min-height: 0; overflow: visible; }
+.fx-settings-merged-main .fx-game-settings-layout { display: block; min-height: 0; padding: 0; }
+.fx-settings-merged-main .fx-game-settings-content { display: block; min-height: 0; overflow: visible; }
+.fx-settings-merged-main .fx-game-settings-section { flex: 0 0 auto; overflow: visible; padding: 0; }
+.fx-settings-merged-zfx-source { min-width: 0; padding-top: 12px; border-top: 1px solid rgba(144,183,212,.14); }
+.fx-settings-merged-zfx-source > header { margin: 0 0 10px; }
+.fx-settings-merged-zfx-source > header span { color: #78c7a6; font-size: .66em; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+.fx-settings-merged-zfx-source > header h2 { margin: 3px 0 0; color: #f0f7fc; font-size: 1.12em; }
+.fx-settings-merged-main .fx-settings-content { min-height: 0; overflow: visible; padding: 0; }
+.fx-settings-merged-main .fx-settings-category-panel.fx-settings-merged-zfx-panel { display: block; min-height: 0; height: auto; flex: 0 0 auto; overflow: visible; }
+.fx-settings-merged-main .fx-settings-merged-zfx-panel > .fx-settings-merged-subsection { min-width: 0; }
+.fx-settings-merged-main .fx-settings-merged-zfx-panel > .fx-settings-merged-subsection + .fx-settings-merged-subsection { margin-top: 14px; }
+.fx-settings-merged-main .fx-settings-category-panel .settings-subsection-title { position: static; margin: 9px 0 8px; padding: 4px 2px 7px; border-bottom: 1px solid rgba(144,183,212,.14); background: transparent; font-size: 1.02em; }
 .fx-settings-tabs { flex-direction: column; gap: 6px; min-height: 0; padding: 0 12px 0 0; overflow: auto; border-right: 1px solid rgba(144,183,212,.13); border-bottom: 0; background: transparent; }
 .fx-settings-tabs button { display: flex; align-items: center; flex: 0 0 auto; min-height: 42px; padding: 8px 10px; border: 1px solid transparent; border-radius: 9px; color: #9bb2c7; text-align: left; }
 .fx-game-settings-panel { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
@@ -1409,6 +1442,7 @@ body[data-fx-bot-protection="active"] #fx-sidebar {
 .fx-settings-actions { flex: 0 0 auto; justify-content: space-between; gap: 12px; margin-top: 13px; padding: 13px 0 0; border-top-color: rgba(144,183,212,.14); background: transparent; color: #7e9bb4; font-size: .74em; }
 .fx-settings-actions footer { justify-content: flex-end; }
 .fx-settings-actions button { min-height: 34px; padding: 6px 12px; border-color: rgba(116,166,199,.2); border-radius: 8px; background: rgba(20,39,58,.76); color: #d9e9f5; font: inherit; }
+.fx-settings-actions > .fx-settings-close-bottom { margin-left: auto; }
 .fx-settings-close-bottom { min-width: 86px; border-color: rgba(75,226,150,.25) !important; background: rgba(21,114,76,.32) !important; color: #dfffee !important; }
 .fx-settings-tabs button { gap: 10px; font-size: .8em; font-weight: 620; }
 .fx-settings-tabs button.is-active { font-weight: 650; }
@@ -1431,7 +1465,7 @@ body[data-fx-bot-protection="active"] #fx-sidebar {
 .fx-settings-content .settings-subsection-title { margin: 12px 0 10px; border-bottom-color: rgba(144,183,212,.14); color: #f0f7fc; font-size: 1.2em; letter-spacing: -.025em; }
 .fx-settings-content input:not([type="checkbox"]), .fx-settings-content select { height: 36px; box-sizing: border-box; border-color: rgba(116,166,199,.2); border-radius: 7px; background: rgba(1,8,16,.75); font: inherit; font-size: .76em; }
 .fx-settings-content input[type="checkbox"] { accent-color: #57dba1; }
-.fx-settings-content label.checkbox .checkmark { width: 18px; height: 18px; border-radius: 5px; }
+.fx-settings-content label.checkbox .checkmark { left: 12px; width: 18px; height: 18px; border-radius: 5px; }
 .fx-settings-content label.checkbox input:checked ~ .checkmark::after { left: 5px; top: 2px; width: 5px; height: 9px; }
 .fx-settings-native-actions { flex: 1 1 auto; }
 .fx-settings-actions footer { justify-content: flex-start; }
@@ -1447,6 +1481,7 @@ body[data-fx-bot-protection="active"] #fx-sidebar {
   .fx-settings-overlay { padding: 8px; }
   .fx-settings-dialog { height: min(850px, 100%); padding: 18px; border-radius: 16px; }
   .fx-settings-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(0,1fr); gap: 10px; }
+  .fx-settings-merged-main { padding: 2px 1px 12px; }
   .fx-settings-tabs { flex-direction: row; padding: 0 0 8px; overflow-x: auto; overflow-y: hidden; border-right: 0; border-bottom: 1px solid rgba(144,183,212,.13); }
   .fx-settings-tabs button { flex: 0 0 auto; }
   .fx-settings-category-panel.has-subsections { grid-template-columns: minmax(104px,30%) minmax(0,1fr); column-gap: 12px; }
@@ -5073,6 +5108,40 @@ label.checkbox .checkmark:after {
 }
 .fx-settings-content .fx-setting-default-hint { display: block; margin: 4px 0 3px; color: #6f879a; font-size: .7em; line-height: 1.35; }
 .fx-game-setting-copy small + small { color: #6f879a; }
+.fx-game-setting-toggles input[type="checkbox"],
+.fx-game-setting-card.is-checks input[type="checkbox"] {
+	appearance: none;
+	width: 18px;
+	height: 18px;
+	flex: 0 0 18px;
+	margin: 0;
+	border: 1px solid rgba(143, 183, 212, .38);
+	border-radius: 5px;
+	background: linear-gradient(145deg, rgba(5, 16, 28, .96), rgba(10, 27, 44, .94));
+	box-shadow: inset 0 1px 2px rgba(0, 0, 0, .3);
+	cursor: pointer;
+}
+.fx-game-setting-toggles input[type="checkbox"]:checked,
+.fx-game-setting-card.is-checks input[type="checkbox"]:checked {
+	border-color: rgba(75, 226, 150, .6);
+	background: linear-gradient(145deg, rgba(21, 114, 76, .9), rgba(12, 82, 57, .96));
+}
+.fx-game-setting-toggles input[type="checkbox"]:checked::before,
+.fx-game-setting-card.is-checks input[type="checkbox"]:checked::before {
+	display: block;
+	width: 5px;
+	height: 9px;
+	margin: 2px 0 0 5px;
+	transform: rotate(45deg);
+	border: solid #fff;
+	border-width: 0 2px 2px 0;
+	content: "";
+}
+.fx-game-setting-toggles input[type="checkbox"]:focus-visible,
+.fx-game-setting-card.is-checks input[type="checkbox"]:focus-visible {
+	outline: 2px solid rgba(105, 199, 255, .7);
+	outline-offset: 2px;
+}
 .fx-game-setting-toggles label { display: grid; grid-template-columns: auto 1fr; }
 .fx-game-setting-toggles label small { grid-column: 2; color: #6f879a; font-size: .65em; }
 .fx-game-key-cell { display: grid; justify-items: center; gap: 3px; }

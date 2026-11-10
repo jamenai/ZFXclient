@@ -1,10 +1,10 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import test from "node:test";
-import { createFollowedAccountIndex } from "../src/followedAccountIndex.js";
+import { createFollowedAccountIndex } from "../src/modules/followedAccountIndex.js";
 
 test("caches normalized account names and matches accents, punctuation, and clan tags", () => {
   const index = createFollowedAccountIndex();
-  index.update(["[CAT] José"], {}, {});
+  index.update(["[CAT] JosÃ©"], {}, {});
   assert.equal(index.has("jose"), true);
   assert.equal(index.has("[cat] JOSE!"), true);
   assert.equal(index.has("SomeoneElse"), false);

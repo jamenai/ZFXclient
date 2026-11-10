@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import test from "node:test";
 import ModUtils, { minifyCode } from "../modUtils.js";
 import customLobbyPatch from "../patches/customLobby.js";

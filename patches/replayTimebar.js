@@ -5,9 +5,8 @@ export default definePatch(({ safeDictionary: dict, insertCode, modifyCode, matc
     matchCode(`if (hidden === game.uiHidden) { return; } game.uiHidden = hidden;`,
         { dictionary: { game: dict.game }, addToDictionary: ["uiHidden"] })
 
-    matchCode(`return (this.gIsReplay ? (escMenu.escMenuOpen || !replayPanel.playingFlag)
-        : (this.gIsSingleplayer && (escMenu.escMenuOpen || this.gSelectableSpawn)));`, {
-        dictionary: { gIsReplay: dict.gIsReplay, gIsSingleplayer: dict.gIsSingleplayer },
+    matchCode(`return this.gIsReplay ? escMenu.escMenuOpen || !replayPanel.playingFlag
+        : this.gIsSingleplayer && (escMenu.escMenuOpen || this.gSelectableSpawn);`, {
         addToDictionary: ["gSelectableSpawn"]
     })
 

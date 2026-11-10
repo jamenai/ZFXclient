@@ -1,6 +1,6 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import test from "node:test";
-import { createGameInterface } from "../src/gameInterface.js";
+import { createGameInterface } from "../src/adapter/gameInterface.js";
 
 test("resolves game values through dictionary names rather than source variable names", () => {
   const dictionary = {

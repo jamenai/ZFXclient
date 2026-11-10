@@ -18,7 +18,7 @@ export default definePatch(({ insertCode, replaceRawCode, matchRawCode, matchCod
   // dont let sending emojis reshuffle the custom picks
   const { quickEmojiSlots } = replaceRawCode(
     `function a01(pl){var aC;for(aC=0;aC<9;aC++){quickEmojiSlots[aC].kZ=Math.floor(quickEmojiSlots[aC].kZ*.99)}`,
-    `function a01(pl){if(__fx.settings.customQuickEmojisEnabled)return;var aC;for(aC=0;aC<9;aC++){quickEmojiSlots[aC].kZ=Math.floor(quickEmojiSlots[aC].kZ*.99)}`
+    `function a01(pl){if(__fx.settingsApi.getBoolean("customQuickEmojisEnabled"))return;var aC;for(aC=0;aC<9;aC++){quickEmojiSlots[aC].kZ=Math.floor(quickEmojiSlots[aC].kZ*.99)}`
   )
 
   const { emojiCodeField, usageCountField } = matchRawCode(
@@ -28,7 +28,7 @@ export default definePatch(({ insertCode, replaceRawCode, matchRawCode, matchCod
 
   replaceRawCode(
     `function zz(){var aC;var qj=bm.eU.data[120].value;var h=qj.split(",");if(h.length!==18){`,
-    `function zz(){if(__fx.settings.customQuickEmojisEnabled&&__fx.settings.customQuickEmojis&&9===__fx.settings.customQuickEmojis.length){for(var q=0;q<9;q++){var qcode=parseInt(__fx.settings.customQuickEmojis[q],10);quickEmojiSlots[q]={emojiCodeField:isNaN(qcode)?1015+q:qcode,usageCountField:0};}return;}var aC;var qj=bm.eU.data[120].value;var h=qj.split(",");if(h.length!==18){`,
+    `function zz(){var customEmojis=__fx.settingsApi.getArray("customQuickEmojis");if(__fx.settingsApi.getBoolean("customQuickEmojisEnabled")&&9===customEmojis.length){for(var q=0;q<9;q++){var qcode=parseInt(customEmojis[q],10);quickEmojiSlots[q]={emojiCodeField:isNaN(qcode)?1015+q:qcode,usageCountField:0};}return;}var aC;var qj=bm.eU.data[120].value;var h=qj.split(",");if(h.length!==18){`,
     { quickEmojiSlots, emojiCodeField, usageCountField }
   )
 })

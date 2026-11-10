@@ -1,42 +1,39 @@
 import { definePatch } from "../modUtils.js";
 
-export default definePatch(({ replaceOne }) => {
-  // 2.17.x moved lobby state into aGL (players), aGM (entries), and aWq
-  // (socket packet handlers). Bridge the decoded native models to the Vue SDK.
-  replaceOne(
-    /this\.sK=sK[;,]aGz\(this\)/g,
-    "this.sK=sK;window.__fx?.gameSdk?.lobby?.receiveNativeEntries?.(sK,this.wI);aGz(this);"
-  );
-  replaceOne(
-    /this\.aH7=function\(id\)\{aGx=Math\.max\(aGx-1,0\);if\(aGx===0\)\{this\.wI=id\}\};/g,
-    "this.aH7=function(id){aGx=Math.max(aGx-1,0);if(aGx===0){this.wI=id;}window.__fx?.gameSdk?.lobby?.receiveNativeSelection?.(this.wI);};"
-  );
-  replaceOne(
-    /u\.v\(29\);bq\.z\.aHu\(true\)/g,
-    "window.__fx?.gameSdk?.lobby?.receiveNativePlayers?.(bq.wh.w4,bq.sK.sK,bq.sK.wI,'lobby.full');u.v(29);bq.z.aHu(true);"
-  );
-  replaceOne(
-    /bq\.sK\.aGy\(\);bq\.z\.aHD\(\)/g,
-    "bq.sK.aGy();window.__fx?.gameSdk?.lobby?.receiveNativePlayers?.(bq.wh.w4,bq.sK.sK,bq.sK.wI,'lobby.delta');bq.z.aHD();"
-  );
-  replaceOne(
-    /bV\.a8\(aGI\.fG,fd\.mapSeed\);aE\.a7u\(\);aE\.a3k=aGI\.a3k;aE\.a7s=2/g,
-    "bV.a8(aGI.fG,fd.mapSeed);aE.a7u();aE.a3k=aGI.a3k;aE.a7s=2;window.__fx?.gameSdk?.match?.reportNativeStart?.({mapIndex:aGI.fG,mapSeed:aGI.mapSeed,modeCode:aGI.w2,isContest:aGI.wR,playerCount:fd.humanCount,gameMode:fd.gameMode,numberTeams:fd.numberTeams,isZombieMode:fd.isZombieMode,battleRoyaleMode:fd.battleRoyaleMode,mapType:fd.mapType});"
-  );
+export default definePatch((modUtils) => {
+  const { replace } = modUtils;
+  const optional = (pattern, replacement, label) => {
+    const before = modUtils.script;
+    try {
+      replace(pattern, replacement);
+      if (modUtils.script === before) console.info(`[ZFX Client] Native ${label} adapter hook is absent in this game version.`);
+    } catch { console.info(`[ZFX Client] Native ${label} adapter hook is absent in this game version.`); }
+  };
 
-  // Native chat uses action 3 to send and packet 17 records to receive. Keep
-  // the native protocol as the transport, while publishing the decoded data.
-  replaceOne(
-    /if\(id===0\)\{return\{id:id,ua:bK\.rX\(30\),s:bq\.aGG\.aIY\(bJ\.zO\.zf\(7\)\)\}\}/g,
-    "if(id===0){return{id:id,ua:bK.rX(30),s:bq.aGG.aIY(bJ.zO.zf(7))};}"
-  );
-  replaceOne(
-    /var aJK=aY3\(\);bq\.tZ\.aJJ\(aJK\);tQ\.push\(aJK\)/g,
-    "var aJK=aY3();if(aJK&&aJK.id===0){window.__fx?.lobbyChatFeed?.observeSocketEntry?.(aJK);window.__fx?.lobbyChatFeed?.publish?.({id:'native-chat:'+bq.z.tR+':'+aC,senderId:aJK.ua,text:aJK.s});}bq.tZ.aJJ(aJK);tQ.push(aJK)"
-  );
+  // 2.17.3 lobby model: bq.wo owns players, bq.sP owns entries and
+  // selection, bq.ll formats chat and bq.aGU handles chat sends/mentions.
+  optional(/\baGl\(\)(?!\s*\{)/g,
+    "aGl();window.__fx?.gameSdk?.lobby?.receiveNativePlayers?.(bq.wo?.w9,bq.sP?.sP,bq.sP?.wN)",
+    "lobby player state updates");
+  optional(/this\.sP\s*=\s*sP\s*[,;]\s*aHQ\(this\)\s*;?/g,
+    "this.sP=sP;aHQ(this);if(window.__fx){window.__fx.nativeSelectLobbyEntry=(entryId,participation)=>this.select(Number(entryId)||0,participation==='joined'||participation==='join'?0:1);window.__fx.gameSdk?.lobby?.setNativeEntrySelector?.(window.__fx.nativeSelectLobbyEntry);}window.__fx?.gameSdk?.lobby?.receiveNativeEntries?.(this.sP,this.wN,this.wO);",
+    "lobby entries");
+  optional(/this\.wN=id;this\.wO=id\?wv:0;/g,
+    "this.wN=id;this.wO=id?wv:0;window.__fx?.gameSdk?.lobby?.receiveNativeSelection?.(this.wN,this.wO);",
+    "lobby selection");
+  optional(/this\.a3S=function\(s\)\{/g,
+    "if(window.__fx)window.__fx.sendLobbyMessage=message=>{if(!bq||bq.f7!==1)return false;this.a3S(String(message));return true;};this.a3S=function(s){",
+    "lobby chat send");
+  optional(/this\.aID\s*=\s*function\(wy,\s*a7G,\s*aGp\)\s*\{/g,
+    "this.aID=function(wy,a7G,aGp){if(window.__fx)window.__fx.getNativeLobbyPlayerRankText=player=>bq.ll.aID(player.wy,player.a7G,player.aGp);",
+    "lobby player rank formatting");
+  optional(/this\.wx\s*=\s*function\(wy\)\s*\{/g,
+    "if(window.__fx){window.__fx.getNativeLobbyPlayerColor=player=>bq.ll.wx(player.wy);window.__fx.getNativeLobbyPlayerTerritoryBorderColor=player=>{var color=Number(player?.color);return Number.isInteger(color)?bD.color.pM((color>>12&63)<<2,(color>>6&63)<<2,(color&63)<<2,.82):null;};}this.wx=function(wy){",
+    "lobby player colors");
 
-  replaceOne(
-    /this\.aXV=function\(oQ\)\{if\(oQ!==b1\.z\.f8\)\{b1\.z\.close\(oQ,3239\);return\}if\(ab\.a4V\(\)!==6\)\{b1\.z\.close\(oQ,3271\);return\}bq\.dk\(\);/g,
-    "$&if(window.__fx){window.__fx.nativeSelectLobbyEntry=function(id){return bq.sK.select(id);};window.__fx.sendLobbyMessage=function(message){if(!bq.f7||!b1.aH4)return false;b1.aH4.aH5(3,String(message));return true;};window.__fx.getLobbyChatSenderName=function(senderId){var player=bq.wh&&bq.wh.aGv?bq.wh.aGv(Number(senderId)):null;return player&&player.username||null;};window.__fx.getNativeLobbyPlayerRankText=function(player){return player&&bq.lk&&bq.lk.aHd?bq.lk.aHd(player.wu,player.a75,player.aGb):'';};if(window.__fx.gameSdk?.lobby)window.__fx.gameSdk.lobby.setNativeEntrySelector(window.__fx.nativeSelectLobbyEntry);}"
-  );
+  // The current client creates its match data in aHu(), then initializes the
+  // game from that data in aE.a85(). Report the normalized model at that point.
+  optional(/aE\.a85\(\);aE\.a3q=aGW\.a3q;aE\.a83=2/g,
+    "aE.a85();window.__fx?.gameSdk?.match?.reportNativeStart?.({mapIndex:aGW.fG,mapSeed:fd.mapSeed,modeCode:aGW.w7,isContest:fd.isContest,playerCount:fd.humanCount,gameMode:fd.gameMode,numberTeams:fd.numberTeams,isZombieMode:fd.isZombieMode,battleRoyaleMode:fd.battleRoyaleMode,mapType:fd.mapType});aE.a3q=aGW.a3q;aE.a83=2",
+    "match start");
 });

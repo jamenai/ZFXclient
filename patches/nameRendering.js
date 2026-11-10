@@ -18,10 +18,10 @@ export default (/** @type {ModUtils} */ { modifyCode, waitForMinification, match
     var committedAttack = playerData.playerCommitted[i];
     var aLe = Util.s1.formatNumber(playerData.playerBalance[i] - committedAttack);
     ${insert(`function drawDensity() {
-      if (!placeBalanceAbove && __fx.settings.showPlayerDensity) {
-        __fx.settings.coloredDensity && (ctx.fillStyle = __fx.utils.textStyleBasedOnDensity(i));
+      if (!placeBalanceAbove && __fx.settingsApi.getBoolean("showPlayerDensity")) {
+        __fx.settingsApi.getBoolean("coloredDensity") && (ctx.fillStyle = __fx.utils.textStyleBasedOnDensity(i));
         ctx.fillText(__fx.utils.getDensity(i), x, y + fontSize);
-        const eliminationEstimate = __fx.settings.showEstimatedEliminationAttack
+        const eliminationEstimate = __fx.settingsApi.getBoolean("showEstimatedEliminationAttack")
           ? __fx.utils.getEstimatedEliminationAttack(
               i,
               playerData[${JSON.stringify(playerDataFieldNames.playerBalance)}]?.[i] - committedAttack
@@ -62,8 +62,8 @@ export default (/** @type {ModUtils} */ { modifyCode, waitForMinification, match
     replaceOne(
       /(function \w+\((?<i>\w+),(?<fontSize>\w+),(?<x>\w+),(?<y>\w+),(?<canvas>\w+)\){)(\6\.fillText\((?<playerData>\w+)\.(?<playerNames>\w+)\[\2\],\4,\5\)),(\2<(?<game>\w+)\.(?<gHumans>\w+)&&2!==\8\.(?<playerStates>\w+)\[[^}]+)}/g,
       `$1 var ___id = $2;
-        var showName = $<i> < $<game>.$<gHumans> || !__fx.settings.hideBotNames;
-        var eliminationEstimate = __fx.settings.showEstimatedEliminationAttack
+        var showName = $<i> < $<game>.$<gHumans> || !__fx.settingsApi.getBoolean("hideBotNames");
+        var eliminationEstimate = __fx.settingsApi.getBoolean("showEstimatedEliminationAttack")
             ? __fx.utils.getEstimatedEliminationAttack(
                 ___id,
                 $<playerData>[${JSON.stringify(playerDataFieldNames.playerBalance)}]?.[___id] -
@@ -71,13 +71,13 @@ export default (/** @type {ModUtils} */ { modifyCode, waitForMinification, match
               )
             : "";
         if (showName) {
-          if (!__fx.settings.showCountryFlagsOnLand || !__fx.utils.drawPlayerNameWithCountryFlags(
+          if (!__fx.settingsApi.getBoolean("showCountryFlagsOnLand") || !__fx.utils.drawPlayerNameWithCountryFlags(
             $<canvas>, $<playerData>.$<playerNames>[$<i>], $<x>, $<y>
           )) $7;
           $10;
         }
-        ${placeBalanceAbove} && __fx.settings.showPlayerDensity && (
-            __fx.settings.coloredDensity && ($<canvas>.fillStyle = __fx.utils.textStyleBasedOnDensity(___id)),
+        ${placeBalanceAbove} && __fx.settingsApi.getBoolean("showPlayerDensity") && (
+            __fx.settingsApi.getBoolean("coloredDensity") && ($<canvas>.fillStyle = __fx.utils.textStyleBasedOnDensity(___id)),
             $<canvas>.fillText(__fx.utils.getDensity(___id), $<x>, showName ? $<y> + $<fontSize> : $<y>),
             eliminationEstimate && __fx.utils.drawEstimatedEliminationAttack($<canvas>, ___id, eliminationEstimate, $<x>, showName ? $<y> + 2 * $<fontSize> : $<y> + $<fontSize>)
         ); }`,

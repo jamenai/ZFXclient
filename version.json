@@ -1,14 +1,25 @@
 {
-    "version": "0.1.26",
-    "lastUpdated": "November 9, 2026",
+    "version": "0.1.27",
+    "lastUpdated": "November 10, 2026",
     "changes": [
-        "Add grid, table, and list views for lobby players, plus a filter for the current game selection",
-        "Compact player cards when filtering by the current selection and show the matching game-mode icon",
-        "Improve lobby notifications with sound, minimize and read controls, and an optional close button",
-        "Add a Vue Gold Transfer view that preserves the current client view when opened and closed"
+        "Make Join and Spectate actions clearer and show whether you joined or are spectating",
+        "Remember the selected tabs in both lobby panels",
+        "Restore lobby chat sending and show native system, gold-transfer, and confirmation messages",
+        "Resolve chat account mentions using current and cached lobby player names",
+        "Improve native patch reporting and compatibility with the current game version"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.26",
+            "lastUpdated": "November 9, 2026",
+            "changes": [
+                "Add grid, table, and list views for lobby players, plus a filter for the current game selection",
+                "Compact player cards when filtering by the current selection and show the matching game-mode icon",
+                "Improve lobby notifications with sound, minimize and read controls, and an optional close button",
+                "Add a Vue Gold Transfer view that preserves the current client view when opened and closed"
+            ]
+        },
         {
             "version": "0.1.25",
             "lastUpdated": "November 9, 2026",

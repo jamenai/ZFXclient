@@ -1,6 +1,6 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import test from "node:test";
-import { isLobbyPlayerRow, readLobbyReadiness, syncLobbyReadiness } from "../src/lobbyRoster.js";
+import { isLobbyPlayerRow, readLobbyReadiness, syncLobbyReadiness } from "../src/modules/lobbyRoster.js";
 
 test("uses the FX row marker instead of inline dimensions to identify lobby players", () => {
   assert.equal(isLobbyPlayerRow({ dataset: { fxLobbyPlayer: "true" }, style: {} }), true);
@@ -8,11 +8,11 @@ test("uses the FX row marker instead of inline dimensions to identify lobby play
 });
 
 test("normalizes visible ready indicators to explicit data values", () => {
-  const row = { dataset: { fxLobbyPlayer: "true" }, textContent: "🟢 Player" };
+  const row = { dataset: { fxLobbyPlayer: "true" }, textContent: "ðŸŸ¢ Player" };
   assert.equal(syncLobbyReadiness(row), "ready");
   assert.equal(row.dataset.fxLobbyReady, "ready");
 
-  row.textContent = "⚪️ Player";
+  row.textContent = "âšªï¸ Player";
   assert.equal(syncLobbyReadiness(row), "not-ready");
   assert.equal(row.dataset.fxLobbyReady, "not-ready");
 
@@ -22,8 +22,8 @@ test("normalizes visible ready indicators to explicit data values", () => {
 });
 
 test("recognizes supported Unicode status glyphs", () => {
-  assert.equal(readLobbyReadiness("🟢 Ready"), "ready");
-  assert.equal(readLobbyReadiness("⚪ Not ready"), "not-ready");
-  assert.equal(readLobbyReadiness("⚪️ Not ready"), "not-ready");
+  assert.equal(readLobbyReadiness("ðŸŸ¢ Ready"), "ready");
+  assert.equal(readLobbyReadiness("âšª Not ready"), "not-ready");
+  assert.equal(readLobbyReadiness("âšªï¸ Not ready"), "not-ready");
   assert.equal(readLobbyReadiness("unknown"), "unknown");
 });

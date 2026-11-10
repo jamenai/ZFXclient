@@ -1410,7 +1410,6 @@ const LobbyView = defineComponent({
         nextGameEntryId: rosterEntry?.id ?? null,
         nextGameCountdownSeconds: rosterEntry?.countdownSeconds ?? null,
         nextGamePlayerCount: rosterEntry?.playerCount ?? null,
-        modes: modes.length ? modes : snapshot?.modes ?? [],
         // The game now has one lobby-wide chat shared by all game modes.
         chatChannel: "lobby",
         currentMap,
@@ -1630,8 +1629,9 @@ const LobbyView = defineComponent({
       if (existingIndex >= 0) {
         const categoryKey = presentation.kind === "followers" ? "followers"
           : Number(event.detail?.id) === 7 ? "lobbyCategory" : "noticeCategory";
+        const existing = lobbyNotifications.value[existingIndex];
         lobbyNotifications.value[existingIndex] = {
-          ...lobbyNotifications.value[existingIndex], text, ...presentation,
+          ...existing, text, ...presentation,
           categoryKey, category: labels[categoryKey],
         };
         notificationIndex.value = existingIndex;
@@ -1643,6 +1643,7 @@ const LobbyView = defineComponent({
       const nextNotifications = [...lobbyNotifications.value, {
         id,
         text,
+        receivedAt: Number.isFinite(Number(event.detail?.timestamp)) ? Number(event.detail.timestamp) : Date.now(),
         ...presentation,
         categoryKey,
         category: labels[categoryKey],
@@ -1651,7 +1652,11 @@ const LobbyView = defineComponent({
       lobbyNotifications.value = nextNotifications;
       notificationIndex.value = nextNotifications.length - 1;
       expandLobbyNotificationsTemporarily();
-      if (event.detail?.soundAllowed) window.__fx?.playLobbyNotificationSound?.();
+    }
+
+    function formatLobbyNotificationTime(value) {
+      const date = new Date(Number(value));
+      return Number.isNaN(date.getTime()) ? "" : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     }
 
     function minimizeLobbyNotifications() {
@@ -1980,6 +1985,7 @@ const LobbyView = defineComponent({
           return {
             id: `native:${item.index}`,
             text: String(item.text ?? "").trim(),
+            receivedAt: Number.isFinite(Number(item.timestamp)) ? Number(item.timestamp) : Date.now(),
             ...presentation,
             categoryKey,
             category: labels[categoryKey],
@@ -2102,10 +2108,11 @@ const LobbyView = defineComponent({
     return {
       active, labels, snapshot, lobbyRating, lobbyBackgroundStyle, scale, gameQuery, lobbyQuery, sortBy, lobbyReadyFilter, affiliationFilter, entryFilter, filteredPlayers, lobbyPlayers, ownClanPlayers, filteredClanPlayers, clanGroups, topReadyClan, readyClanSlices, readyClanTotal, gameTab, lobbyTab,
       lobbyNotifications, notificationIndex, notificationPanelOpen, notificationPanelMinimized, showLobbyNotificationCloseButton, currentLobbyNotification,
+      formatLobbyNotificationTime,
       propagandaDialog, propagandaMessage, closePropagandaMessage,
       previousLobbyNotification, nextLobbyNotification, minimizeLobbyNotifications, restoreLobbyNotifications, closeLobbyNotifications, markLobbyNotificationRead,
       ownClan, currentPlayerName, currentPlayerTerritoryColor, gameClanCount, clanCount, playerCountLabel, watcherCount, lobbyCount, onlyReadyClans, visibleClanGroups, resolvedChatMessages, chatStatus, nextGameMeta, isTeamMode,
-      displayedUpcomingGames, selectedGameEntry, joinedGameEntry, joinCardEntry, selectedEntryReadyCount,
+      displayedUpcomingGames, selectedGameEntry, joinedGameEntry, joinCardEntry, joinLinkCopied, selectedEntryReadyCount,
       currentMapEntry,
       selectedGameParticipation,
       playerContextMenu, playerListComponent, mentionPlayerFromContextMenu, followJoinFromContextMenu, showPlayerGameFromContextMenu, sendGoldFromContextMenu,
@@ -2150,6 +2157,7 @@ const LobbyView = defineComponent({
         </div>
         <article class="fx-lobby-notification" :class="{ 'is-followers': currentLobbyNotification.kind === 'followers' }">
           <span class="fx-lobby-notification-category">{{ currentLobbyNotification.category }}</span>
+          <time v-if="currentLobbyNotification.receivedAt" class="fx-lobby-notification-time" :datetime="new Date(currentLobbyNotification.receivedAt).toISOString()">{{ formatLobbyNotificationTime(currentLobbyNotification.receivedAt) }}</time>
           <LobbyPlayerName v-if="currentLobbyNotification.senderName" class="fx-lobby-notification-sender" :name="currentLobbyNotification.senderName" :color="currentLobbyNotification.senderColor" @activate="openPlayerContextMenu({ name: currentLobbyNotification.senderName, senderId: currentLobbyNotification.senderId, accountId: currentLobbyNotification.senderId, color: currentLobbyNotification.senderColor }, $event)" />
           <p><template v-if="currentLobbyNotification.bodySegments?.length"><template v-for="(segment, index) in currentLobbyNotification.bodySegments" :key="index"><LobbyPlayerName v-if="segment.resolvedPlayer" :name="segment.text" :color="segment.color" @activate="openPlayerContextMenu({ name: segment.text, senderId: segment.mentionId, accountId: segment.mentionId, color: segment.color }, $event)" /><a v-else-if="segment.href" :href="segment.href" target="_blank" rel="noopener noreferrer">{{ segment.text }}</a><span v-else :style="segment.color ? { color: segment.color } : null">{{ segment.text }}</span></template></template><template v-else>{{ currentLobbyNotification.body || currentLobbyNotification.text }}</template></p>
         </article>

@@ -1,11 +1,22 @@
 {
-    "version": "0.1.33",
+    "version": "0.1.34",
     "lastUpdated": "November 10, 2026",
     "changes": [
-        "Add shareable links that automatically join an upcoming lobby game"
+        "Keep leaderboard rank numbers tied to original rankings after filtering",
+        "Prevent duplicate lobby notification sounds and show notification timestamps",
+        "Improve update-dialog spacing and the lobby card layout",
+        "Fix duplicate game-mode data in lobby snapshots",
+        "Update repository metadata and README links for GitLab"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.33",
+            "lastUpdated": "November 10, 2026",
+            "changes": [
+                "Add shareable links that automatically join an upcoming lobby game"
+            ]
+        },
         {
             "version": "0.1.32",
             "lastUpdated": "November 10, 2026",

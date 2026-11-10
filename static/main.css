@@ -69,9 +69,10 @@
 	left: auto;
 	width: min(540px, calc(100vw - 32px));
 	max-width: none;
+	box-sizing: border-box;
 	max-height: calc(100vh - 32px);
 	margin: 0;
-	padding: 0;
+	padding: 18px;
 	border: 1px solid rgba(110, 190, 231, .28);
 	border-radius: 15px;
 	background: linear-gradient(145deg, #10283b, #091725 78%);
@@ -82,17 +83,24 @@
 }
 
 .fx-update-prompt::backdrop { background: rgba(2, 8, 15, .24); }
-.fx-update-prompt[open] { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 14px; }
+.fx-update-prompt[open] { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: start; gap: 14px; }
 .fx-update-prompt-mark { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid rgba(81, 223, 161, .28); border-radius: 12px; background: rgba(29, 148, 107, .16); color: #62e6ae; font-size: 1.65em; }
 .fx-update-prompt-content { min-width: 0; }
 .fx-update-prompt-eyebrow { color: #76dcb4; font-size: .68em; font-weight: 800; letter-spacing: .14em; }
 .fx-update-prompt h2 { margin: 3px 0 4px; color: #f1f8fd; font-size: 1.2em; line-height: 1.25; }
 .fx-update-prompt p { margin: 0; color: #a9bdcd; font-size: .86em; }
-.fx-update-prompt-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.fx-update-prompt-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 .fx-update-prompt-actions button { min-height: 34px; padding: 7px 12px; border: 1px solid rgba(144, 183, 212, .2); border-radius: 8px; color: #dfeef7; font: inherit; font-size: .8em; font-weight: 700; cursor: pointer; }
 .fx-update-prompt-dismiss { background: rgba(24, 42, 59, .8); }
 .fx-update-prompt-apply { border-color: rgba(65, 223, 150, .34) !important; background: linear-gradient(105deg, #177a58, #159a69); color: #effff7 !important; }
 .fx-update-prompt-actions button:hover { filter: brightness(1.15); }
+
+@media (max-width: 520px) {
+	.fx-update-prompt { padding: 14px; }
+	.fx-update-prompt[open] { grid-template-columns: 38px minmax(0, 1fr); gap: 12px; }
+	.fx-update-prompt-mark { width: 38px; height: 38px; }
+	.fx-update-prompt-actions { margin-top: 16px; }
+}
 
 .fx-changelog {
 	position: fixed;
@@ -775,6 +783,7 @@ td {
 }
 
 .fx-lobby-notification {
+	position: relative;
 	padding: 11px 14px;
 	border: 1px solid rgba(113, 192, 255, .42);
 	border-left: 3px solid #43d7a1;
@@ -891,11 +900,21 @@ td {
 .fx-lobby-notification-category {
 	display: block;
 	margin-bottom: 3px;
+	padding-right: 48px;
 	color: #75e2b5;
 	font-size: .72em;
 	font-weight: 750;
 	letter-spacing: .08em;
 	text-transform: uppercase;
+}
+
+.fx-lobby-notification-time {
+	position: absolute;
+	top: 12px;
+	right: 14px;
+	color: #8ca8bd;
+	font-size: .68em;
+	font-variant-numeric: tabular-nums;
 }
 
 .fx-lobby-notification.is-followers .fx-lobby-notification-category {
@@ -2705,7 +2724,18 @@ body[data-fx-bot-protection="active"] #fx-sidebar {
 	min-height: 0;
 }
 
+.fx-custom-lobby-split-workspace > .fx-custom-lobby-lobby-panel {
+	grid-column: 1;
+	grid-row: 1;
+}
+
+.fx-custom-lobby-split-workspace > .fx-custom-lobby-game-panel {
+	grid-column: 2;
+	grid-row: 1;
+}
+
 .fx-custom-lobby-panel-scope {
+	position: relative;
 	display: flex;
 	align-items: center;
 	gap: 9px;
@@ -2970,18 +3000,6 @@ html[data-fx-lobby-tab-labels="hidden"] .fx-custom-lobby-workspace-tabs button:n
 	background: transparent;
 	color: #79cfe2;
 }
-
-.fx-custom-lobby-workspace-tabs button.fx-custom-lobby-filter-tab-toggle > svg:last-child {
-	width: 12px;
-	height: 12px;
-	padding: 0;
-	border: 0;
-	border-radius: 0;
-	background: transparent;
-	transition: transform .16s ease;
-}
-
-.fx-custom-lobby-workspace-tabs button.fx-custom-lobby-filter-tab-toggle > svg.is-collapsed { transform: rotate(-90deg); }
 
 .fx-custom-lobby-workspace-tabs button:hover:not(.is-active) {
 	transform: translateY(-1px);
@@ -4190,6 +4208,14 @@ html[data-fx-lobby-tab-labels="hidden"] .fx-custom-lobby-workspace-tabs button:n
 		grid-template-columns: minmax(0, 1fr);
 		grid-template-rows: minmax(260px, .9fr) minmax(300px, 1.1fr);
 		overflow: auto;
+	}
+	.fx-custom-lobby-split-workspace > .fx-custom-lobby-lobby-panel {
+		grid-column: 1;
+		grid-row: 1;
+	}
+	.fx-custom-lobby-split-workspace > .fx-custom-lobby-game-panel {
+		grid-column: 1;
+		grid-row: 2;
 	}
 	.fx-custom-lobby-split-workspace > .fx-custom-lobby-player-panel {
 		min-height: 260px;

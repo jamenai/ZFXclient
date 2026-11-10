@@ -1,21 +1,21 @@
 <p align="center">
-  <a href="https://jamenai.github.io/ZFXclient/">
+  <a href="https://client.mapella.org/">
     <picture>
       <img src="assets/zfx-logo.svg" width="320" alt="ZFX Client">
     </picture>
   </a>
 </p>
 <p align="center">
-  <a href="https://github.com/jamenai/ZFXclient"><img alt="GitHub repository" src="https://img.shields.io/badge/GitHub-ZFXclient-172b3a?logo=github&logoColor=white"></a>
+  <a href="https://git.elords.io/zfx/zfx-client"><img alt="GitLab project" src="https://img.shields.io/badge/GitLab-zfx%2Fzfx--client-FC6D26?logo=gitlab&logoColor=white"></a>
+  <a href="https://git.elords.io/zfx/zfx-client/-/pipelines?ref=main"><img alt="GitLab pipeline status" src="https://git.elords.io/zfx/zfx-client/badges/main/pipeline.svg"></a>
+  <a href="https://client.mapella.org/"><img alt="Production client" src="https://img.shields.io/badge/Production-client.mapella.org-177a58?logo=gitlab&logoColor=white"></a>
   <a href="https://discord.gg/9Dr2GMUNhc"><img alt="ZFX Client Discord" src="https://img.shields.io/badge/Discord-ZFX%20Client-5865F2?logo=discord&logoColor=white"></a>
-  <a href="https://github.com/jamenai/ZFXclient/actions/workflows/deploy_github_pages.yml"><img src="https://github.com/jamenai/ZFXclient/actions/workflows/deploy_github_pages.yml/badge.svg" alt="Build and Publish to GitHub Pages"></a>
-  <a href="https://jamenai.github.io/ZFXclient/"><img src="https://github.com/jamenai/ZFXclient/actions/workflows/pages/pages-build-deployment/badge.svg" alt="pages-build-deployment"></a>
 </p>
 
 ## ZFX Client
 ZFX Client is an independently maintained client for Territorial.io, based on the original FX Client. It keeps the core features and adds its own lobby, player-list, and in-game improvements.
 
-**Use the latest ZFX Client here: https://jamenai.github.io/ZFXclient/**
+**Use the latest ZFX Client here: https://client.mapella.org/**
 
 ### ZFX Client features
 1. A compact lobby layout with filters for readiness, followed players, and clan members
@@ -25,7 +25,7 @@ ZFX Client is an independently maintained client for Territorial.io, based on th
 5. Settings to customize these lobby and in-game enhancements
 
 ### Features inherited from the original FX Client
-1. It's free and open source on Github
+1. It's free and open source on GitLab
 2. It's ad-free and removes the game's default ads
 3. It makes game look cooler, by replacing default assets with new ones
 4. Displays your troop density and maximum troops
@@ -81,7 +81,7 @@ $env:ZFXCLIENT_PORT=8080; npm run serve
 
 ## GitLab deployment
 
-The GitLab pipeline builds the static client on `main` pushes. A semantic version tag such as `v0.1.20` builds and deploys to [client.mapella.org](https://client.mapella.org) only when its commit is reachable from `main`.
+The [GitLab pipeline](https://git.elords.io/zfx/zfx-client/-/pipelines) builds the static client on `main` pushes. A semantic version tag such as `v0.1.34` builds and deploys to [client.mapella.org](https://client.mapella.org) only when its commit is reachable from `main`.
 
 The deploy runner serves the generated `build/` artifact with Nginx on the shared `nginx-proxy` network. Its host runtime uses `/srv/vhosts/client.mapella.org`; the pipeline initializes this runtime on the first deployment. The `deploy-host` runner needs the Docker socket and `/srv/vhosts:/srv/vhosts` mounted. The `docker` runner builds the client artifact.
 

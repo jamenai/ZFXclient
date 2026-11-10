@@ -15,14 +15,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jamenai/ZFXclient.git"
+    "url": "https://git.elords.io/zfx/zfx-client.git"
   },
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/jamenai/ZFXclient/issues"
+    "url": "https://git.elords.io/zfx/zfx-client/-/issues"
   },
-  "homepage": "https://jamenai.github.io/ZFXclient/",
+  "homepage": "https://client.mapella.org/",
   "dependencies": {
     "core-js": "^3.44.0",
     "js-beautify": "^1.14.11",

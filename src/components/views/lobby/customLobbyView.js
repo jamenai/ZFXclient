@@ -2515,9 +2515,10 @@ export function initializeCustomLobbyView() {
           return;
         }
       }
-      if (!multiplayerStartRequested && typeof fx?.startMultiplayer === "function") {
+      const startMultiplayer = fx?.startMultiplayerFromHome ?? fx?.startMultiplayer;
+      if (!multiplayerStartRequested && typeof startMultiplayer === "function") {
         multiplayerStartRequested = true;
-        try { fx.startMultiplayer(); }
+        try { startMultiplayer.call(fx); }
         catch (error) {
           multiplayerStartRequested = false;
           console.warn("[ZFX Client LobbyView] Could not open the lobby for a game link:", error);

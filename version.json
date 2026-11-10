@@ -1,15 +1,22 @@
 {
-    "version": "0.1.34",
+    "version": "0.1.35",
     "lastUpdated": "November 10, 2026",
     "changes": [
-        "Keep leaderboard rank numbers tied to original rankings after filtering",
-        "Prevent duplicate lobby notification sounds and show notification timestamps",
-        "Improve update-dialog spacing and the lobby card layout",
-        "Fix duplicate game-mode data in lobby snapshots",
-        "Update repository metadata and README links for GitLab"
+        "Start shared game links through the normal home-screen navigation flow so the welcome overlay closes before joining"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.34",
+            "lastUpdated": "November 10, 2026",
+            "changes": [
+                "Keep leaderboard rank numbers tied to original rankings after filtering",
+                "Prevent duplicate lobby notification sounds and show notification timestamps",
+                "Improve update-dialog spacing and the lobby card layout",
+                "Fix duplicate game-mode data in lobby snapshots",
+                "Update repository metadata and README links for GitLab"
+            ]
+        },
         {
             "version": "0.1.33",
             "lastUpdated": "November 10, 2026",

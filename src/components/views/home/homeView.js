@@ -296,6 +296,7 @@ const FxHomeView = defineComponent({
       });
       nativeHomeExtrasObserver.observe(document.body, { childList: true, subtree: true });
       window.__fx.openPlayerNameView = openNameEditor;
+      window.__fx.startMultiplayerFromHome = startMultiplayer;
     });
     onBeforeUnmount(() => {
       if (timer) window.clearInterval(timer);
@@ -305,6 +306,7 @@ const FxHomeView = defineComponent({
       setNativeHomeExtrasHidden(false);
       window.removeEventListener("fx-native-menu-state-change", refresh);
       if (window.__fx?.openPlayerNameView === openNameEditor) delete window.__fx.openPlayerNameView;
+      if (window.__fx?.startMultiplayerFromHome === startMultiplayer) delete window.__fx.startMultiplayerFromHome;
     });
 
     return {

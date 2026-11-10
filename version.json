@@ -1,14 +1,24 @@
 {
-    "version": "0.1.28",
+    "version": "0.1.29",
     "lastUpdated": "November 10, 2026",
     "changes": [
-        "Merge native game and ZFX options into one settings dialog with a shared section navigation",
-        "Add protected Default and editable custom settings profiles with unsaved-change handling",
-        "Use consistent styled checkboxes across native and ZFX settings",
-        "Use native player colors consistently for lobby chat names and mentions"
+        "Restore lobby notification audio and show chat message timestamps",
+        "Tint chat and player card gradients with territory colors while preserving player name colors",
+        "Restore the active game preview from the Your Selection card",
+        "Offer a refresh after saving changes to the active settings profile"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.28",
+            "lastUpdated": "November 10, 2026",
+            "changes": [
+                "Merge native game and ZFX options into one settings dialog with a shared section navigation",
+                "Add protected Default and editable custom settings profiles with unsaved-change handling",
+                "Use consistent styled checkboxes across native and ZFX settings",
+                "Use native player colors consistently for lobby chat names and mentions"
+            ]
+        },
         {
             "version": "0.1.27",
             "lastUpdated": "November 10, 2026",

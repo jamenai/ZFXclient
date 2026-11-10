@@ -12,6 +12,7 @@ const VueSettingsView = defineComponent({
     const profileDirty = ref(false);
     const hasZfxSettings = ref(true);
     const closeConfirmation = ref(false);
+    const refreshConfirmation = ref(false);
     const profilesToolbar = ref(null);
     const settingsContent = ref(null);
     const activeSettingsSection = ref("general");
@@ -20,11 +21,13 @@ const VueSettingsView = defineComponent({
     const labels = computed(() => isGerman.value ? {
       nativeTitle: "Spieleinstellungen", nativeSubtitle: "Native Optionen des Spiels.", zfxTab: "ZFX", nativeTab: "Native",
       saveProfile: "Änderungen speichern", discardProfile: "Änderungen verwerfen",
+      refreshTitle: "Aktives Profil gespeichert", refreshMessage: "Einige Änderungen werden erst nach einem Refresh wirksam. Möchtest du jetzt aktualisieren oder weiterarbeiten?", refreshNow: "Jetzt aktualisieren", continueWithoutRefresh: "Weiterarbeiten",
       title: "Einstellungen", subtitle: "ZFX-Client-Optionen und Benutzeroberfläche.", close: "Schlie\u00dfen", sections: "Einstellungsbereiche", clientSettings: "ZFX-Einstellungen", gameSettings: "Spieleinstellungen",
       footer: { "Reset Settings": "Einstellungen zur\u00fccksetzen", "Save Settings": "Einstellungen speichern", Import: "Importieren", Export: "Exportieren", Reset: "Zur\u00fccksetzen", Save: "Speichern" },
     } : {
       nativeTitle: "Game Settings", nativeSubtitle: "Native options provided by the game.", zfxTab: "ZFX", nativeTab: "Native",
       saveProfile: "Save changes", discardProfile: "Discard changes",
+      refreshTitle: "Active profile saved", refreshMessage: "Some changes take effect only after a refresh. Would you like to refresh now or continue?", refreshNow: "Refresh now", continueWithoutRefresh: "Continue",
       title: "Settings", subtitle: "ZFX client options and interface preferences.", close: "Close", sections: "Settings sections", clientSettings: "ZFX Settings", gameSettings: "Game Settings",
       footer: { "Einstellungen zur\u00fccksetzen": "Reset Settings", "Einstellungen speichern": "Save Settings", Importieren: "Import", Exportieren: "Export", Zur\u00fccksetzen: "Reset", Speichern: "Save" },
     });
@@ -92,13 +95,18 @@ const VueSettingsView = defineComponent({
       close();
     };
     const saveAndClose = () => {
-      if (profilesToolbar.value?.saveChanges?.()) close();
+      if (profilesToolbar.value?.saveChanges?.()) {
+        if (refreshConfirmation.value) closeConfirmation.value = false;
+        else close();
+      }
     };
     const discardAndClose = () => {
       if (profilesToolbar.value?.discardChanges?.()) close();
       else close();
     };
     const saveProfileChanges = () => profilesToolbar.value?.saveChanges?.();
+    const confirmRefresh = () => window.location.reload();
+    const continueWithoutRefresh = () => { refreshConfirmation.value = false; };
     const discardProfileChanges = () => profilesToolbar.value?.discardChanges?.();
     const open = () => {
       updateLanguage();
@@ -188,7 +196,7 @@ const VueSettingsView = defineComponent({
       if (window.__fx?.closeVueGameSettings === requestClose) delete window.__fx.closeVueGameSettings;
     });
 
-    return { visible, profileDirty, hasZfxSettings, activeSettingsSection, settingsSections, isGerman, closeConfirmation, profilesToolbar, settingsContent, translateSection, labels, close, requestClose, saveAndClose, discardAndClose, saveProfileChanges, discardProfileChanges, selectSettingsSection };
+    return { visible, profileDirty, hasZfxSettings, activeSettingsSection, settingsSections, isGerman, closeConfirmation, refreshConfirmation, profilesToolbar, settingsContent, translateSection, labels, close, requestClose, saveAndClose, discardAndClose, saveProfileChanges, discardProfileChanges, confirmRefresh, continueWithoutRefresh, selectSettingsSection };
   },
   template: `
     <div v-show="visible" class="fx-settings-overlay" @pointerdown.self="requestClose">
@@ -199,7 +207,7 @@ const VueSettingsView = defineComponent({
           <ActiveSettingsProfileSelector :has-unsaved="profileDirty" />
           <button type="button" class="fx-settings-close" :aria-label="labels.close" @click="requestClose">×</button>
         </header>
-        <SettingsProfilesToolbar ref="profilesToolbar" @dirty-change="profileDirty = $event" />
+        <SettingsProfilesToolbar ref="profilesToolbar" @dirty-change="profileDirty = $event" @active-profile-saved="refreshConfirmation = true" />
         <div class="fx-settings-body">
           <nav class="fx-settings-tabs" role="tablist" :aria-label="labels.sections">
             <button v-for="section in settingsSections" :key="section.id" type="button" role="tab" :aria-selected="activeSettingsSection === section.id" :class="{ 'is-active': activeSettingsSection === section.id }" @click="selectSettingsSection(section.id)">{{ section.label }}</button>
@@ -227,6 +235,16 @@ const VueSettingsView = defineComponent({
               <button type="button" class="is-primary" @click="saveAndClose"><span aria-hidden="true">✓</span> {{ isGerman ? 'Speichern' : 'Save' }}</button>
               <button type="button" class="is-danger" @click="discardAndClose"><span aria-hidden="true">↶</span> {{ isGerman ? 'Änderungen verwerfen' : 'Discard changes' }}</button>
               <button type="button" @click="closeConfirmation = false"><span aria-hidden="true">×</span> {{ isGerman ? 'Weiter bearbeiten' : 'Keep editing' }}</button>
+            </div>
+          </section>
+        </div>
+        <div v-if="refreshConfirmation" class="fx-settings-close-confirm-backdrop" role="presentation">
+          <section class="fx-settings-close-confirm" role="alertdialog" aria-modal="true" aria-labelledby="fx-settings-refresh-confirm-title">
+            <span class="fx-settings-close-confirm-icon" aria-hidden="true">↻</span>
+            <div><h2 id="fx-settings-refresh-confirm-title">{{ labels.refreshTitle }}</h2><p>{{ labels.refreshMessage }}</p></div>
+            <div class="fx-settings-close-confirm-actions">
+              <button type="button" class="is-primary" @click="confirmRefresh"><span aria-hidden="true">↻</span> {{ labels.refreshNow }}</button>
+              <button type="button" @click="continueWithoutRefresh">{{ labels.continueWithoutRefresh }}</button>
             </div>
           </section>
         </div>

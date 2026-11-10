@@ -1,11 +1,19 @@
 {
-    "version": "0.1.30",
+    "version": "0.1.31",
     "lastUpdated": "November 10, 2026",
     "changes": [
-        "Make HTTPS links in lobby chat messages clickable"
+        "Add a UI setting to show or hide lobby tab labels",
+        "Center lobby scope tabs and keep filter controls aligned at the right edge"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.30",
+            "lastUpdated": "November 10, 2026",
+            "changes": [
+                "Make HTTPS links in lobby chat messages clickable"
+            ]
+        },
         {
             "version": "0.1.29",
             "lastUpdated": "November 10, 2026",

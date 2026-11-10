@@ -31,6 +31,7 @@ export const patchRegistry = [
     ["highlightSpawnpoints.js", highlightSpawnpoints],
     ["hoveringTooltip.js", hoveringTooltip],
     ["leaderboard.js", leaderboard],
+    ["pingFilter.js", pingFilter],
     ["lobbyReminders.js", lobbyReminders],
     ["misc.js", misc],
     ["mobileKeybinds.js", mobileKeybinds],
@@ -39,7 +40,6 @@ export const patchRegistry = [
     ["nameRendering.js", nameRendering],
     ["passwordReset.js", passwordReset],
     ["patches.js", gamePatches],
-    ["pingFilter.js", pingFilter],
     ["quickEmojis.js", quickEmojis],
     ["replayHistory.js", replayHistory],
     ["replayTimebar.js", replayTimebar],
@@ -54,7 +54,6 @@ export function applyPatchRegistry(modUtils, registry = patchRegistry, options =
         if (names.has(name)) throw new Error(`Duplicate game patch registration: ${name}`);
         if (typeof patch !== "function") throw new Error(`Invalid game patch registration: ${name}`);
         names.add(name);
-        console.info(`[ZFX Client] Applying game patch: ${name}`);
         // A game update can change one native hook without invalidating the
         // rest of the client. Apply each patch atomically so an obsolete hook
         // neither leaves a half-patched game script nor blocks the build.
@@ -64,6 +63,7 @@ export function applyPatchRegistry(modUtils, registry = patchRegistry, options =
         const originalHandlers = handlers ? [...handlers] : null;
         try {
             patch(modUtils);
+            console.info(`[ZFX Client] SUCCESS patch: ${name}`);
         } catch (error) {
             if (originalScript !== undefined) modUtils.script = originalScript;
             if (originalDictionary && modUtils.dictionary) {
@@ -73,8 +73,8 @@ export function applyPatchRegistry(modUtils, registry = patchRegistry, options =
             if (originalHandlers && Array.isArray(modUtils.postMinifyHandlers)) {
                 modUtils.postMinifyHandlers.splice(0, modUtils.postMinifyHandlers.length, ...originalHandlers);
             }
+            console.error(`[ZFX Client] FAILED patch: ${name}`, error);
             if (!options.continueOnError) throw error;
-            console.warn(`[ZFX Client] Skipping incompatible game patch ${name}:`, error);
         }
     }
 }

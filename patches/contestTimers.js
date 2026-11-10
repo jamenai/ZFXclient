@@ -6,6 +6,6 @@ export default definePatch(({ replaceOne }) => {
   // values without duplicating the schedule.
   replaceOne(
     /aP=new cJ;/g,
-    "$&if(window.__fx)window.__fx.getNativeContestTimers=function(){return aP.aAW();};"
+    "$&if(window.__fx)window.__fx.getNativeContestTimers=function(){return aP.aAk();};"
   );
 });

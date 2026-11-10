@@ -1,6 +1,6 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import test from "node:test";
-import { createFrameScheduler } from "../src/frameScheduler.js";
+import { createFrameScheduler } from "../src/modules/frameScheduler.js";
 
 test("coalesces repeated requests into one callback per frame", () => {
   const frames = [];

@@ -4,7 +4,7 @@ export default (/** @type {import('../modUtils.js').default} */ { insertCode, re
 		if (!this.b()) { return; }
 		mainCanvas.drawImage(canvas, x, this.y);
         /* here */
-	}`, `if (__fx.settings.keybindButtons) __fx.mobileKeybinds.draw(mainCanvas, x, this.y);`)
+	}`, `if (__fx.settingsApi.getBoolean("keybindButtons")) __fx.mobileKeybinds.draw(mainCanvas, x, this.y);`)
 
     const { h, redraw } = insertCode(`a6k = Math.floor(3 * this.h / 2);
 		a4M = c.pZ.rN(1, Math.floor(0.5 * this.h));
@@ -30,7 +30,7 @@ export default (/** @type {import('../modUtils.js').default} */ { insertCode, re
 		if (a6w(this, kt, ku)) { bd.requestRepaint = true; }
 		return true;
 	};`,
-    `if (__fx.settings.keybindButtons && ku > this.y - Math.floor(ba.gap / 4) - this.h && ku < this.y - Math.floor(ba.gap / 4) && __fx.mobileKeybinds.click(kt - x)) return true;`,
+    `if (__fx.settingsApi.getBoolean("keybindButtons") && ku > this.y - Math.floor(ba.gap / 4) - this.h && ku < this.y - Math.floor(ba.gap / 4) && __fx.mobileKeybinds.click(kt - x)) return true;`,
     { dictionary: { x, y, h, ba, gap } }
     )
 
@@ -45,12 +45,12 @@ export default (/** @type {import('../modUtils.js').default} */ { insertCode, re
 		if (au.b) { return a.y - a.h - 2 * a4a; }
         else { return a.y - a4a; }
 	}`, `if (a.a4y(aM.a4u())) {
-		if (au.b) { return __fx.settings.keybindButtons ? a.y - 2 * a.h - 3 * a4a : a.y - a.h - 2 * a4a; }
-        else { return __fx.settings.keybindButtons ? a.y - a.h - 2 * a4a : a.y - a4a; }
+		if (au.b) { return __fx.settingsApi.getBoolean("keybindButtons") ? a.y - 2 * a.h - 3 * a4a : a.y - a.h - 2 * a4a; }
+		else { return __fx.settingsApi.getBoolean("keybindButtons") ? a.y - a.h - 2 * a4a : a.y - a4a; }
 	}`)
     insertCode(
         `if (a.a4y(aM.a4u())) { return /* here */ a.y - h - ba.gap; }`,
-        `__fx.settings.keybindButtons ? a.y - 2 * (h + ba.gap) : `
+		`__fx.settingsApi.getBoolean("keybindButtons") ? a.y - 2 * (h + ba.gap) : `
     )
 
 }

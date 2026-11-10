@@ -1,6 +1,6 @@
 import ModUtils, { insert } from "../modUtils.js"
 
-export default (/** @type {ModUtils} */ { modifyCode, insertCode, replaceRawCode, waitForMinification }) => {
+export default (/** @type {ModUtils} */ { modifyCode, replaceOne, replaceRawCode, waitForMinification }) => {
 
     modifyCode(`
         ${insert(`__fx.hoveringTooltip.display = function(mouseX, mouseY) {
@@ -31,12 +31,14 @@ export default (/** @type {ModUtils} */ { modifyCode, insertCode, replaceRawCode
 		}
         /*...*/}`)
 
-    insertCode(`player = aQ.eF(eR);
-		if (game.gIsReplay /* here */) { game.playerId = player; }
-		str = __L(/* Player: {0} */ [b0.context.truncateAndFillText(playerData.rawPlayerNames[player], b0.qZ.sN(0, 10), 150)]) + "   ";
-		str += __L(/* Strength: {10} */ [b0.rY.formatNumber(playerData.playerBalances[player])]) + "   ";
-		str += __L(/* Territory: {10} */ [b0.rY.formatNumber(playerData.playerTerritories[player])]) + "   ";`,
-    `&& __fx.hoveringTooltip.active === false`)
+    try {
+        const replaySelectionHook = "if(aE.hj||aE.hk){aE.fK=player;}";
+        if (!modUtils.script.includes(replaySelectionHook)) throw new Error("Replay player selection hook not found");
+        modUtils.script = modUtils.script.replace(replaySelectionHook,
+            "if((aE.hj||aE.hk)&&__fx.hoveringTooltip.active===false){aE.fK=player;}");
+    } catch (error) {
+        console.info("[ZFX Client] Native replay tooltip hook is absent in this game version.");
+    }
     
     waitForMinification(() => {
         replaceRawCode("aK.nH=(window.devicePixelRatio||1)*aEr,",

@@ -1,6 +1,6 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import test from "node:test";
-import { publishFxBridge } from "../src/fxBridge.js";
+import { publishFxBridge } from "../src/adapter/fxBridge.js";
 
 test("publishes the API on the existing bridge without replacing it", () => {
   const bridge = { legacyReference: true };

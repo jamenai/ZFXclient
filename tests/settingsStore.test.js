@@ -1,6 +1,6 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import test from "node:test";
-import { loadSettings, mergeSettings, parseImportedSettings } from "../src/settingsStore.js";
+import { loadSettings, mergeSettings, parseImportedSettings } from "../src/modules/settings/settingsStore.js";
 
 const defaults = {
   showReplayTimebar: true,

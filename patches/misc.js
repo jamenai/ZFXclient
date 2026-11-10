@@ -19,7 +19,7 @@ export default definePatch(({ insertCode, modifyCode, replaceCode, replaceRawCod
 				zH.fillText(aB9, Math.floor(nV + 0.5 * tS), Math.floor(0.3 * this.j));
 			}
 		}
-		${insert(`if (__fx.settings.displayTickNumber)
+		${insert(`if (__fx.settingsApi.getBoolean("displayTickNumber"))
       zH.fillText(9 - eh, Math.floor(aAv * 2 + aBA), Math.floor(0.3 * this.j));`)}`)
 
   // Add ZFX Client version info to the game version window
@@ -36,7 +36,7 @@ export default definePatch(({ insertCode, modifyCode, replaceCode, replaceRawCod
     a = b.c + 60 * 1000;
     (new ea()).show(eS.eb, eS.colors, eS.id);
     eS = null;
-    return true;`, `if (__fx.settings.hidePropagandaPopup) return;`)
+    return true;`, `if (__fx.settingsApi.getBoolean("hidePropagandaPopup")) return;`)
   const propagandaShowPattern = /\(new (?<dialogClass>\w+)\(\)\)\.(?<showMethod>\w+)\(\s*(?<messageState>\w+)\.(?<messageKey>\w+)\s*,\s*\k<messageState>\.(?<colorsKey>\w+)\s*,\s*\k<messageState>\.(?<idKey>\w+)\s*\)/g;
   const { groups: propagandaShow } = matchOne(propagandaShowPattern);
   const propagandaAckPattern = /if\((?<idArg>\w+)>=0\)\{if\((?<manager>\w+)\.(?<socketManager>\w+)\.(?<socketActiveMethod>\w+)\(0\)\)\{\k<manager>\.(?<messageManager>\w+)\.(?<ackMethod>\w+)\(0,\k<idArg>\)\}\}/g;
@@ -48,7 +48,7 @@ export default definePatch(({ insertCode, modifyCode, replaceCode, replaceRawCod
   modifyCode(`if (!a.b.c(0)) {
 			d = e.f + 1000 * 1;
 			return;
-		} ${insert(`if (!__fx.settings.hidePropagandaPopup)`)} a.g.h(5);`)
+		} ${insert(`if (!__fx.settingsApi.getBoolean("hidePropagandaPopup"))`)} a.g.h(5);`)
 
   // Don't reload FX users to main terri page.
   replaceCode(

@@ -12,9 +12,25 @@ export const LobbyChat = defineComponent({
   emits: ["send"],
   data() { return { message: "", activationTimer: 0, stickToChatBottom: true, senderMenu: null }; },
   mounted() {
-    // The native client needs one initial request to populate its single
-    // lobby-wide chat list. Keep it enabled across tab changes; never toggle it
-    // off when leaving this Vue tab.
+    this.handleLobbyChatReturn = () => {
+      // The native chat subscription belongs to the current lobby session.
+      // A match return creates a new session, so request the channel again.
+      window.__fx.lobbyChatChannelRequested = false;
+      if (this.activationTimer) window.clearTimeout(this.activationTimer);
+      this.activationTimer = 0;
+      this.activateLobbyChat();
+    };
+    window.addEventListener("fx-native-lobby-return-chat", this.handleLobbyChatReturn);
+    this.activateLobbyChat();
+    this.$nextTick(() => {
+      const list = this.$refs.messages;
+      if (list) list.scrollTop = list.scrollHeight;
+    });
+  },
+  methods: {
+    activateLobbyChat() {
+      // The native client needs one request per lobby session to populate its
+      // lobby-wide chat list. Retry while the game transitions back to lobby.
     const activationStartedAt = Date.now();
     const tryActivateLobbyChat = () => {
       const fx = window.__fx;
@@ -38,12 +54,7 @@ export const LobbyChat = defineComponent({
       this.activationTimer = window.setTimeout(tryActivateLobbyChat, 250);
     };
     tryActivateLobbyChat();
-    this.$nextTick(() => {
-      const list = this.$refs.messages;
-      if (list) list.scrollTop = list.scrollHeight;
-    });
-  },
-  methods: {
+    },
     formatMessageTime(value) {
       const date = new Date(Number(value));
       return Number.isNaN(date.getTime()) ? "" : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -127,6 +138,7 @@ export const LobbyChat = defineComponent({
   },
   beforeUnmount() {
     if (this.activationTimer) window.clearTimeout(this.activationTimer);
+    window.removeEventListener("fx-native-lobby-return-chat", this.handleLobbyChatReturn);
   },
   updated() {
     const list = this.$refs.messages;

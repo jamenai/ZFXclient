@@ -2361,6 +2361,8 @@ export function initializeCustomLobbyView() {
     nativeLobbySuppressionRoot = null;
     nativeLobbySuppressionSawDeparture = false;
     nativeLobbySuppressionReturnState = null;
+    window.__fx.lobbyChatChannelRequested = false;
+    window.dispatchEvent(new Event("fx-native-lobby-return-chat"));
     syncRoute();
     let attempts = 0;
     const restoreLobby = () => {

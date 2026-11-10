@@ -1,12 +1,19 @@
 {
-    "version": "0.1.31",
+    "version": "0.1.32",
     "lastUpdated": "November 10, 2026",
     "changes": [
-        "Add a UI setting to show or hide lobby tab labels",
-        "Center lobby scope tabs and keep filter controls aligned at the right edge"
+        "Reconnect the lobby chat subscription when returning from a match"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.31",
+            "lastUpdated": "November 10, 2026",
+            "changes": [
+                "Add a UI setting to show or hide lobby tab labels",
+                "Center lobby scope tabs and keep filter controls aligned at the right edge"
+            ]
+        },
         {
             "version": "0.1.30",
             "lastUpdated": "November 10, 2026",

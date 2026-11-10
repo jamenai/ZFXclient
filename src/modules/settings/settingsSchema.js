@@ -37,6 +37,7 @@ const defaultValues = Object.freeze({
   lobbyFontScale: 100,
   uiTransparency: 15,
   uiSkin: "zfx",
+  showLobbyTabLabels: true,
   mutePingAll: false,
   mutePingEveryone: false,
   mutePingRoom: false,

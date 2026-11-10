@@ -165,6 +165,8 @@ const fxText = {
     uiTransparencyNote: "Controls transparency of the main ZFX panels. 0% is opaque; higher values show more of the map behind them.",
     uiSkin: "Accent color",
     uiSkinNote: "Changes the primary accent color across ZFX views.",
+    showLobbyTabLabels: "Show lobby tab labels",
+    showLobbyTabLabelsNote: "Show text beside lobby tab icons. Turn this off to use icons only.",
     uiSkinZfx: "ZFX green", uiSkinBlue: "Ocean blue", uiSkinViolet: "Violet", uiSkinAmber: "Amber", uiSkinRose: "Rose",
     searchLobbyPlayers: "Search lobby players...",
     filterReadiness: "Filter players by readiness",
@@ -259,6 +261,8 @@ const fxText = {
     uiTransparencyNote: "Legt die Transparenz der wichtigsten ZFX-Fl\u00e4chen fest. 0 % ist deckend; h\u00f6here Werte zeigen mehr von der Karte dahinter.",
     uiSkin: "Akzentfarbe",
     uiSkinNote: "\u00c4ndert die prim\u00e4re Akzentfarbe der ZFX-Ansichten.",
+    showLobbyTabLabels: "Lobby-Tab-Beschriftungen anzeigen",
+    showLobbyTabLabelsNote: "Zeigt Text neben den Lobby-Tab-Icons. Deaktivieren, um nur Icons anzuzeigen.",
     uiSkinZfx: "ZFX-Gr\u00fcn", uiSkinBlue: "Ozeanblau", uiSkinViolet: "Violett", uiSkinAmber: "Bernstein", uiSkinRose: "Ros\u00e9",
     clanReadySummary: "{ready}/{total} bereit",
     clanWaitingSummary: "{count} warten",
@@ -352,6 +356,7 @@ const settingPathAliases = Object.freeze({
   "zfx.ui.fontSize": "lobbyFontScale",
   "zfx.ui.transparency": "uiTransparency",
   "zfx.ui.skin": "uiSkin",
+  "zfx.ui.showLobbyTabLabels": "showLobbyTabLabels",
   "zfx.leaderboard.showTabs": "showLeaderboardTabs",
   "zfx.leaderboard.openDonationHistory": "openDonationHistoryFromLb",
   "zfx.leaderboard.showTabs": "showLeaderboardTabs",
@@ -736,6 +741,12 @@ const settingsManager = new (function () {
       step: 5,
     },
     {
+      for: "showLobbyTabLabels",
+      type: "checkbox",
+      label: __fx.translateFX("showLobbyTabLabels"),
+      note: __fx.translateFX("showLobbyTabLabelsNote"),
+    },
+    {
       for: "uiSkin",
       type: "selectMenu",
       label: __fx.translateFX("uiSkin"),
@@ -747,8 +758,7 @@ const settingsManager = new (function () {
         { value: "amber", label: __fx.translateFX("uiSkinAmber") },
         { value: "rose", label: __fx.translateFX("uiSkinRose") },
       ],
-    },
-    {
+    },    {
       for: "highlightDuplicateIps",
       type: "checkbox",
       label: "Duplicate IP highlighting",
@@ -1046,6 +1056,7 @@ const settingsManager = new (function () {
     };
     const [accent, accentRgb] = uiSkins[settings.uiSkin] || uiSkins.zfx;
     const transparency = Math.max(0, Math.min(45, Number(settings.uiTransparency ?? 15)));
+    document.documentElement.dataset.fxLobbyTabLabels = settings.showLobbyTabLabels === false ? "hidden" : "visible";
     document.documentElement.style.setProperty("--fx-ui-accent", accent);
     document.documentElement.style.setProperty("--fx-ui-accent-rgb", accentRgb);
     document.documentElement.style.setProperty("--fx-ui-panel-alpha", String(.98 - transparency / 150));

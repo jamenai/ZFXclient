@@ -3,11 +3,12 @@ import settingsManager, { saveSettings, settingsApi } from "../../../modules/set
 import { createDefaultSettings } from "../../../modules/settings/settingsSchema.js";
 import { mergeSettings } from "../../../modules/settings/settingsStore.js";
 
-const PROFILE_STORAGE_KEY = "zfx_settings_profiles_v1";
+export const PROFILE_STORAGE_KEY = "zfx_settings_profiles_v1";
 const PROFILE_FORMAT = "zfx-settings-profile";
 const PROFILE_SCHEMA_VERSION = 3;
-const SYSTEM_DEFAULT_PROFILE_ID = "zfx-system-default";
-const ACTIVE_PROFILE_STORAGE_KEY = "zfx_active_settings_profile_v1";
+export const SYSTEM_DEFAULT_PROFILE_ID = "zfx-system-default";
+export const ACTIVE_PROFILE_STORAGE_KEY = "zfx_active_settings_profile_v1";
+const PROFILE_SEED_KEY = "zfx_settings_profiles_seeded_v2";
 const NATIVE_SETTING_IDS = [1, 2, 5, 7, 8, 9, 11, 12, 13, 14, 15, 16];
 const NATIVE_SETTING_KEYS = { 1: "resolution", 2: "largeUi", 5: "font", 7: "placeBalance", 8: "hideZoom", 9: "minimumFont", 11: "textSpeed", 12: "language", 13: "messageKeepClosed", 14: "messageMuted", 15: "highlighting", 16: "highlightIntensity" };
 const NATIVE_KEY_SETTING_IDS = Object.fromEntries(Object.entries(NATIVE_SETTING_KEYS).map(([id, key]) => [key, Number(id)]));
@@ -16,7 +17,7 @@ function makeId() {
   return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-function migrateProfile(candidate) {
+export function migrateProfile(candidate) {
   if (!candidate || candidate.format !== PROFILE_FORMAT) throw new TypeError("This is not a supported ZFX settings profile.");
   let profile = candidate;
   let version = Number(profile.schemaVersion) || 1;
@@ -29,7 +30,7 @@ function migrateProfile(candidate) {
   return profile;
 }
 
-function normalizeProfile(candidate) {
+export function normalizeProfile(candidate) {
   if (!candidate || candidate.format !== PROFILE_FORMAT || candidate.schemaVersion !== PROFILE_SCHEMA_VERSION
       || typeof candidate.name !== "string" || !candidate.name.trim()
       || !candidate.native || typeof candidate.native !== "object"
@@ -72,7 +73,7 @@ function normalizeProfile(candidate) {
   };
 }
 
-function readProfiles() {
+export function readProfiles() {
   try {
     const stored = localStorage.getItem(PROFILE_STORAGE_KEY) || "[]";
     const value = JSON.parse(stored);
@@ -93,12 +94,34 @@ function readProfiles() {
   } catch { return []; }
 }
 
-function createSystemDefaultProfile() {
+export function createSystemDefaultProfile() {
   return normalizeProfile({
     format: PROFILE_FORMAT, schemaVersion: PROFILE_SCHEMA_VERSION, id: SYSTEM_DEFAULT_PROFILE_ID,
-    name: "Default (System)", updatedAt: 0,
+    name: "Default", updatedAt: 0,
     native: { resetToDefaults: true, values: {}, connection: 0, shortcuts: {} }, zfx: createDefaultSettings(),
   });
+}
+
+export function createCustomProfileFromDefault(name = "Custom", id = makeId()) {
+  const defaults = createSystemDefaultProfile();
+  return normalizeProfile({ ...defaults, id, name, updatedAt: Date.now() });
+}
+
+function ensureInitialCustomProfile() {
+  const profiles = readProfiles();
+  let custom = profiles.find(profile => profile.name.toLowerCase() === "custom");
+  if (!custom) {
+    custom = createCustomProfileFromDefault();
+    profiles.unshift(custom);
+    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profiles));
+  }
+  const previouslySeeded = localStorage.getItem(PROFILE_SEED_KEY) === "true";
+  const activeId = localStorage.getItem(ACTIVE_PROFILE_STORAGE_KEY);
+  if (!activeId || (!previouslySeeded && activeId === SYSTEM_DEFAULT_PROFILE_ID)) {
+    localStorage.setItem(ACTIVE_PROFILE_STORAGE_KEY, custom.id);
+  }
+  localStorage.setItem(PROFILE_SEED_KEY, "true");
+  return profiles;
 }
 
 function profileNativeDraft(profile) {
@@ -191,7 +214,7 @@ function applyZfxProfile(profile, { persist = true } = {}) {
   [500, 1500, 4000].forEach(delay => window.setTimeout(refreshGameLayout, delay));
 }
 
-function applyProfileToRuntime(profile, { persist = true } = {}) {
+export function applyProfileToRuntime(profile, { persist = true } = {}) {
   applyZfxProfile(profile, { persist });
   const adapter = window.__fx?.gameSettingsAdapter;
   if (!adapter?.setField) throw new Error("Native game settings are not available yet.");
@@ -219,7 +242,7 @@ function applyProfileToRuntime(profile, { persist = true } = {}) {
 }
 
 export function initializeSettingsProfiles() {
-  const profiles = readProfiles();
+  const profiles = ensureInitialCustomProfile();
   let activeId = localStorage.getItem(ACTIVE_PROFILE_STORAGE_KEY);
   if (!activeId) {
     activeId = SYSTEM_DEFAULT_PROFILE_ID;
@@ -255,7 +278,8 @@ export function initializeSettingsProfiles() {
 
 export const ActiveSettingsProfileSelector = defineComponent({
   name: "ActiveSettingsProfileSelector",
-  setup() {
+  props: { hasUnsaved: { type: Boolean, default: false } },
+  setup(props) {
     const profiles = ref([]);
     const activeId = ref(localStorage.getItem(ACTIVE_PROFILE_STORAGE_KEY) || SYSTEM_DEFAULT_PROFILE_ID);
     const isGerman = computed(() => String(window.__fx?.getGameLanguage?.() || "en").toLowerCase().startsWith("de"));
@@ -269,6 +293,12 @@ export const ActiveSettingsProfileSelector = defineComponent({
     function activate(event) {
       const id = String(event.target.value || "");
       if (!allProfiles.value.some(profile => profile.id === id) || id === activeId.value) return;
+      if (props.hasUnsaved && !window.confirm(isGerman.value
+        ? "Profil aktivieren und Client neu laden? Ungespeicherte Änderungen werden verworfen?"
+        : "Activate this profile and reload the client? Unsaved changes will be discarded?")) {
+        event.target.value = activeId.value;
+        return;
+      }
       localStorage.setItem(ACTIVE_PROFILE_STORAGE_KEY, id);
       window.location.reload();
     }
@@ -276,240 +306,4 @@ export const ActiveSettingsProfileSelector = defineComponent({
     return { profiles, activeId, allProfiles, label, activate };
   },
   template: `<label class="fx-settings-active-profile-selector"><span>{{ label }}</span><select :value="activeId" @change="activate"><option v-for="profile in allProfiles" :key="profile.id" :value="profile.id">{{ profile.name }}</option></select></label>`,
-});
-
-export const SettingsProfilesToolbar = defineComponent({
-  name: "SettingsProfilesEditor",
-  emits: ["edit-state-change"],
-  setup(_props, { emit }) {
-    const profiles = ref([]);
-    const activeId = ref(localStorage.getItem(ACTIVE_PROFILE_STORAGE_KEY) || SYSTEM_DEFAULT_PROFILE_ID);
-    const editingId = ref(activeId.value);
-    const profileName = ref("");
-    const status = ref("");
-    const dirty = ref(false);
-    const isEditing = ref(false);
-    const duplicateMode = ref(false);
-    const isGerman = computed(() => String(window.__fx?.getGameLanguage?.() || "en").toLowerCase().startsWith("de"));
-    const text = computed(() => isGerman.value ? {
-      profile: "Profil auswÃ¤hlen", editing: "Profil wird bearbeitet", edit: "Bearbeiten", export: "Exportieren", duplicate: "Duplizieren", remove: "LÃ¶schen", import: "Profil importieren",
-      newName: "Name des Duplikats", namePlaceholder: "Profilname", createDuplicate: "Duplikat erstellen", cancel: "Abbrechen", save: "Ã„nderungen speichern", cancelEdit: "Bearbeitung abbrechen",
-      unsaved: "Ungespeicherte Ã„nderungen im Profilentwurf.", saved: "Profil gespeichert.", savedInactive: "Profil gespeichert. Das aktive Spielprofil blieb unverÃ¤ndert.",
-      confirmDiscard: "Ungespeicherte Ã„nderungen am Entwurf verwerfen?", confirmActivate: "Profil aktivieren und Client neu laden? Nicht gespeicherte Ã„nderungen am Entwurf verwerfen?",
-      confirmOverwrite: "Ã„nderungen in dieses Profil speichern? Wenn es aktiv ist, werden sie im Spiel Ã¼bernommen.", confirmDelete: "Dieses Profil lÃ¶schen?",
-      nameRequired: "Bitte einen Namen fÃ¼r das Duplikat eingeben.", nameExists: "Dieser Profilname ist bereits vergeben.", systemLocked: "Das System-Standardprofil kann nicht bearbeitet oder gelÃ¶scht werden.",
-      imported: "Profil importiert und zur Bearbeitung ausgewÃ¤hlt.", invalid: "Profil konnte nicht importiert werden.", confirmImport: "Ungespeicherte Ã„nderungen verwerfen und Profil importieren?",
-    } : {
-      profile: "Select profile", editing: "Editing profile", edit: "Edit", export: "Export", duplicate: "Duplicate", remove: "Delete", import: "Import profile",
-      newName: "Duplicate name", namePlaceholder: "Profile name", createDuplicate: "Create duplicate", cancel: "Cancel", save: "Save changes", cancelEdit: "Cancel editing",
-      unsaved: "Unsaved changes in this profile draft.", saved: "Profile saved.", savedInactive: "Profile saved. The active game profile was not changed.",
-      confirmDiscard: "Discard unsaved changes to this draft?", confirmActivate: "Activate this profile and reload the client? Unsaved draft changes will be discarded?",
-      confirmDelete: "Delete this profile?",
-      nameRequired: "Enter a name for the duplicate.", nameExists: "That profile name is already in use.", systemLocked: "The system default profile cannot be edited or deleted.",
-      imported: "Profile imported and selected for editing.", invalid: "Could not import this profile.", confirmImport: "Discard unsaved changes and import a profile?",
-    });
-    const allProfiles = computed(() => [createSystemDefaultProfile(), ...profiles.value]);
-    const editingProfile = computed(() => allProfiles.value.find(profile => profile.id === editingId.value) || createSystemDefaultProfile());
-    const canEdit = computed(() => editingProfile.value.id !== SYSTEM_DEFAULT_PROFILE_ID);
-    const canOverwrite = computed(() => isEditing.value && dirty.value && editingProfile.value.id !== SYSTEM_DEFAULT_PROFILE_ID);
-
-    function refreshProfiles() {
-      profiles.value = readProfiles();
-      const storedActive = localStorage.getItem(ACTIVE_PROFILE_STORAGE_KEY) || SYSTEM_DEFAULT_PROFILE_ID;
-      activeId.value = allProfiles.value.some(profile => profile.id === storedActive) ? storedActive : SYSTEM_DEFAULT_PROFILE_ID;
-      if (!allProfiles.value.some(profile => profile.id === editingId.value)) editingId.value = activeId.value;
-      profileName.value = "";
-    }
-    function changeEditingProfile(event) {
-      const id = String(event.target.value || "");
-      if (!allProfiles.value.some(profile => profile.id === id)) return;
-      if (isEditing.value && !endEditing(false)) { event.target.value = editingId.value; return; }
-      editingId.value = id;
-      duplicateMode.value = false;
-      profileName.value = "";
-      dirty.value = false;
-      status.value = "";
-      beginSettingsProfileDraft(id);
-      settingsManager.syncFields();
-      window.dispatchEvent(new CustomEvent("fx-settings-profile-loaded"));
-    }
-    function activateProfile(event) {
-      const id = String(event.target.value || "");
-      if (!allProfiles.value.some(profile => profile.id === id) || id === activeId.value) return;
-      if (!window.confirm(text.value.confirmActivate)) { event.target.value = activeId.value; return; }
-      localStorage.setItem(ACTIVE_PROFILE_STORAGE_KEY, id);
-      window.location.reload();
-    }
-    function captureDraft(name, id) {
-      const native = getNativeSettingsDraft() || profileNativeDraft(editingProfile.value);
-      return normalizeProfile({
-        format: PROFILE_FORMAT, schemaVersion: PROFILE_SCHEMA_VERSION, id: id || makeId(), name, updatedAt: Date.now(),
-        native: { values: native.values, settings: native.settings, connection: native.connection, shortcuts: native.shortcuts },
-        zfx: settingsManager.getDraft?.() || settingsApi.getSnapshot(),
-      });
-    }
-    function saveStored() { localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profiles.value)); }
-    function startEditing() {
-      if (!canEdit.value) return;
-      beginSettingsProfileDraft(editingId.value);
-      settingsManager.syncFields();
-      isEditing.value = true;
-      dirty.value = false;
-      status.value = "";
-      emit("edit-state-change", true);
-      window.dispatchEvent(new CustomEvent("fx-settings-profile-loaded"));
-    }
-    function endEditing(restore = true) {
-      if (dirty.value && !window.confirm(text.value.confirmDiscard)) return false;
-      isEditing.value = false;
-      duplicateMode.value = false;
-      profileName.value = "";
-      dirty.value = false;
-      status.value = "";
-      if (restore) {
-        beginSettingsProfileDraft(activeId.value);
-        settingsManager.syncFields();
-        window.dispatchEvent(new CustomEvent("fx-settings-profile-loaded"));
-      }
-      emit("edit-state-change", false);
-      return true;
-    }
-    function startDuplicate() {
-      if (isEditing.value) return;
-      duplicateMode.value = true;
-      profileName.value = `${editingProfile.value.name} copy`.slice(0, 60);
-      status.value = "";
-    }
-    function createDuplicate() {
-      const name = profileName.value.trim().slice(0, 60);
-      if (!name) { status.value = text.value.nameRequired; return; }
-      if (allProfiles.value.some(profile => profile.name.toLowerCase() === name.toLowerCase())) { status.value = text.value.nameExists; return; }
-      try {
-        const source = editingProfile.value;
-        const profile = normalizeProfile({ ...source, id: makeId(), name, updatedAt: Date.now() });
-        profiles.value.unshift(profile);
-        saveStored();
-        editingId.value = profile.id;
-        profileName.value = "";
-        duplicateMode.value = false;
-        dirty.value = false;
-        beginSettingsProfileDraft(profile.id);
-        settingsManager.syncFields();
-        isEditing.value = true;
-        emit("edit-state-change", true);
-        window.dispatchEvent(new CustomEvent("fx-settings-profile-loaded"));
-      } catch (error) { status.value = String(error?.message || error); }
-    }
-    function saveChanges() {
-      const selected = editingProfile.value;
-      if (!selected || selected.id === SYSTEM_DEFAULT_PROFILE_ID) { status.value = text.value.systemLocked; return; }
-      try {
-        const profile = captureDraft(selected.name, selected.id);
-        const index = profiles.value.findIndex(item => item.id === selected.id);
-        if (index < 0) throw new Error("The profile no longer exists.");
-        profiles.value.splice(index, 1, profile);
-        saveStored();
-        dirty.value = false;
-        if (profile.id === activeId.value) {
-          applyProfileToRuntime(profile);
-          beginSettingsProfileDraft(profile.id);
-          settingsManager.syncFields();
-          window.dispatchEvent(new CustomEvent("fx-settings-profile-loaded"));
-          status.value = text.value.saved;
-        }
-        else {
-          status.value = text.value.savedInactive;
-          isEditing.value = false;
-          emit("edit-state-change", false);
-        }
-      } catch (error) { status.value = String(error?.message || error); }
-    }
-    function exportSelectedProfile() {
-      const profile = editingProfile.value;
-      if (!profile) return;
-      const blob = new Blob([JSON.stringify(profile, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `ZFX-profile-${profile.name.replace(/[^a-z0-9_-]+/gi, "-").replace(/^-|-$/g, "") || "settings"}.json`;
-      anchor.click();
-      URL.revokeObjectURL(url);
-    }
-    async function importProfile(event) {
-      const file = event.target.files?.[0]; event.target.value = ""; if (!file) return;
-      if (isEditing.value && dirty.value && !window.confirm(text.value.confirmImport)) return;
-      if (isEditing.value) { isEditing.value = false; dirty.value = false; emit("edit-state-change", false); }
-      try {
-        const imported = normalizeProfile(migrateProfile(JSON.parse(await file.text())));
-        if (imported.id === SYSTEM_DEFAULT_PROFILE_ID) imported.id = makeId();
-        const nameMatch = profiles.value.find(item => item.name.toLowerCase() === imported.name.toLowerCase());
-        if (nameMatch && nameMatch.id === activeId.value) {
-          imported.id = makeId(); imported.name = `${imported.name} (imported)`.slice(0, 60);
-        } else if (nameMatch) imported.id = nameMatch.id;
-        else if (profiles.value.some(item => item.id === imported.id)) imported.id = makeId();
-        const index = profiles.value.findIndex(item => item.id === imported.id);
-        if (index >= 0) profiles.value.splice(index, 1, imported); else profiles.value.unshift(imported);
-        saveStored(); editingId.value = imported.id; profileName.value = ""; dirty.value = false; status.value = text.value.imported;
-        beginSettingsProfileDraft(imported.id); settingsManager.syncFields();
-        isEditing.value = true;
-        emit("edit-state-change", true);
-        window.dispatchEvent(new CustomEvent("fx-settings-profile-loaded"));
-      } catch (error) { status.value = `${text.value.invalid} ${String(error?.message || error)}`; }
-    }
-    function deleteProfile() {
-      const profile = editingProfile.value;
-      if (!profile || profile.id === SYSTEM_DEFAULT_PROFILE_ID || isEditing.value || !window.confirm(text.value.confirmDelete)) return;
-      profiles.value = profiles.value.filter(item => item.id !== profile.id);
-      saveStored();
-      if (profile.id === activeId.value) {
-        localStorage.setItem(ACTIVE_PROFILE_STORAGE_KEY, SYSTEM_DEFAULT_PROFILE_ID);
-        window.location.reload();
-        return;
-      }
-      editingId.value = activeId.value;
-      beginSettingsProfileDraft(editingId.value); settingsManager.syncFields();
-      dirty.value = false; status.value = "";
-      window.dispatchEvent(new CustomEvent("fx-settings-profile-loaded"));
-    }
-    function exportDraft() {
-      const profile = editingProfile.value;
-      if (!profile || profile.id === SYSTEM_DEFAULT_PROFILE_ID) return;
-      const current = captureDraft(profile.name, profile.id);
-      const blob = new Blob([JSON.stringify(current, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob); const anchor = document.createElement("a");
-      anchor.href = url; anchor.download = `ZFX-profile-${profile.name.replace(/[^a-z0-9_-]+/gi, "-") || "settings"}.json`; anchor.click(); URL.revokeObjectURL(url);
-    }
-    const markDirty = () => { if (isEditing.value) { dirty.value = true; status.value = text.value.unsaved; } };
-    onMounted(() => {
-      refreshProfiles();
-      window.addEventListener("fx-settings-changed", markDirty);
-    });
-    onBeforeUnmount(() => window.removeEventListener("fx-settings-changed", markDirty));
-    return { allProfiles, editingId, editingProfile, profileName, status, dirty, isEditing, duplicateMode, canEdit, canOverwrite, text,
-      changeEditingProfile, startEditing, endEditing, startDuplicate, createDuplicate, saveChanges, exportSelectedProfile, exportDraft, importProfile, deleteProfile };
-  },
-  template: `
-    <section class="fx-settings-profile-editor" aria-label="Profile editor actions">
-      <label class="fx-settings-profile-edit-selector"><span>{{ isEditing ? text.editing : text.profile }}</span><select :value="editingId" :disabled="isEditing" @change="changeEditingProfile"><option v-for="profile in allProfiles" :key="profile.id" :value="profile.id">{{ profile.name }}</option></select></label>
-      <template v-if="!isEditing && !duplicateMode">
-        <button type="button" :disabled="!canEdit" @click="startEditing">{{ text.edit }}</button>
-        <button type="button" @click="exportSelectedProfile">{{ text.export }}</button>
-        <button type="button" @click="startDuplicate">{{ text.duplicate }}</button>
-        <button type="button" class="is-danger" :disabled="editingProfile.id === 'zfx-system-default'" @click="deleteProfile">{{ text.remove }}</button>
-        <button type="button" @click="$refs.profileFile.click()">{{ text.import }}</button>
-      </template>
-      <template v-if="duplicateMode">
-        <label class="fx-settings-profile-new-name"><span>{{ text.newName }}</span><input v-model="profileName" maxlength="60" :placeholder="text.namePlaceholder"></label>
-        <button type="button" @click="createDuplicate">{{ text.createDuplicate }}</button>
-        <button type="button" @click="duplicateMode = false">{{ text.cancel }}</button>
-      </template>
-      <div class="fx-settings-profile-actions">
-        <template v-if="isEditing">
-          <button type="button" :disabled="!canOverwrite" @click="saveChanges">{{ text.save }}</button>
-          <button type="button" @click="endEditing()">{{ text.cancelEdit }}</button>
-        </template>
-      </div>
-      <input ref="profileFile" class="fx-settings-profile-file" type="file" accept="application/json,.json" @change="importProfile">
-      <p v-if="status" class="fx-settings-profile-status" :class="{ 'is-dirty': dirty }" role="status">{{ status }}</p>
-    </section>`,
 });

@@ -1,6 +1,7 @@
 import { computed, createApp, defineComponent, onBeforeUnmount, onMounted, ref } from "vue/dist/vue.esm-bundler.js";
 import { GameSettingsPanel } from "./gameSettingsView.js";
-import { ActiveSettingsProfileSelector, SettingsProfilesToolbar } from "./settingsProfilesView.js";
+import { ActiveSettingsProfileSelector } from "./settingsProfilesView.js";
+import { SettingsProfilesToolbar } from "./settingsProfilesToolbar.js";
 
 const VueSettingsView = defineComponent({
   name: "FxSettingsView",
@@ -8,23 +9,36 @@ const VueSettingsView = defineComponent({
   props: { settingsManager: { type: Object, required: true } },
   setup(props) {
     const visible = ref(false);
-    const activeKind = ref("zfx");
-    const profileEditing = ref(false);
-    const profileSelected = ref(false);
+    const profileDirty = ref(false);
+    const hasZfxSettings = ref(true);
+    const closeConfirmation = ref(false);
+    const profilesToolbar = ref(null);
     const settingsContent = ref(null);
-    const settingsActions = ref(null);
-    const settingsTabs = ref([]);
-    const activeSettingsTab = ref("");
+    const activeSettingsSection = ref("general");
+    const zfxSectionPanels = new Map();
     const isGerman = ref(false);
     const labels = computed(() => isGerman.value ? {
-      nativeTitle: "Native Spieleinstellungen", nativeSubtitle: "Native Optionen des Spiels.", zfxTab: "ZFX", nativeTab: "Native",
+      nativeTitle: "Spieleinstellungen", nativeSubtitle: "Native Optionen des Spiels.", zfxTab: "ZFX", nativeTab: "Native",
+      saveProfile: "Änderungen speichern", discardProfile: "Änderungen verwerfen",
       title: "Einstellungen", subtitle: "ZFX-Client-Optionen und Benutzeroberfläche.", close: "Schlie\u00dfen", sections: "Einstellungsbereiche", clientSettings: "ZFX-Einstellungen", gameSettings: "Spieleinstellungen",
       footer: { "Reset Settings": "Einstellungen zur\u00fccksetzen", "Save Settings": "Einstellungen speichern", Import: "Importieren", Export: "Exportieren", Reset: "Zur\u00fccksetzen", Save: "Speichern" },
     } : {
-      nativeTitle: "Native Game Settings", nativeSubtitle: "Native options provided by the game.", zfxTab: "ZFX", nativeTab: "Native",
+      nativeTitle: "Game Settings", nativeSubtitle: "Native options provided by the game.", zfxTab: "ZFX", nativeTab: "Native",
+      saveProfile: "Save changes", discardProfile: "Discard changes",
       title: "Settings", subtitle: "ZFX client options and interface preferences.", close: "Close", sections: "Settings sections", clientSettings: "ZFX Settings", gameSettings: "Game Settings",
       footer: { "Einstellungen zur\u00fccksetzen": "Reset Settings", "Einstellungen speichern": "Save Settings", Importieren: "Import", Exportieren: "Export", Zur\u00fccksetzen: "Reset", Speichern: "Save" },
     });
+    const settingsSections = computed(() => isGerman.value ? [
+      { id: "general", label: "Allgemein" }, { id: "display", label: "Anzeige" },
+      { id: "controls", label: "Steuerung" }, { id: "connection", label: "Verbindung" },
+      { id: "interface", label: "Benutzeroberfläche" }, { id: "notifications", label: "Benachrichtigungen" },
+      { id: "replays", label: "Wiederholungen" }, { id: "about", label: "Über" },
+    ] : [
+      { id: "general", label: "General" }, { id: "display", label: "Display" },
+      { id: "controls", label: "Controls" }, { id: "connection", label: "Connection" },
+      { id: "interface", label: "Interface" }, { id: "notifications", label: "Notifications" },
+      { id: "replays", label: "Replays" }, { id: "about", label: "About" },
+    ]);
     const sectionTranslations = {
       general: ["General", "Allgemein"], allgemein: ["General", "Allgemein"],
       "in-gamedisplay": ["In-game display", "Spielanzeige"], ingamedisplay: ["In-game display", "Spielanzeige"], spielanzeige: ["In-game display", "Spielanzeige"],
@@ -53,56 +67,51 @@ const VueSettingsView = defineComponent({
       props.settingsManager.refreshTranslations?.();
       props.settingsManager.collectFields?.();
       props.settingsManager.syncFields();
-      updateFooterLabels();
-      for (const tab of settingsTabs.value) {
-        for (const subsection of tab.subsections || []) {
-          subsection.button.textContent = translateSection(subsection.label);
-        }
-      }
     };
-    const handleProfileLoaded = () => { props.settingsManager.syncFields(); profileSelected.value = true; };
+    const handleProfileLoaded = () => { props.settingsManager.syncFields(); };
     const markZfxSettingsChanged = () => window.dispatchEvent(new CustomEvent("fx-settings-changed"));
     const translateSection = label => {
       const key = String(label).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
       const pair = sectionTranslations[key];
       return pair ? pair[isGerman.value ? 1 : 0] : label;
     };
-    const updateFooterLabels = () => {
-      for (const button of settingsActions.value?.querySelectorAll("button") || []) {
-        const original = button.dataset.fxSettingsOriginalLabel || button.textContent.trim();
-        button.dataset.fxSettingsOriginalLabel = original;
-        button.textContent = labels.value.footer[original] || original;
-      }
+    const selectSettingsSection = sectionId => {
+      activeSettingsSection.value = sectionId;
+      const panel = zfxSectionPanels.get(sectionId);
+      hasZfxSettings.value = Boolean(panel);
+      if (settingsContent.value) settingsContent.value.replaceChildren(...(panel ? [panel] : []));
     };
+    const normalizeSectionKey = value => String(value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z]/g, "");
 
-    const close = () => { visible.value = false; };
-    const openGameSettings = () => { activeKind.value = "native"; };
-    const openClientSettings = () => { activeKind.value = "zfx"; };
-    const setProfileEditing = value => {
-      profileEditing.value = Boolean(value);
+    const close = () => { closeConfirmation.value = false; visible.value = false; };
+    const requestClose = () => {
+      if (profilesToolbar.value?.isDirty?.()) {
+        closeConfirmation.value = true;
+        return;
+      }
+      close();
     };
-    const selectSettingsTab = tab => {
-      activeSettingsTab.value = tab.id;
-      for (const item of settingsTabs.value) item.panel.hidden = item.id !== tab.id;
+    const saveAndClose = () => {
+      if (profilesToolbar.value?.saveChanges?.()) close();
     };
+    const discardAndClose = () => {
+      if (profilesToolbar.value?.discardChanges?.()) close();
+      else close();
+    };
+    const saveProfileChanges = () => profilesToolbar.value?.saveChanges?.();
+    const discardProfileChanges = () => profilesToolbar.value?.discardChanges?.();
     const open = () => {
       updateLanguage();
       props.settingsManager.refreshTranslations?.();
       props.settingsManager.collectFields?.();
       props.settingsManager.syncFields();
-      updateFooterLabels();
-      activeKind.value = "zfx";
       visible.value = true;
     };
     const openNative = () => {
-      updateLanguage();
-      props.settingsManager.collectFields?.();
-      props.settingsManager.syncFields();
-      activeKind.value = "native";
-      visible.value = true;
+      open();
     };
     const onKeyDown = event => {
-      if (visible.value && event.key === "Escape") close();
+      if (visible.value && event.key === "Escape") requestClose();
     };
 
     onMounted(() => {
@@ -122,88 +131,49 @@ const VueSettingsView = defineComponent({
             groups.push(currentGroup);
           } else if (currentGroup) currentGroup.nodes.push(node);
         }
+        const getSectionPanel = sectionId => {
+          if (!zfxSectionPanels.has(sectionId)) {
+            const panel = document.createElement("div");
+            panel.className = "fx-settings-category-panel fx-settings-merged-zfx-panel";
+            zfxSectionPanels.set(sectionId, panel);
+          }
+          return zfxSectionPanels.get(sectionId);
+        };
         for (const group of groups) {
-          const panel = document.createElement("div");
-          panel.className = "fx-settings-category-panel";
-          panel.hidden = group !== groups[0];
-          const subsections = [];
-          let currentSubsection = null;
-          const ungroupedNodes = [];
+          const groupKey = normalizeSectionKey(group.label);
+          const defaultSection = ({
+            general: "general", allgemein: "general", ingame: "display", imspiel: "display",
+            interface: "interface", benutzeroberflche: "interface", benutzeroberflaeche: "interface",
+            notifications: "notifications", benachrichtigungen: "notifications",
+            replays: "replays", wiederholungen: "replays", about: "about", uber: "about",
+          })[groupKey];
+          if (!defaultSection) continue;
+          let currentSectionId = defaultSection;
           for (const node of group.nodes) {
             const heading = node.nodeType === Node.ELEMENT_NODE
               ? node.querySelector?.(".settings-subsection-title")
               : null;
-            if (heading) {
-              currentSubsection = {
-                id: `${group.id}-subsection-${subsections.length}`,
-                label: heading.dataset.settingsSubsectionLabel || heading.textContent.trim().replace(/\s*\(.*$/, ""),
-                nodes: [node],
-              };
-              subsections.push(currentSubsection);
-            } else if (currentSubsection) currentSubsection.nodes.push(node);
-            else ungroupedNodes.push(node);
-          }
-          if (subsections.length) {
-            panel.classList.add("has-subsections");
-            if (ungroupedNodes.length) {
-              const preamble = document.createElement("div");
-              preamble.className = "fx-settings-category-preamble";
-              preamble.append(...ungroupedNodes);
-              panel.append(preamble);
+            if (groupKey === "ingame" && heading) {
+              const subsectionKey = normalizeSectionKey(heading.dataset.settingsSubsectionLabel || heading.textContent);
+              currentSectionId = ["controls", "steuerung"].includes(subsectionKey) ? "controls" : "display";
             }
-            const subsectionNav = document.createElement("nav");
-            subsectionNav.className = "fx-settings-subtabs";
-            subsectionNav.setAttribute("role", "tablist");
-            subsectionNav.setAttribute("aria-label", labels.value.sections);
-            const subsectionContent = document.createElement("div");
-            subsectionContent.className = "fx-settings-subsection-panels";
-            subsections.forEach((subsection, index) => {
-              const button = document.createElement("button");
-              button.type = "button";
-              button.className = "fx-settings-subtab";
-              button.setAttribute("role", "tab");
-              button.setAttribute("aria-selected", index === 0 ? "true" : "false");
-              button.textContent = translateSection(subsection.label);
-              const subpanel = document.createElement("section");
-              subpanel.className = "fx-settings-subsection-panel";
-              subpanel.setAttribute("role", "tabpanel");
-              subpanel.hidden = index !== 0;
-              subpanel.append(...subsection.nodes);
-              button.addEventListener("click", () => {
-                subsections.forEach(item => {
-                  item.button.classList.toggle("is-active", item === subsection);
-                  item.button.setAttribute("aria-selected", item === subsection ? "true" : "false");
-                  item.panel.hidden = item !== subsection;
-                });
-              });
-              subsection.button = button;
-              subsection.panel = subpanel;
-              if (index === 0) button.classList.add("is-active");
-              subsectionNav.append(button);
-              subsectionContent.append(subpanel);
-            });
-            panel.append(subsectionNav, subsectionContent);
-          } else panel.append(...group.nodes);
-          group.subsections = subsections;
-          group.panel = panel;
+            getSectionPanel(currentSectionId).append(node);
+          }
         }
-        content.replaceChildren(...groups.map(group => group.panel));
-        settingsTabs.value = groups;
-        activeSettingsTab.value = groups[0]?.id || "";
-        settingsContent.value.append(content);
+        content.replaceChildren();
+        selectSettingsSection(activeSettingsSection.value);
       }
       actions?.remove();
       settingsContent.value?.addEventListener("input", markZfxSettingsChanged, true);
       settingsContent.value?.addEventListener("change", markZfxSettingsChanged, true);
-      settingsContent.value?.addEventListener("click", markZfxSettingsChanged, true);
       if (nativeSettings) nativeSettings.style.display = "none";
       window.addEventListener("keydown", onKeyDown);
       window.addEventListener("fx-game-language-change", handleGameLanguageChange);
       window.addEventListener("fx-settings-profile-loaded", handleProfileLoaded);
       window.__fx.openVueSettings = open;
-      window.__fx.closeVueSettings = close;
+      window.__fx.closeVueSettings = requestClose;
       window.__fx.openVueGameSettings = openNative;
-      window.__fx.closeVueGameSettings = close;
+      window.__fx.closeVueGameSettings = requestClose;
     });
 
     onBeforeUnmount(() => {
@@ -212,38 +182,54 @@ const VueSettingsView = defineComponent({
       window.removeEventListener("fx-settings-profile-loaded", handleProfileLoaded);
       settingsContent.value?.removeEventListener("input", markZfxSettingsChanged, true);
       settingsContent.value?.removeEventListener("change", markZfxSettingsChanged, true);
-      settingsContent.value?.removeEventListener("click", markZfxSettingsChanged, true);
       if (window.__fx?.openVueSettings === open) delete window.__fx.openVueSettings;
-      if (window.__fx?.closeVueSettings === close) delete window.__fx.closeVueSettings;
+      if (window.__fx?.closeVueSettings === requestClose) delete window.__fx.closeVueSettings;
       if (window.__fx?.openVueGameSettings === openNative) delete window.__fx.openVueGameSettings;
-      if (window.__fx?.closeVueGameSettings === close) delete window.__fx.closeVueGameSettings;
+      if (window.__fx?.closeVueGameSettings === requestClose) delete window.__fx.closeVueGameSettings;
     });
 
-    return { visible, activeKind, profileEditing, profileSelected, settingsContent, settingsActions, settingsTabs, activeSettingsTab, selectSettingsTab, translateSection, labels, close, openGameSettings, openClientSettings, setProfileEditing };
+    return { visible, profileDirty, hasZfxSettings, activeSettingsSection, settingsSections, isGerman, closeConfirmation, profilesToolbar, settingsContent, translateSection, labels, close, requestClose, saveAndClose, discardAndClose, saveProfileChanges, discardProfileChanges, selectSettingsSection };
   },
   template: `
-    <div v-show="visible" class="fx-settings-overlay" @pointerdown.self="close">
+    <div v-show="visible" class="fx-settings-overlay" @pointerdown.self="requestClose">
       <section class="fx-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="fx-settings-title">
         <header class="fx-settings-header">
           <div class="fx-settings-mark" aria-hidden="true">⚙</div>
           <div class="fx-settings-heading"><small>ZFX CLIENT · SETTINGS</small><h1 id="fx-settings-title">{{ labels.title }}</h1><p>{{ labels.subtitle }}</p></div>
-          <ActiveSettingsProfileSelector />
-          <button type="button" class="fx-settings-close" :aria-label="labels.close" @click="close">×</button>
+          <ActiveSettingsProfileSelector :has-unsaved="profileDirty" />
+          <button type="button" class="fx-settings-close" :aria-label="labels.close" @click="requestClose">×</button>
         </header>
-        <SettingsProfilesToolbar @edit-state-change="setProfileEditing" />
-        <nav v-if="profileEditing" class="fx-settings-kind-switch fx-settings-profile-kind-switch" :aria-label="labels.sections">
-          <button type="button" :class="{ 'is-active': activeKind === 'native' }" :aria-current="activeKind === 'native' ? 'page' : null" @click="openGameSettings">{{ labels.nativeTab }}</button>
-          <button type="button" :class="{ 'is-active': activeKind === 'zfx' }" :aria-current="activeKind === 'zfx' ? 'page' : null" @click="openClientSettings">{{ labels.zfxTab }}</button>
-        </nav>
-        <div v-show="profileEditing && activeKind === 'zfx'" class="fx-settings-body">
+        <SettingsProfilesToolbar ref="profilesToolbar" @dirty-change="profileDirty = $event" />
+        <div class="fx-settings-body">
           <nav class="fx-settings-tabs" role="tablist" :aria-label="labels.sections">
-            <button v-for="tab in settingsTabs" :key="tab.id" type="button" role="tab" :aria-selected="activeSettingsTab === tab.id" :class="{ 'is-active': activeSettingsTab === tab.id }" @click="selectSettingsTab(tab)">{{ translateSection(tab.label) }}</button>
+            <button v-for="section in settingsSections" :key="section.id" type="button" role="tab" :aria-selected="activeSettingsSection === section.id" :class="{ 'is-active': activeSettingsSection === section.id }" @click="selectSettingsSection(section.id)">{{ section.label }}</button>
           </nav>
-          <div ref="settingsContent" class="fx-settings-content"></div>
+          <main class="fx-settings-merged-main">
+            <GameSettingsPanel v-if="['general','display','controls','connection'].includes(activeSettingsSection)" :section="activeSettingsSection" />
+            <section v-show="hasZfxSettings" class="fx-settings-merged-zfx-source">
+              <header><span>{{ labels.clientSettings }}</span><h2>{{ settingsSections.find(section => section.id === activeSettingsSection)?.label }}</h2></header>
+              <div ref="settingsContent" class="fx-settings-content"></div>
+            </section>
+          </main>
         </div>
-        <GameSettingsPanel v-show="profileEditing && activeKind === 'native'" />
-        <div v-if="!profileEditing" class="fx-settings-profile-prompt">{{ isGerman ? 'Wähle ein Profil aus und klicke auf „Bearbeiten“, um seine Einstellungen zu ändern.' : 'Select a profile and choose “Edit” to change its settings.' }}</div>
-        <div class="fx-settings-actions"><div v-show="activeKind === 'zfx'" ref="settingsActions" class="fx-settings-native-actions"></div><button type="button" class="fx-settings-close-bottom" @click="close">{{ labels.close }}</button></div>
+        <div class="fx-settings-actions">
+          <div class="fx-settings-profile-actions fx-settings-global-profile-actions">
+            <button type="button" class="fx-profile-reset" :disabled="!profileDirty" @click="discardProfileChanges"><span aria-hidden="true">↺</span> {{ labels.discardProfile }}</button>
+            <button type="button" class="fx-profile-save" :disabled="!profileDirty" @click="saveProfileChanges"><span aria-hidden="true">✓</span> {{ labels.saveProfile }}</button>
+          </div>
+          <button type="button" class="fx-settings-close-bottom" @click="requestClose">{{ labels.close }}</button>
+        </div>
+        <div v-if="closeConfirmation" class="fx-settings-close-confirm-backdrop" role="presentation">
+          <section class="fx-settings-close-confirm" role="alertdialog" aria-modal="true" aria-labelledby="fx-settings-close-confirm-title">
+            <span class="fx-settings-close-confirm-icon" aria-hidden="true">⚠</span>
+            <div><h2 id="fx-settings-close-confirm-title">{{ isGerman ? 'Ungespeicherte Änderungen' : 'Unsaved changes' }}</h2><p>{{ isGerman ? 'Was möchtest du mit den Änderungen in diesem Profil machen?' : 'What would you like to do with this profile’s changes?' }}</p></div>
+            <div class="fx-settings-close-confirm-actions">
+              <button type="button" class="is-primary" @click="saveAndClose"><span aria-hidden="true">✓</span> {{ isGerman ? 'Speichern' : 'Save' }}</button>
+              <button type="button" class="is-danger" @click="discardAndClose"><span aria-hidden="true">↶</span> {{ isGerman ? 'Änderungen verwerfen' : 'Discard changes' }}</button>
+              <button type="button" @click="closeConfirmation = false"><span aria-hidden="true">×</span> {{ isGerman ? 'Weiter bearbeiten' : 'Keep editing' }}</button>
+            </div>
+          </section>
+        </div>
       </section>
     </div>`,
 });

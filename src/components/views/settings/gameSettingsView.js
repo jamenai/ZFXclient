@@ -3,10 +3,11 @@ import { getNativeSettingsDraft, resetNativeSettingsDraft, setNativeConnectionDr
 
 export const GameSettingsPanel = defineComponent({
   name: "FxGameSettingsPanel",
-  setup() {
+  props: { section: { type: String, default: "general" } },
+  setup(props) {
     const language = ref("en");
     const snapshot = ref(null);
-    const selectedSection = ref("general");
+    const selectedSection = computed(() => props.section);
     const keyCaptureIndex = ref(-1);
     let refreshTimer = 0;
     const isGerman = computed(() => language.value.startsWith("de"));
@@ -27,6 +28,9 @@ export const GameSettingsPanel = defineComponent({
         title: "Spieleinstellungen", subtitle: "Spieloptionen in der ZFX-Ansicht.", close: "Schließen",
         clientSettings: "ZFX-Einstellungen", gameSettings: "Spieleinstellungen",
         language: "Sprache", display: "Anzeige", select: "Auswählen", fontPlaceholder: "Schriftart eingeben",
+        generalEyebrow: "ALLGEMEINE OPTIONEN", generalDescription: "Sprache und Verhalten des Nachrichtenfensters festlegen.",
+        displayEyebrow: "ANZEIGEOPTIONEN", displayDescription: "Auflösung, Textdarstellung und visuelle Effekte anpassen.",
+        connectionEyebrow: "NETZWERKOPTIONEN", connectionDescription: "Festlegen, wie die Verbindung zum Spielserver hergestellt wird.",
         messageKeepClosed: native.keepClosed || "Geschlossen halten", messageMuted: native.muted || "Stummgeschaltet",
         keyHint: "Taste anklicken und neue Tastenkombination drücken", resetKeys: "Tastenkürzel zurücksetzen",
         resetAll: native.reset || "Einstellungen zurücksetzen", confirmReset: "Alle Spieleinstellungen auf Standard zurücksetzen?",
@@ -35,6 +39,9 @@ export const GameSettingsPanel = defineComponent({
         title: "Game Settings", subtitle: "Game options in the ZFX interface.", close: "Close",
         clientSettings: "ZFX Settings", gameSettings: "Game Settings",
         language: "Language", display: "Display", select: "Select", fontPlaceholder: "Enter font name",
+        generalEyebrow: "GENERAL OPTIONS", generalDescription: "Configure the language and in-game message behavior.",
+        displayEyebrow: "DISPLAY OPTIONS", displayDescription: "Adjust resolution, text rendering, and visual effects.",
+        connectionEyebrow: "NETWORK OPTIONS", connectionDescription: "Choose how the game connects to the server.",
         messageKeepClosed: native.keepClosed || "Keep Closed", messageMuted: native.muted || "Is Muted",
         keyHint: "Click a key field and press a new key", resetKeys: "Reset shortcuts",
         resetAll: native.reset || "Reset settings", confirmReset: "Reset all game settings to their defaults?",
@@ -120,21 +127,21 @@ export const GameSettingsPanel = defineComponent({
     onBeforeUnmount(() => {
       window.clearInterval(refreshTimer);
     });
-    return { sections, selectedSection, snapshot, labels, nativeLabels, gameOptions, keyGroups, keyCaptureIndex,
+    const sectionLabel = computed(() => ({
+      general: sections.value[0].label,
+      display: sections.value[1].label,
+      controls: sections.value[2].label,
+      connection: sections.value[3].label,
+    }[selectedSection.value] || sections.value[0].label));
+    return { sections, selectedSection, sectionLabel, snapshot, labels, nativeLabels, gameOptions, keyGroups, keyCaptureIndex,
       isGerman, defaultLabels, setField, setConnection, captureKey, resetShortcuts, resetAll, nativeDefault, nativeShortcutDefault };
   },
   template: `
     <div class="fx-game-settings-panel">
         <div v-if="snapshot" class="fx-game-settings-layout">
-          <nav class="fx-game-settings-nav" :aria-label="labels.title">
-            <button v-for="section in sections" :key="section.id" type="button" class="fx-game-settings-nav-item" :class="{ 'is-active': selectedSection === section.id }" @click="selectedSection = section.id">
-              <span aria-hidden="true">{{ section.icon }}</span><strong>{{ section.label }}</strong><i>›</i>
-            </button>
-            <button type="button" class="fx-game-settings-reset" @click="resetAll">{{ labels.resetAll }}</button>
-          </nav>
           <section class="fx-game-settings-content">
             <div v-if="selectedSection === 'general'" class="fx-game-settings-section">
-              <div class="fx-game-settings-section-heading"><span>{{ nativeLabels.information }}</span><h2>{{ sections[0].label }}</h2><p>{{ nativeLabels.informationNote }}</p></div>
+              <div class="fx-game-settings-section-heading"><span>{{ labels.generalEyebrow }}</span><h2>{{ sectionLabel }}</h2><p>{{ labels.generalDescription }}</p></div>
               <article class="fx-game-setting-card">
                 <div class="fx-game-setting-copy"><strong>{{ labels.language }}</strong><small>{{ nativeDefault(12, gameOptions.language) }}</small><small>{{ isGerman ? 'Verwendet die im Spiel gewählte Sprache.' : 'Uses the language selected in the game.' }}</small></div>
                 <select :value="snapshot.values[12]" @change="setField(12, $event.target.value)"><option v-for="option in gameOptions.language" :key="option.value" :value="option.value">{{ option.label }}</option></select>
@@ -145,11 +152,11 @@ export const GameSettingsPanel = defineComponent({
               </article>
             </div>
             <div v-else-if="selectedSection === 'display'" class="fx-game-settings-section">
-              <div class="fx-game-settings-section-heading"><span>{{ nativeLabels.information }}</span><h2>{{ sections[1].label }}</h2><p>{{ nativeLabels.informationNote }}</p></div>
+              <div class="fx-game-settings-section-heading"><span>{{ labels.displayEyebrow }}</span><h2>{{ sectionLabel }}</h2><p>{{ labels.displayDescription }}</p></div>
               <article class="fx-game-setting-card"><div class="fx-game-setting-copy"><strong>{{ nativeLabels.resolution }}</strong><small>{{ nativeDefault(1, gameOptions.resolution) }}</small></div><select :value="snapshot.values[1]" @change="setField(1, Number($event.target.value))"><option v-for="(option, index) in gameOptions.resolution" :key="index" :value="index">{{ option }}</option></select></article>
               <article class="fx-game-setting-card"><div class="fx-game-setting-copy"><strong>{{ nativeLabels.minimumFont }}</strong><small>{{ nativeDefault(9, gameOptions.minimumFont) }}</small></div><select :value="snapshot.values[9]" @change="setField(9, Number($event.target.value))"><option v-for="(option, index) in gameOptions.minimumFont" :key="index" :value="index">{{ option }}</option></select></article>
               <article class="fx-game-setting-card"><div class="fx-game-setting-copy"><strong>{{ nativeLabels.textSpeed }}</strong><small>{{ nativeDefault(11, gameOptions.textSpeed) }}</small></div><select :value="snapshot.values[11]" @change="setField(11, Number($event.target.value))"><option v-for="(option, index) in gameOptions.textSpeed" :key="index" :value="index">{{ option }}</option></select></article>
-              <article class="fx-game-setting-card"><div class="fx-game-setting-copy"><strong>{{ nativeLabels.font }}</strong><small>{{ nativeDefault(5) }}</small><small>{{ isGerman ? 'Schriftart für die Spieloberfläche.' : 'Font used by the game interface.' }}</small></div><input class="fx-game-setting-text" type="text" maxlength="80" :value="snapshot.values[5]" :placeholder="labels.fontPlaceholder" @change="setField(5, $event.target.value)"></article>
+              <article class="fx-game-setting-card"><div class="fx-game-setting-copy"><strong>{{ nativeLabels.font }}</strong><small>{{ nativeDefault(5) }}</small><small>{{ isGerman ? 'Schriftart für die Spieloberfläche.' : 'Font used by the game interface.' }}</small></div><input class="fx-game-setting-text" type="text" maxlength="80" :value="snapshot.values[5]" :placeholder="labels.fontPlaceholder" @input="setField(5, $event.target.value)"></article>
               <article class="fx-game-setting-card"><div class="fx-game-setting-copy"><strong>{{ nativeLabels.highlighting }}</strong><small>{{ nativeDefault(15) }} · {{ nativeDefault(16) }}</small><small>{{ labels.intensity }}: {{ snapshot.values[16] }}</small></div><label class="fx-game-setting-toggle"><input type="checkbox" :checked="snapshot.values[15]" @change="setField(15, $event.target.checked)"><span></span></label><input class="fx-game-setting-range" type="range" min="0" max="16" :value="snapshot.values[16]" @input="setField(16, Number($event.target.value))"></article>
               <article class="fx-game-setting-card is-checks">
                 <label><input type="checkbox" :checked="snapshot.values[2]" @change="setField(2, $event.target.checked)"><span>{{ nativeLabels.largeUi }}</span><small>{{ nativeDefault(2) }}</small></label>
@@ -158,12 +165,12 @@ export const GameSettingsPanel = defineComponent({
               </article>
             </div>
             <div v-else-if="selectedSection === 'controls'" class="fx-game-settings-section">
-              <div class="fx-game-settings-section-heading"><span>{{ nativeLabels.shortcuts }}</span><h2>{{ sections[2].label }}</h2><p>{{ labels.keyHint }}</p></div>
+              <div class="fx-game-settings-section-heading"><span>{{ nativeLabels.shortcuts }}</span><h2>{{ sectionLabel }}</h2><p>{{ labels.keyHint }}</p></div>
               <article v-for="group in keyGroups" :key="group.label" class="fx-game-key-card"><strong>{{ group.label }}</strong><div><div v-for="key in group.keys" :key="key.index" class="fx-game-key-cell"><button type="button" :class="{ 'is-capturing': keyCaptureIndex === key.index }" @focus="keyCaptureIndex = key.index" @blur="keyCaptureIndex === key.index && (keyCaptureIndex = -1)" @keydown="captureKey($event, key.index)">{{ keyCaptureIndex === key.index ? (isGerman ? 'Taste drücken…' : 'Press a key…') : key.value }}</button><small>{{ defaultLabels.default }}: {{ nativeShortcutDefault(key.index) }}</small></div></div></article>
               <button type="button" class="fx-game-settings-reset-keys" @click="resetShortcuts">{{ labels.resetKeys }}</button>
             </div>
             <div v-else class="fx-game-settings-section">
-              <div class="fx-game-settings-section-heading"><span>{{ nativeLabels.connection }}</span><h2>{{ sections[3].label }}</h2></div>
+              <div class="fx-game-settings-section-heading"><span>{{ labels.connectionEyebrow }}</span><h2>{{ sectionLabel }}</h2><p>{{ labels.connectionDescription }}</p></div>
               <article class="fx-game-setting-card"><div class="fx-game-setting-copy"><strong>{{ nativeLabels.connection }}</strong><small>{{ nativeDefault(100, gameOptions.connection) }}</small><small>{{ isGerman ? 'Wähle, wie die Verbindung zum Spielserver hergestellt wird.' : 'Choose how the game connects to its server.' }}</small></div><select :value="snapshot.connection" @change="setConnection"><option v-for="(option, index) in gameOptions.connection" :key="index" :value="index">{{ option }}</option></select></article>
             </div>
           </section>

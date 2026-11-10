@@ -4005,6 +4005,19 @@ body[data-fx-bot-protection="active"] #fx-sidebar {
 	padding-right: 38px;
 }
 
+.fx-custom-lobby-chat-message-content a,
+.fx-lobby-notification a {
+	color: #78c7ff;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+	word-break: break-all;
+}
+
+.fx-custom-lobby-chat-message-content a:hover,
+.fx-lobby-notification a:hover {
+	color: #b6e3ff;
+}
+
 .fx-custom-lobby .fx-custom-lobby-chat-player-name {
 	display: inline;
 	margin: 0 5px 0 0;

@@ -9,7 +9,7 @@ export const keybindFunctions = {
 export const keybindHandler = key => {
     const keybindData = settingsApi.getArray("attackPercentageKeybinds").find(keybind => keybind.key === key);
     if (keybindData === undefined) return false;
-    if (getVar("gameState") !== 0) executeKeybind(keybindData);
+    if (Number(getVar("gMatchState")) > 0) executeKeybind(keybindData);
     return true;
 };
 function executeKeybind(keybind) {
@@ -20,37 +20,32 @@ function executeKeybind(keybind) {
 
 // mobile keybinds (keybind buttons)
 
-let canvas;
 let width = 0;
 let height = 0;
+let renderKey = "";
 const maxCount = 6;
+
+const getKeybindButtons = () => settingsApi.getArray("attackPercentageKeybinds").slice(0, maxCount).map((keybind, index) => ({
+    index,
+    label: keybind.type === "absolute" ? (keybind.value * 100).toFixed() + "%" : "x " + Math.round(keybind.value * 100) / 100,
+}));
+
+function activateKeybind(index) {
+    const keybind = settingsApi.getArray("attackPercentageKeybinds")[index];
+    if (!keybind || index >= maxCount) return false;
+    executeKeybind(keybind);
+    return true;
+}
 
 export const mobileKeybinds = {
     setSize: (w, h, mainCanvas) => {
         if (!settingsApi.getBoolean("keybindButtons")) return;
+        const keybinds = getKeybindButtons();
+        const nextRenderKey = [w, h, getUIGap(), mainCanvas.font, ...keybinds.map(keybind => keybind.label)].join("|");
+        if (renderKey === nextRenderKey) return;
+        renderKey = nextRenderKey;
         width = w;
         height = h;
-
-        // redraw
-        canvas = document.createElement("canvas");
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext("2d");
-        const fontName = mainCanvas.font.split("px ", 2)[1];
-        ctx.font = "bold " + h / 2 + "px " + fontName;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-
-        const keybinds = settingsApi.getArray("attackPercentageKeybinds").slice(0, maxCount);
-        const gap = getUIGap() / 4;
-        const buttonWidth = (w - gap * (maxCount - 1)) / maxCount;
-        keybinds.forEach((keybind, i) => {
-            ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
-            ctx.fillRect(i * (buttonWidth + gap), 0, buttonWidth, h);
-            ctx.fillStyle = "white";
-            const label = keybind.type === "absolute" ? (keybind.value * 100).toFixed() + "%" : "x " + Math.round(keybind.value * 100) / 100;
-            ctx.fillText(label, (i + 0.5) * (buttonWidth + gap), h / 2);
-        });
     },
     click: (xRelative) => {
         if (xRelative < 0 || xRelative > width) return false;
@@ -61,6 +56,25 @@ export const mobileKeybinds = {
         return true;
     },
     draw: (mainCanvas, x, y) => {
-        mainCanvas.drawImage(canvas, x, y - (height + getUIGap() / 4));
-    }
+        if (!settingsApi.getBoolean("keybindButtons")) return;
+        const canvasElement = mainCanvas?.canvas;
+        const rect = canvasElement?.getBoundingClientRect?.();
+        if (!canvasElement || !rect?.width || !rect?.height || !canvasElement.width || !canvasElement.height) return;
+        const scaleX = rect.width / canvasElement.width;
+        const scaleY = rect.height / canvasElement.height;
+        const left = rect.left + x * scaleX;
+        const top = rect.top + (y - (height + getUIGap() / 4)) * scaleY;
+        const gap = getUIGap() / 4 * scaleX;
+        window.__fx?.gameKeybindHudAdapter?.receiveLayout?.({
+            left: Math.round(left),
+            top: Math.round(top),
+            width: Math.round(width * scaleX),
+            height: Math.max(1, Math.round(height * scaleY)),
+            gap: Math.max(0, Math.round(gap)),
+            fontSize: Math.max(10, Math.round(height * scaleY / 2)),
+            buttons: getKeybindButtons(),
+        });
+    },
+    activate: activateKeybind,
+    getButtons: getKeybindButtons,
 }

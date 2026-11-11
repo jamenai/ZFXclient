@@ -22,7 +22,7 @@ const replay = {
     },
 
     isWatching() {
-        return Boolean(getVar("gIsReplay") && getVar("gameState") !== 0);
+        return Boolean(getVar("gIsReplay") && Number(getVar("gMatchState")) > 0);
     },
 
     getTotalTicks() {

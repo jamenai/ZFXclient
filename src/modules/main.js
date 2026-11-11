@@ -34,6 +34,8 @@ import { createVueHomeView } from "../components/views/home/homeView.js";
 import { createVueReplayView } from "../components/views/replay/replayView.js";
 import { createVueLeaderboardsView } from "../components/views/leaderboards/leaderboardsView.js";
 import { createVueLogsView } from "../components/views/logs/logsView.js";
+import { createVueGameLeaderboardHud } from "../components/views/gameHud/gameLeaderboardHud.js";
+import { createVueGameKeybindHud } from "../components/views/gameHud/gameKeybindHud.js";
 import { createVueMyAccountView, myAccountAdapter } from "../components/views/account/myAccountView.js";
 import { createVueGoldTransferView } from "../components/views/goldTransfer/goldTransferView.js";
 import { createVueLoginView } from "../components/views/login/loginView.js";
@@ -41,8 +43,10 @@ import { initializeUpdatePromptView } from "../components/views/update/updatePro
 import { getVar, getGameMapNames } from "../adapter/gameInterface.js";
 import { publishFxBridge } from "../adapter/fxBridge.js";
 import { createGameSdk } from "../adapter/gameSdk.js";
+import { createNativeStartup } from "./nativeStartup.js";
 
 const gameSdk = createGameSdk({ getMapNames: getGameMapNames });
+const nativeStartup = createNativeStartup();
 
 // Stable bridge used by injected game patches. Keep this surface explicit:
 // patched game code must not reach into individual FX modules directly.
@@ -76,6 +80,16 @@ const fxBridge = publishFxBridge(window, {
   getGameVar: getVar,
   getGameMapNames,
   gameSdk,
+  nativeStartup,
+  startMultiplayer: (...args) => nativeStartup.requestMultiplayer(...args),
+  getCustomLobbyDataDiagnostics: () => ({
+    gameState: getVar("gameState") ?? null,
+    matchState: getVar("gMatchState") ?? null,
+    nativeMenuState: window.__fx?.nativeMenuState ?? null,
+    multiplayerSocketActive: window.__fx?.isSocketActive?.(0) ?? null,
+    multiplayerConnected: window.__fx?.isMultiplayerConnected?.() ?? null,
+    sdk: gameSdk.lobby.getDiagnostics(),
+  }),
   myAccountAdapter,
 });
 
@@ -101,6 +115,10 @@ createVueSettingsView(settingsManager);
 createVueHomeView();
 createVueReplayView();
 createVueLeaderboardsView();
+try { createVueGameLeaderboardHud(); }
+catch (error) { console.error("[ZFX Client] Game leaderboard HUD failed to initialize:", error); }
+try { createVueGameKeybindHud(); }
+catch (error) { console.error("[ZFX Client] Game keybind HUD failed to initialize:", error); }
 createVueLogsView();
 createVueMyAccountView();
 createVueGoldTransferView();
@@ -111,3 +129,9 @@ fxBridge.sidebar = sidebar;
 initializeWorldClock(sidebar.getClockSlot(), sidebar.isCollapsed);
 
 console.log('Successfully loaded ZFX Client');
+// Give the browser a paint opportunity after the ZFX shell and navigation
+// have mounted before loading or starting the native game client.
+window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+  window.dispatchEvent(new Event("fx-app-shell-ready"));
+  void nativeStartup.initialize();
+}));

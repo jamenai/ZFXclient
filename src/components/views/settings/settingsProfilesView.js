@@ -259,18 +259,20 @@ export function initializeSettingsProfiles() {
   applyZfxProfile(active);
   registerNativeSettingsNamespace();
   if (!window.__fx?.gameSettingsAdapter?.setField) {
-    let attempts = 0;
-    const retry = () => {
+    let retryTimer;
+    const applyWhenNativeSettingsReady = () => {
+      window.clearTimeout(retryTimer);
       if (window.__fx?.gameSettingsAdapter?.setField) {
+        window.removeEventListener("fx-native-settings-adapter-ready", applyWhenNativeSettingsReady);
         const current = activeId === SYSTEM_DEFAULT_PROFILE_ID ? createSystemDefaultProfile() : readProfiles().find(profile => profile.id === activeId);
         if (current) {
           try { applyProfileToRuntime(current, { persist: false }); }
           catch (error) { console.error("[ZFX Client] Could not activate the saved settings profile:", error); }
         }
-      } else if (++attempts < 80) window.setTimeout(retry, 250);
-      else console.error("[ZFX Client] Native settings adapter did not become available; the active profile was not applied.");
+      } else retryTimer = window.setTimeout(applyWhenNativeSettingsReady, 1000);
     };
-    window.setTimeout(retry, 0);
+    window.addEventListener("fx-native-settings-adapter-ready", applyWhenNativeSettingsReady);
+    applyWhenNativeSettingsReady();
   } else applyProfileToRuntime(active);
   beginSettingsProfileDraft(activeId);
   registerNativeSettingsNamespace();

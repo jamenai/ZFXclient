@@ -28,6 +28,7 @@ export function createGameSdk({ getMapNames = () => null } = {}) {
   });
   let nativeUpdateCount = 0;
   let lastNativeUpdateAt = null;
+  let lastLobbyConnectionError = null;
   let activeSequence = null;
   let lastSequence = null;
   let matchStartCount = 0;
@@ -252,6 +253,26 @@ export function createGameSdk({ getMapNames = () => null } = {}) {
     return match;
   }
 
+  function reportLobbyConnectionError(code, socketIndex = 0) {
+    const numericCode = Number(code);
+    if (!Number.isInteger(numericCode)) return false;
+    const now = Date.now();
+    if (lastLobbyConnectionError?.code === numericCode
+      && lastLobbyConnectionError.socketIndex === Number(socketIndex)
+      && now - lastLobbyConnectionError.occurredAt < 10_000) return false;
+    const messages = {
+      4527: "Already logged in to the multiplayer lobby.",
+    };
+    lastLobbyConnectionError = Object.freeze({
+      code: numericCode,
+      socketIndex: Number(socketIndex),
+      message: messages[numericCode] || `Multiplayer connection failed (${numericCode}).`,
+      occurredAt: now,
+    });
+    emit("lobby.connection.error", lastLobbyConnectionError);
+    return true;
+  }
+
   return Object.freeze({
     apiVersion: 1,
     on,
@@ -267,6 +288,7 @@ export function createGameSdk({ getMapNames = () => null } = {}) {
       subscribe,
       receiveNativeEntries,
       receiveNativeSelection,
+      reportConnectionError: reportLobbyConnectionError,
       deselectEntry() {
         const selector = nativeEntrySelector ?? window.__fx?.nativeSelectLobbyEntry;
         if (typeof selector !== "function") return false;
@@ -308,6 +330,7 @@ export function createGameSdk({ getMapNames = () => null } = {}) {
       getDiagnostics: () => ({
         nativeUpdateCount,
         lastNativeUpdateAt,
+        lastConnectionError: lastLobbyConnectionError,
         entryCount: lobbySnapshot.entries.length,
         selectedEntryId: lobbySnapshot.selectedEntryId,
         source: lobbySnapshot.source,

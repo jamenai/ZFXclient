@@ -15,7 +15,7 @@ function observeSocketPacket(packetType) {
   }
 }
 
-function observeSocketEntry(entry, queueIndex = null, nativeText = null) {
+function observeSocketEntry(entry, queueIndex = null, nativeText = null, source = "queue") {
   decodedEntryCount++;
   if (decodedEntryCount === 1 || decodedEntryCount % 25 === 0) {
     console.info("[ZFX Client LobbyChat] decoded room-chat socket entries", {
@@ -34,7 +34,9 @@ function observeSocketEntry(entry, queueIndex = null, nativeText = null) {
   // native client appends/replays its history queue. Those observations have
   // different queue IDs, so correlate identical entries briefly by payload.
   publish({
-    id: `native:${queueIndex}:${nativeType}:${senderId ?? ""}:${text}`,
+    id: source === "live"
+      ? `native:live:${Date.now()}:${nativeType}:${senderId ?? ""}:${text}`
+      : `native:queue:${queueIndex}:${nativeType}:${senderId ?? ""}:${text}`,
     senderId,
     text,
     system: nativeType !== 0,

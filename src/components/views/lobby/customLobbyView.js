@@ -15,6 +15,7 @@ import { PlayerList } from "../../shared/lobby/playerList.js";
 
 const APP_ID = "fx-app-mount";
 const lastDiagnostic = new Map();
+const recentFollowNoticeAt = new Map();
 const mapImageCache = new Map();
 let nativeLobbyBackgroundImage = "";
 const MAP_IMAGE_CACHE_LIMIT = 20;
@@ -176,8 +177,17 @@ function resolveLobbyChatSegments(text) {
 }
 
 function formatLobbyNotification(text) {
-  const source = String(text ?? "").trim();
-  const isFollowerNotice = /\b(?:are|is)\s+in\s+the\s+lobby\b|\bjoined\s+the\s+lobby\b|\b(?:sind|ist)\s+in\s+der\s+lobby\b/i.test(source);
+  let source = String(text ?? "").trim();
+  const isFollowerNotice = /\b(?:are|is)\s+in\s+the\s+lobby\b|\b(?:entered|joined)\s+the\s+lobby\b|\bjoined\s+a\s+game\b|\b(?:sind|ist)\s+in\s+der\s+lobby\b/i.test(source);
+  if (isFollowerNotice) {
+    const mentions = [...source.matchAll(/@[a-zA-Z0-9_-]{5}/g)];
+    const unique = [...new Set(mentions.map(match => match[0]))];
+    if (unique.length < mentions.length && mentions.length) {
+      const suffix = source.slice(mentions.at(-1).index + mentions.at(-1)[0].length);
+      const names = unique.length < 2 ? unique[0] : `${unique.slice(0, -1).join(", ")} and ${unique.at(-1)}`;
+      source = names + suffix;
+    }
+  }
   const makeBody = body => {
     const bodySegments = resolveLobbyChatSegments(body);
     return { body: bodySegments.map(segment => segment.text).join(""), bodySegments };
@@ -196,6 +206,16 @@ function formatLobbyNotification(text) {
     }
   }
   return { senderName: "", senderId: null, senderColor: "", ...makeBody(source), kind: isFollowerNotice ? "followers" : "default" };
+}
+
+function getFollowNoticeKey(text) {
+  const ids = [...String(text ?? "").matchAll(/@[a-zA-Z0-9_-]{5}/g)]
+    .map(match => match[0].toLocaleLowerCase());
+  const action = String(text ?? "").match(/(?:entered|joined)\s+(?:the\s+lobby|a\s+game)|(?:are|is)\s+in\s+the\s+lobby|(?:sind|ist)\s+in\s+der\s+lobby/i)?.[0]
+    ?.replace(/\s+/g, " ").toLocaleLowerCase();
+  return ids.length && action
+    ? `${[...new Set(ids)].sort().join(",")}|${action}`
+    : String(text ?? "").replace(/\s+/g, " ").toLocaleLowerCase();
 }
 
 function getLobbyList(scope) {
@@ -617,14 +637,11 @@ const LobbyView = defineComponent({
     let joinLinkCopyTimer = 0;
     const playerContextMenu = ref(null);
     const playerListComponent = ref(null);
-    const startupLobbyCandidate = shell ? findLobbyRoot(shell) : null;
-    // This component is only mounted on /lobby, so do not gate its first render
-    // on native DOM selectors. Those selectors vary between game builds and
-    // previously left the native lobby visible with no Vue replacement.
-    const active = ref(Number(window.__fx?.nativeMenuState) !== 5 || multiplayerLobbyRequested);
+    // Keep the current native screen visible until the first real lobby data
+    // arrives; switching routes alone must not show an empty Vue lobby.
+    const active = ref(false);
     let nativeRoot = null;
     let savedStyles = null;
-    if (active.value) suppressNativeRoot(startupLobbyCandidate);
     let nativeNotificationObserver = null;
     const hiddenNativeNotifications = new Map();
     const hideNativeNotificationOverlays = () => {
@@ -966,6 +983,20 @@ const LobbyView = defineComponent({
       return true;
     }
 
+    function hasInitialLobbyData(value) {
+      return (Array.isArray(value?.players) && value.players.length > 0)
+        || (Array.isArray(value?.upcomingGames) && value.upcomingGames.length > 0);
+    }
+
+    function revealLobbyWhenDataReady(value) {
+      if (active.value) return true;
+      if (!hasInitialLobbyData(value)) return false;
+      const root = findLobbyRoot(shell);
+      if (root) suppressNativeRoot(root);
+      active.value = true;
+      return true;
+    }
+
     function publishSdkLobbySnapshot(sdkLobby = window.__fx?.gameSdk?.lobby?.getSnapshot?.()) {
       if (!sdkLobby) return false;
       const entries = Array.isArray(sdkLobby.entries) ? sdkLobby.entries : [];
@@ -1087,6 +1118,7 @@ const LobbyView = defineComponent({
         noFullsend: Number(currentEntry?.modeCode) === 10,
         nextNoFullsend: Number(selectedEntry?.modeCode) === 10,
       }, sdkLobby.source || "native-websocket");
+      revealLobbyWhenDataReady(nextSnapshot);
       logLobbyDiagnostic("sdk-lobby-data", `${sdkLobby.revision}:${entries.length}:${players.length}`, {
         source: sdkLobby.source,
         revision: sdkLobby.revision,
@@ -1114,13 +1146,12 @@ const LobbyView = defineComponent({
         if (!nativeRoot?.isConnected) {
           const root = findLobbyRoot(shell);
           if (root) {
-            suppressNativeRoot(root);
-            active.value = true;
             const current = adapter.getSnapshot();
-            adapter.publish(readNativeSummary(root, {
+            const nextSnapshot = adapter.publish(readNativeSummary(root, {
               ...current,
               chatMessages: current.chatMessages,
             }), "native-lobby-bridge");
+            revealLobbyWhenDataReady(nextSnapshot);
             return;
           }
         }
@@ -1128,11 +1159,11 @@ const LobbyView = defineComponent({
         // Keep the custom view and last roster snapshot alive across that tab change.
         if (nativeRoot?.isConnected) {
           const current = adapter.getSnapshot();
-          adapter.publish(readNativeSummary(nativeRoot, {
+          const nextSnapshot = adapter.publish(readNativeSummary(nativeRoot, {
             ...current,
             chatMessages: current.chatMessages,
           }), current.source);
-          active.value = true;
+          revealLobbyWhenDataReady(nextSnapshot);
           return;
         }
         if (!missingLobbyTimer) {
@@ -1160,10 +1191,6 @@ const LobbyView = defineComponent({
         });
         return;
       }
-      if (nativeRoot !== root) {
-        suppressNativeRoot(root);
-      }
-
       const ownPlayerId = window.__fx?.getGameVar?.("playerId");
       const ownPlayerName = window.__fx?.getGameVar?.("rawPlayerNames")?.[ownPlayerId];
       const ownIdentity = window.__fx?.getNativeOwnPlayerIdentity?.();
@@ -1264,11 +1291,11 @@ const LobbyView = defineComponent({
             : player.sdkReadiness ?? player.readiness,
         }))
         : nativePlayers;
-      active.value = true;
       const nextSnapshot = adapter.publish(readNativeSummary(root, {
         players,
         chatMessages: adapter.getSnapshot().chatMessages,
       }), "native-lobby-bridge");
+      if (active.value || revealLobbyWhenDataReady(nextSnapshot)) suppressNativeRoot(root);
       const readinessSignature = nextSnapshot.players.map(player => `${player.id}:${player.readiness}`).join("|");
       logLobbyDiagnostic("lobby-data-found", `${nextSnapshot.playerCount}:${readinessSignature}:${nextSnapshot.modes.length}:${nextSnapshot.currentMap}:${nextSnapshot.nextMap}:${nextSnapshot.chatMessages.length}`, {
         playerCount: nextSnapshot.playerCount,
@@ -1580,7 +1607,6 @@ const LobbyView = defineComponent({
     }
 
     function handleNativeLobbyReturn() {
-      active.value = true;
       scheduleRead();
     }
 
@@ -1592,9 +1618,8 @@ const LobbyView = defineComponent({
         return;
       }
       if (nextState !== 0
-        || (Number(window.__fx?.getGameVar?.("gameState")) === 1 && !multiplayerLobbyRequested)) return;
-      active.value = true;
-      suppressNativeRoot(findLobbyRoot(shell));
+        || (Number(window.__fx?.getGameVar?.("gMatchState")) > 0 && !multiplayerLobbyRequested)) return;
+      publishSdkLobbySnapshot();
       scheduleRead();
     }
 
@@ -1622,6 +1647,16 @@ const LobbyView = defineComponent({
       const text = String(event.detail?.text ?? "").trim();
       if (!text) return;
       const presentation = formatLobbyNotification(text);
+      if (presentation.kind === "followers") {
+        const now = Date.now();
+        const followNoticeKey = getFollowNoticeKey(text);
+        const lastAt = recentFollowNoticeAt.get(followNoticeKey) ?? 0;
+        if (now - lastAt < 10 * 60 * 1000) return;
+        recentFollowNoticeAt.set(followNoticeKey, now);
+        for (const [key, timestamp] of recentFollowNoticeAt) {
+          if (now - timestamp > 10 * 60 * 1000) recentFollowNoticeAt.delete(key);
+        }
+      }
       const sourceIndex = Number.isInteger(event.detail?.index) ? event.detail.index : null;
       const id = sourceIndex !== null && sourceIndex >= 0
         ? `native:${sourceIndex}` : `${Date.now()}:${Math.random().toString(36).slice(2)}`;
@@ -1976,7 +2011,17 @@ const LobbyView = defineComponent({
       } catch (error) {
         console.warn("[ZFX Client LobbyView] Native notification history is not ready yet:", error);
       }
-      lobbyNotifications.value = nativeHistory.filter(item => item && item.id !== 6 && item.text)
+      const seenFollowHistory = new Set();
+      lobbyNotifications.value = nativeHistory.filter(item => {
+        if (!item || item.id === 6 || !item.text) return false;
+        const presentation = formatLobbyNotification(item.text);
+        if (presentation.kind !== "followers") return true;
+        const key = getFollowNoticeKey(item.text);
+        if (seenFollowHistory.has(key)) return false;
+        seenFollowHistory.add(key);
+        recentFollowNoticeAt.set(key, Date.now());
+        return true;
+      })
         .slice(-100)
         .map(item => {
           const presentation = formatLobbyNotification(item.text);
@@ -2016,7 +2061,7 @@ const LobbyView = defineComponent({
         adapterPlayers: adapter.getSnapshot().players.length,
         adapterEntries: adapter.getSnapshot().upcomingGames.length,
       });
-      window.__fx.getCustomLobbyDataDiagnostics = getLobbyDataDiagnostics;
+      activeLobbyDataDiagnostics = getLobbyDataDiagnostics;
       unsubscribeGameSdk = window.__fx?.gameSdk?.lobby?.subscribe?.(sdkSnapshot => {
         publishSdkLobbySnapshot(sdkSnapshot);
         if (nativeRoot?.isConnected) readLobby();
@@ -2098,7 +2143,7 @@ const LobbyView = defineComponent({
       closePropagandaMessage();
       unsubscribe();
       if (window.__fx?.getCustomLobbyClanDiagnostics === getClanDiagnostics) delete window.__fx.getCustomLobbyClanDiagnostics;
-      if (window.__fx?.getCustomLobbyDataDiagnostics === getLobbyDataDiagnostics) delete window.__fx.getCustomLobbyDataDiagnostics;
+      if (activeLobbyDataDiagnostics === getLobbyDataDiagnostics) activeLobbyDataDiagnostics = null;
       unsubscribeGameSdk();
       unsubscribeLobbyChat();
       restoreNativeRoot();
@@ -2212,9 +2257,29 @@ let multiplayerLobbyRequested = false;
 let multiplayerLobbyStateObserved = false;
 let nativeMatchActive = false;
 let joinLinkPollTimer = 0;
+let activeLobbyDataDiagnostics = null;
 
 export function initializeCustomLobbyView() {
   const shell = document.getElementById("fx-game-shell");
+  const getCustomLobbyDataDiagnostics = () => {
+    const fx = window.__fx;
+    let multiplayerSocketActive = null;
+    let multiplayerConnected = null;
+    try { multiplayerSocketActive = fx?.isSocketActive?.(0) ?? null; } catch { /* diagnostic only */ }
+    try { multiplayerConnected = fx?.isMultiplayerConnected?.() ?? null; } catch { /* diagnostic only */ }
+    return {
+      route: router.currentRoute.value.path,
+      lobbyViewMounted: typeof activeLobbyDataDiagnostics === "function",
+      gameState: fx?.getGameVar?.("gameState") ?? null,
+      matchState: fx?.getGameVar?.("gMatchState") ?? null,
+      nativeMenuState: fx?.nativeMenuState ?? null,
+      multiplayerSocketActive,
+      multiplayerConnected,
+      sdk: fx?.gameSdk?.lobby?.getDiagnostics?.() ?? null,
+      view: activeLobbyDataDiagnostics?.() ?? null,
+    };
+  };
+  window.__fx.getCustomLobbyDataDiagnostics = getCustomLobbyDataDiagnostics;
   if (!shell || document.getElementById(APP_ID)) return () => {};
   const onNativeMapPreview = (mapIndex, mapSeed, canvas) => {
     if (!(canvas instanceof HTMLCanvasElement) || !canvas.width || !canvas.height) return false;
@@ -2273,6 +2338,8 @@ export function initializeCustomLobbyView() {
   let unsubscribeMatchStarted = () => {};
   const getTargetRoute = () => {
     const gameState = Number(window.__fx?.getGameVar?.("gameState"));
+    const nativeMatchState = Number(window.__fx?.getGameVar?.("gMatchState"));
+    const matchActive = nativeMatchState === 1 || nativeMatchState === 2;
     const rawNativeMenuState = window.__fx?.nativeMenuState;
     const nativeMenuState = rawNativeMenuState != null && Number.isFinite(Number(rawNativeMenuState))
       ? Number(rawNativeMenuState) : Number.NaN;
@@ -2282,11 +2349,24 @@ export function initializeCustomLobbyView() {
       && lobbyRootStyle?.display !== "none"
       && lobbyRootStyle?.visibility !== "hidden"
       && Number(lobbyRootStyle?.opacity ?? 1) > 0);
+    // An explicit Multiplayer action must win over the stale home menu state
+    // while the native client is opening its lobby. Otherwise the periodic
+    // route sync sends the user straight back to the legacy /classic screen.
+    if (multiplayerLobbyRequested && !matchActive) return "/lobby";
+    // A game-to-lobby transition also wins over a stale native home state.
+    // The native game can switch its menu state to 5 before its match state
+    // and lobby DOM finish updating; preserve the custom lobby route here.
+    if (nativeMatchActive && !matchActive) {
+      nativeMatchActive = false;
+      nativeLobbyBackgroundImage = captureGameCanvasImage() || nativeLobbyBackgroundImage;
+      window.__fx?.onGameReturnedToLobby?.();
+      return "/lobby";
+    }
     // Native menu state 5 is the home screen. Saving settings reloads the app
     // while this state is active, so the lobby route must not become the
     // router's default during that reload. Reaching it explicitly also ends
     // the in-game overlay, including from a post-match results screen.
-    if (nativeMenuState === 5 && gameState !== 1) {
+    if (nativeMenuState === 5 && !matchActive) {
       nativeMatchActive = false;
       previousGameState = gameState;
       return "/classic";
@@ -2294,24 +2374,21 @@ export function initializeCustomLobbyView() {
     // The native results screen uses a non-playing game state too. Only state
     // 0 means the player actually left that screen for the lobby; state 2 is
     // the post-match screen and must remain available for screenshots/replays.
-    if (nativeMatchActive && gameState === 0) {
-      nativeMatchActive = false;
-      nativeLobbyBackgroundImage = captureGameCanvasImage() || nativeLobbyBackgroundImage;
-      window.__fx?.onGameReturnedToLobby?.();
-      return "/lobby";
-    }
     // A game-state transition can mean a victory/peace results screen, where
     // users may want to take a screenshot or watch the replay. Stay on the
     // native in-game view until the native menu explicitly returns to lobby.
+    if (matchActive) {
+      nativeMatchActive = true;
+      return "/game";
+    }
     if (nativeMatchActive) return "/game";
-    if (multiplayerLobbyRequested) return "/lobby";
     // The visible native lobby is the strongest signal. Menu/game state can
     // lag during startup, which used to route to the empty in-game view.
-    const nativeLobbyConfirmed = nativeMenuState === 0 || nativeLobbyVisible;
+    const nativeLobbyConfirmed = !matchActive && (nativeMenuState === 0 || nativeLobbyVisible);
     if (nativeLobbyConfirmed && !nativeLobbyBackgroundImage) {
       nativeLobbyBackgroundImage = captureGameCanvasImage();
     }
-    const inGame = gameState === 1 && !nativeLobbyConfirmed;
+    const inGame = matchActive && !nativeLobbyConfirmed;
     const returnedToLobby = nativeLobbySuppressionRoot
       && (!nativeLobbySuppressionRoot.isConnected
         || (currentLobbyRoot && currentLobbyRoot !== nativeLobbySuppressionRoot));
@@ -2375,6 +2452,7 @@ export function initializeCustomLobbyView() {
   };
   window.__fx.isCustomLobbyViewVisible = () => router.currentRoute.value.path === "/lobby"
     && Boolean(mount.querySelector("#fx-custom-lobby-view"));
+  window.__fx.isCustomLobbyViewRequested = () => multiplayerLobbyRequested || customLobbyReturnLatched;
   window.__fx.hideCustomLobbyView = () => {
     if (!window.__fx.isCustomLobbyViewVisible()) return false;
     customLobbyReturnLatched = false;
@@ -2467,6 +2545,7 @@ export function initializeCustomLobbyView() {
     // menu path than the patched game-end handler. State 0 is the game's
     // original lobby; use that transition as a second, native return signal.
     if (nextState === 0 && (previousState !== 0 || nativeMatchActive)
+      && Number(window.__fx?.getGameVar?.("gMatchState")) === 0
       && !nativeLobbyReturnPending && !multiplayerLobbyRequested) {
       window.__fx.onGameReturnedToLobby?.();
     }
@@ -2561,6 +2640,7 @@ export function initializeCustomLobbyView() {
     if (window.__fx?.installNativeLobbyRouteObserver) delete window.__fx.installNativeLobbyRouteObserver;
     if (window.__fx?.setNativeMenuState) delete window.__fx.setNativeMenuState;
     if (window.__fx?.onNativeMenuStateChange) delete window.__fx.onNativeMenuStateChange;
+    if (window.__fx?.getCustomLobbyDataDiagnostics === getCustomLobbyDataDiagnostics) delete window.__fx.getCustomLobbyDataDiagnostics;
     classicSessionDisabled = false;
     nativeLobbySuppressionRoot = null;
     nativeLobbySuppressionReturnState = null;

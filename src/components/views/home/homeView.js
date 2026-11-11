@@ -163,9 +163,13 @@ const FxHomeView = defineComponent({
       try { clan.value = game?.leaderboardFilter?.parseClanFromPlayerName?.(name) || tag?.[1]?.toUpperCase() || ""; }
       catch { clan.value = tag?.[1]?.toUpperCase() || ""; }
       const hasNativeMenuState = game?.nativeMenuState != null && Number.isFinite(Number(game.nativeMenuState));
+      const nativeGameStarted = game?.nativeGameStarted === true;
       const onHomeScreen = (hasNativeMenuState
         ? Number(game.nativeMenuState) === 5
-        : hasVisibleNativeHomeControls()) && Number(game?.getGameVar?.("gameState")) !== 1;
+        : !nativeGameStarted || visible.value || hasVisibleNativeHomeControls())
+        && !(Number(game?.getGameVar?.("gMatchState")) > 0);
+      const customLobbyActive = game?.isCustomLobbyViewRequested?.() === true
+        || game?.isCustomLobbyViewVisible?.() === true;
       const nativeColor = game?.getNativePlayerColor?.();
       if (!nameEditorOpen.value && typeof nativeColor === "string" && nativeColor) playerColor.value = nativeColor;
       if (!onHomeScreen) {
@@ -174,9 +178,8 @@ const FxHomeView = defineComponent({
         if (navigationTimeout) window.clearTimeout(navigationTimeout);
         navigationTimeout = 0;
       }
-      if (!navigationPending) visible.value = onHomeScreen;
-      const customLobbyVisible = game?.isCustomLobbyViewVisible?.() === true;
-      setNativeHomeButtonsHidden(visible.value || customLobbyVisible);
+      if (!navigationPending) visible.value = onHomeScreen && !customLobbyActive;
+      setNativeHomeButtonsHidden(visible.value || customLobbyActive);
       setNativeHomeExtrasHidden(true);
     }
 
@@ -240,7 +243,7 @@ const FxHomeView = defineComponent({
       if (colorChanged) rememberColor(playerColor.value);
       initialPlayerColor.value = playerColor.value;
       const reconnectNeeded = (nameChanged || colorChanged)
-        && Number(window.__fx?.getGameVar?.("gameState")) !== 1
+        && !(Number(window.__fx?.getGameVar?.("gMatchState")) > 0)
         && window.__fx?.isMultiplayerConnected?.() === true;
       if (reconnectNeeded && window.__fx?.reconnectMultiplayer?.()) {
         nameStatus.value = labels.value.nameReconnect;
@@ -279,7 +282,13 @@ const FxHomeView = defineComponent({
       });
     }
 
-    const startMultiplayer = () => navigateFromHome(() => window.__fx?.startMultiplayer?.());
+    const startMultiplayer = () => {
+      if (window.__fx?.nativeStartup?.isCompatible?.() !== true) {
+        void window.__fx?.nativeStartup?.requestMultiplayer?.();
+        return;
+      }
+      return navigateFromHome(() => window.__fx?.startMultiplayer?.());
+    };
     const startMultiplayerForJoinLink = () => navigateFromHome(() => {
       const fx = window.__fx;
       const socketActive = fx?.isSocketActive?.(0) === true;
@@ -295,7 +304,13 @@ const FxHomeView = defineComponent({
     const openGameMenu = () => navigateFromHome(() => window.__fx?.openGameMenu?.());
     const openSettings = () => navigateFromHome(() => typeof window.__fx?.openVueGameSettings === "function"
       ? window.__fx.openVueGameSettings() : window.__fx?.openVueSettings?.());
-    const openCustomLobby = () => navigateFromHome(() => window.__fx?.customLobby?.showJoinPrompt?.());
+    const openCustomLobby = () => {
+      if (window.__fx?.nativeStartup?.isCompatible?.() !== true) {
+        window.__fx?.nativeStartup?.notifyBlocked?.();
+        return;
+      }
+      return navigateFromHome(() => window.__fx?.customLobby?.showJoinPrompt?.());
+    };
 
     onMounted(() => {
       refresh();

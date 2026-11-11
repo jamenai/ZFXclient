@@ -1,11 +1,19 @@
 {
-    "version": "0.1.36",
-    "lastUpdated": "November 10, 2026",
+    "version": "0.1.37",
+    "lastUpdated": "November 11, 2026",
     "changes": [
-        "Automatically connect to the multiplayer lobby before joining from a shared game link"
+        "Separate game HUD widgets into independent Vue views",
+        "Improve game HUD layout and input handling"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.36",
+            "lastUpdated": "November 10, 2026",
+            "changes": [
+                "Automatically connect to the multiplayer lobby before joining from a shared game link"
+            ]
+        },
         {
             "version": "0.1.35",
             "lastUpdated": "November 10, 2026",

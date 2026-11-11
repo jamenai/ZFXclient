@@ -36,6 +36,8 @@ const defaultValues = Object.freeze({
   lobbyReminderRules: [],
   lobbyFontScale: 100,
   uiTransparency: 15,
+  gameHudTransparency: 15,
+  gameStatusHudStyle: "tiles",
   uiSkin: "zfx",
   showLobbyTabLabels: true,
   mutePingAll: false,
@@ -64,11 +66,14 @@ schemaEntries.selfTerritoryGlow = { type: "number", min: 0, max: 12 };
 schemaEntries.startingPercentage = { type: "number", min: 0, max: 100 };
 schemaEntries.lobbyFontScale = { type: "number", min: 75, max: 300 };
 schemaEntries.uiTransparency = { type: "number", min: 0, max: 45 };
+schemaEntries.gameHudTransparency = { type: "number", min: 0, max: 70 };
+schemaEntries.gameStatusHudStyle = { type: "string", values: ["tiles", "strip", "rows"] };
 schemaEntries["lobbyNotifications.autoMinimizeDelaySeconds"] = { type: "number", min: 1, max: 30 };
 schemaEntries.uiSkin = { type: "string", values: ["zfx", "blue", "violet", "amber", "rose"] };
 schemaEntries.densityDisplayStyle = { type: "string", values: ["percentage", "absoluteQuotient"] };
 for (const definition of Object.values(schemaEntries)) Object.freeze(definition);
 Object.freeze(schemaEntries.densityDisplayStyle.values);
+Object.freeze(schemaEntries.gameStatusHudStyle.values);
 export const SETTINGS_SCHEMA = Object.freeze(schemaEntries);
 
 export const DISCONTINUED_SETTINGS = Object.freeze([

@@ -11,6 +11,14 @@ self.addEventListener('message', function (e) {
 
 self.addEventListener("fetch", (e) => {
   const url = e.request.url;
+  const requestUrl = new URL(url);
+  // Compatibility answers must always come from the central service; a
+  // previously cached result could otherwise let an outdated game start.
+  if (requestUrl.origin === "https://nexus.mapella.org"
+    && requestUrl.pathname === "/api/native-game-compatibility") {
+    e.respondWith(fetch(e.request, { cache: "no-store" }));
+    return;
+  }
   // Cache http and https only, skip unsupported chrome-extension:// and file://...
   if (!(url.startsWith('http:') || url.startsWith('https:'))) {
     return;

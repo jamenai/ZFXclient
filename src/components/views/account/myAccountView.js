@@ -37,7 +37,7 @@ export const myAccountAdapter = {
   },
   getSnapshot() { return nativeProfileSnapshot ? { ...nativeProfileSnapshot } : null; },
   setSavedAccounts(data, select, login, remove) {
-    const names = Array.isArray(data?.options) ? data.options : Array.isArray(data?.oP) ? data.oP : [];
+    const names = Array.isArray(data?.oS) ? data.oS : Array.isArray(data?.options) ? data.options : Array.isArray(data?.oP) ? data.oP : [];
     savedAccountSnapshot = names.map((name, index) => ({ name: String(name || "").trim(), index }))
       .filter(entry => entry.index > 0 && entry.name);
     savedAccountActions = { data, select, login, remove };
@@ -45,7 +45,7 @@ export const myAccountAdapter = {
   },
   getSavedAccounts() {
     const data = savedAccountActions?.data;
-    const names = Array.isArray(data?.options) ? data.options : Array.isArray(data?.oP) ? data.oP : savedAccountSnapshot.map(entry => entry.name);
+    const names = Array.isArray(data?.oS) ? data.oS : Array.isArray(data?.options) ? data.options : Array.isArray(data?.oP) ? data.oP : savedAccountSnapshot.map(entry => entry.name);
     return names.map((name, index) => ({ name: String(name || "").trim(), index })).filter(entry => entry.index > 0 && entry.name);
   },
   useSavedAccount(index) {

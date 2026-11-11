@@ -229,7 +229,7 @@ function createLegacySidebar() {
 
   const updateNavigationVisibility = () => {
     let isInRound = false;
-    try { isInRound = window.__fx?.getGameVar?.("gameState") === 1; } catch { /* Keep navigation visible if game state is unavailable. */ }
+    try { isInRound = Number(window.__fx?.getGameVar?.("gMatchState")) > 0; } catch { /* Keep navigation visible if game state is unavailable. */ }
     navigation.hidden = isInRound;
     navigation.setAttribute("aria-hidden", String(isInRound));
   };
@@ -256,7 +256,7 @@ function createLegacySidebar() {
 
   function updateLobbyStatus() {
     let isInRound = false;
-    try { isInRound = window.__fx?.getGameVar?.("gameState") === 1; } catch { /* Keep the last lobby snapshot when game state is unavailable. */ }
+    try { isInRound = Number(window.__fx?.getGameVar?.("gMatchState")) > 0; } catch { /* Keep the last lobby snapshot when game state is unavailable. */ }
     if (isInRound) {
       lobbyCard.hidden = !hasLobbySnapshot;
       lobbyActions.hidden = true;

@@ -1,4 +1,23 @@
 export default (/** @type {import('../modUtils.js').default} */ modUtils) => {
+    if (/function cN\(\)\{var j,fj;var aCI;var canvas;var p0;var iP;var jG;var a7y;var a9V;/.test(modUtils.script)) {
+        // Register the native percentage setters in the same attack-bar
+        // instance that owns the current percentage and redraw routine.
+        try {
+            modUtils.replaceOne(
+                /this\.a5l=function\(oD\)\{if\(aE\.a3f===0\|\|!this\.iP\(\)\)\{return;\}if\(aCV\(oD\)\)\{bi\.du=true;\}\};/g,
+                '$&__fx.keybindFunctions.setRelative=value=>{var factor=Number(value);if(Number.isFinite(factor)&&factor>0)this.a5l(factor);};__fx.keybindFunctions.setAbsolute=value=>{var percentage=Number(value);if(Number.isFinite(percentage)&&aE.a3f!==0&&this.iP()){jG=bO.io(percentage,1/1024,1);aCL();bi.du=true;}};'
+            );
+        } catch (error) {
+            console.info("[ZFX Client] Native attack percentage setters were not found; keybind HUD actions are unavailable in this game version.");
+        }
+        // Publish the native attack-bar geometry; Vue renders the buttons in
+        // a DOM HUD aligned to the same strip above the native bar.
+        modUtils.replaceOne(
+            /this\.yI=function\(\)\{if\(!this\.iP\(\)\)\{return;\}yJ\.drawImage\(canvas,fj,this\.fl\);\};\}function d7/g,
+            'this.yI=function(){if(!this.iP()){return;}yJ.drawImage(canvas,fj,this.fl);if(__fx.settingsApi.getBoolean("keybindButtons")){var fxKeybindHeight=Math.max(1,Math.floor(this.k/2));__fx.mobileKeybinds.setSize(j,fxKeybindHeight,p0);__fx.mobileKeybinds.draw(yJ,fj,this.fl);}};}function d7'
+        );
+        return;
+    }
     if (!/this\.te=function\(\)/.test(modUtils.script)) {
         return {
             status: "skipped",

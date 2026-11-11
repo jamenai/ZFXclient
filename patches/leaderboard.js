@@ -62,6 +62,58 @@ export default definePatch((modUtils) => {
 	if (!modUtils.dictionary.playerBalance) modUtils.dictionary.playerBalance = "he";
 	if (!modUtils.dictionary.playerCommitted) modUtils.dictionary.playerCommitted = "a7G";
 	if (!modUtils.dictionary.playerStates) modUtils.dictionary.playerStates = "a77";
+	// The current HUD leaderboard uses aE5/aEV and no longer matches the
+	// previous topBarHeight/drawFunction template. Add its tabs to that canvas.
+	if (/function aEV\(\)\{/.test(modUtils.script)
+		&& /aE5\.height=aBv;/.test(modUtils.script)
+		&& /if\(position===0\)\{aEb\(\);\}\}function aEY/.test(modUtils.script)
+		&& /function a2e\(fj,fl\)\{return fj>=bf\.gap&&fj<bf\.gap\+aE0&&fl>=bf\.gap&&fl<bf\.gap\+aBv;\}/.test(modUtils.script)
+		&& /this\.yI=function\(\)\{yJ\.drawImage\(aE5,bf\.gap,bf\.gap\);\}/.test(modUtils.script)
+		&& /this\.hq=function\(fj,fl\)\{if\(a2e\(fj,fl\)\)/.test(modUtils.script)) {
+		try {
+			const tabOffset = '(__fx.settingsApi.getBoolean("zfx.leaderboard.showTabs")&&aE0>0&&aBv>0&&aE4>0?Math.max(1,Math.floor(aBv/aE4*1.3)):0)';
+			modUtils.replaceOne(/aE5\.height=aBv;/g, `aE5.height=aBv+${tabOffset};__fx.leaderboardFilter.tabBarOffset=${tabOffset};__fx.leaderboardFilter.windowWidth=aE0;__fx.leaderboardFilter.verticalClickThreshold=aBv;`);
+			modUtils.replaceOne(/function aEV\(\)\{/g, 'function aEV(){var fxLb=window.__fx.leaderboardFilter;fxLb.repaintLeaderboard=function(){aEV();bi.du=true;};fxLb.scrollToTop=function(){position=0;};if(fxLb.enabled||fxLb.showingRivals){var fxRows=[];if(fxLb.showingRivals){fxRows=fxLb.rivalsData.map(function(entry,index){return{id:entry.representativeId,position:index,clan:entry.clan,territory:entry.territory};});}else{fxRows=fxLb.playersToInclude.map(function(id){return{id:id,position:kj[id]};}).filter(function(entry){return Number.isInteger(entry.position)&&entry.position>=0;}).sort(function(a,b){return a.position-b.position;});fxLb.filteredLeaderboard=fxRows.map(function(entry){return entry.position;});}aE6.clearRect(0,0,aE0,aE5.height);aE6.fillStyle=aEQ?bE.qQ:bE.qM;aE6.fillRect(0,0,aE0,aEB);aE6.fillStyle=bE.pQ;aE6.fillRect(0,aEB,aE0,aBv-aEB);aE6.fillStyle=bE.pU;aE6.fillRect(0,aEB,aE0,1);aE6.font=aE1;bD.sF.textBaseline(aE6,1);bD.sF.textAlign(aE6,1);aE6.fillText(aET,Math.floor(aE0/2),Math.floor(aE9+aE2/2));var fxOwnRow=fxRows.findIndex(function(entry){return entry.id===aE.fM;});if(fxOwnRow>=position&&fxOwnRow<position+aE4)aEX(fxOwnRow-position,bE.pt);aE6.font=aE3;bD.sF.textAlign(aE6,0);var fxVisible=Math.min(aE4,Math.max(0,fxRows.length-position));for(var fxIndex=0;fxIndex<fxVisible;fxIndex++){var fxEntry=fxRows[fxIndex+position],fxId=fxEntry.id,fxOldName=ah.a2A[fxId],fxOldTerritory=ah.hQ[fxId];if(fxEntry.clan){ah.a2A[fxId]="["+fxEntry.clan+"]";ah.hQ[fxId]=fxEntry.territory;}aEY(fxId);aEZ(fxIndex,fxLb.showingRivals?fxIndex:fxEntry.position,fxId);bD.sF.textAlign(aE6,2);aEa(fxIndex,fxId);bD.sF.textAlign(aE6,0);if(fxEntry.clan){ah.a2A[fxId]=fxOldName;ah.hQ[fxId]=fxOldTerritory;}}if(window.__fx.settingsApi.getBoolean("zfx.leaderboard.showTabs")){aE6.fillStyle=bE.pQ;aE6.fillRect(0,aBv,aE0,fxLb.tabBarOffset);aE6.fillStyle=bE.pU;aE6.fillRect(0,aBv,aE0,1);fxLb.drawTabs(aE6,aE0,aBv,bE.pt);}return;}');
+			modUtils.replaceOne(/if\(position===0\)\{aEb\(\);\}\}function aEY/g, `if(position===0&&!window.__fx.leaderboardFilter.enabled&&!window.__fx.leaderboardFilter.showingRivals){aEb();}if(window.__fx.settingsApi.getBoolean("zfx.leaderboard.showTabs")){aE6.fillStyle=bE.pQ;aE6.fillRect(0,aBv,aE0,window.__fx.leaderboardFilter.tabBarOffset);aE6.fillStyle=bE.pU;aE6.fillRect(0,aBv,aE0,1);window.__fx.leaderboardFilter.drawTabs(aE6,aE0,aBv,bE.pt);}}function aEY`);
+			modUtils.replaceOne(/function a2e\(fj,fl\)\{return fj>=bf\.gap&&fj<bf\.gap\+aE0&&fl>=bf\.gap&&fl<bf\.gap\+aBv;\}/g,
+				`function a2e(fj,fl){return fj>=bf.gap&&fj<bf.gap+aE0&&fl>=bf.gap&&fl<bf.gap+aBv+window.__fx.leaderboardFilter.tabBarOffset;}`);
+			modUtils.replaceOne(/this\.hq=function\(fj,fl\)\{if\(a2e\(fj,fl\)\)\{/g, `this.hq=function(fj,fl){if(a2e(fj,fl)){if(window.__fx.settingsApi.getBoolean("zfx.leaderboard.showTabs")&&fl>=bf.gap+aBv&&fl<bf.gap+aBv+window.__fx.leaderboardFilter.tabBarOffset){window.__fx.leaderboardFilter.handleMouseDown(fj-bf.gap);position=0;aEV();bi.du=true;return true;}`);
+			modUtils.replaceOne(/this\.yI=function\(\)\{yJ\.drawImage\(aE5,bf\.gap,bf\.gap\);\}/g,
+				"this.yI=function(){if(!window.__fx?.gameLeaderboardHudReady&&aE5.width&&aE5.height)yJ.drawImage(aE5,bf.gap,bf.gap);}");
+			// Publish native rank order on each game update, independently of rendering.
+			modUtils.replaceOne(
+				/this\.eh=function\(\)\{aEg\(\);aEh\(\);aEi\(\);aEj\(\);\};/g,
+                'this.eh=function(){aEg();aEh();if(window.__fx?.gameLeaderboardAdapter?.receiveNativeSnapshot){var fxNow=Date.now();if(fxNow-(window.__fx.gameLeaderboardLastSent||0)>180){window.__fx.gameLeaderboardLastSent=fxNow;var fxOwn=aE.fM;window.__fx.gameLeaderboardAdapter.getPlayerColor=function(id){return Number.isInteger(id)&&ad?.aLi?.[id]!==undefined&&ad?.aLj?.[id]!==undefined&&ad?.aLk?.[id]!==undefined?"rgb("+ad.aLi[id]+","+ad.aLj[id]+","+ad.aLk[id]+")":null};window.__fx.gameLeaderboardAdapter.focusPlayer=function(playerId){var id=Number(playerId);if(Number.isInteger(id)&&id>=0&&id<aE.fZ&&ah.na[id]!==0){aI.nw(id,800,false,0);bi.du=true;return true}return false};window.__fx.gameLeaderboardAdapter.receiveNativeSnapshot({updatedAt:fxNow,total:aE8,humanCount:aE.ky,botCount:aE.lK,spectatorCount:aE.a3h,ownPlayerId:fxOwn,ownRank:(kj[fxOwn]??-1)+1,players:mZ.slice(0,8).map(function(id,index){return{id:id,rank:index+1,name:ah.a2A[id]||ah.a4O[id]||("Player "+(id+1)),territories:ah.hQ[id]||0,isAlive:ah.na[id]!==0,color:window.__fx.gameLeaderboardAdapter.getPlayerColor(id)};}),ownPlayer:{id:fxOwn,rank:(kj[fxOwn]??-1)+1,name:ah.a2A[fxOwn]||ah.a4O[fxOwn]||("Player "+(fxOwn+1)),territories:ah.hQ[fxOwn]||0,isAlive:ah.na[fxOwn]!==0,color:window.__fx.gameLeaderboardAdapter.getPlayerColor(fxOwn)}})}}aEi();aEj();};'
+			);
+			// The native canvas is hidden, so let map gestures pass through its old hit area.
+			modUtils.replaceOne(/this\.hq=function\(fj,fl\)\{if\(a2e\(fj,fl\)\)\{/g,
+				'this.hq=function(fj,fl){if(window.__fx?.gameLeaderboardHudReady)return false;if(a2e(fj,fl)){');
+			modUtils.replaceOne(/this\.a5E=function\(fj,fl\)\{var ed;var aEn=aEo\(fl\);/g,
+				'this.a5E=function(fj,fl){if(window.__fx?.gameLeaderboardHudReady)return false;var ed;var aEn=aEo(fl);');
+			modUtils.replaceOne(/this\.a5d=function\(fj,fl\)\{if\(!aEN\)\{return false;\}/g,
+				'this.a5d=function(fj,fl){if(window.__fx?.gameLeaderboardHudReady)return false;if(!aEN){return false;}');
+			modUtils.replaceOne(/this\.a5H=function\(fj,fl,deltaY\)\{var aEn;if\(aEN\|\|aE\.o4\)\{return false;\}/g,
+				'this.a5H=function(fj,fl,deltaY){if(window.__fx?.gameLeaderboardHudReady)return false;var aEn;if(aEN||aE.o4){return false;}');
+			// The team percentage chart is rendered by dR.yI below the native
+			// leaderboard. Forward its native totals and colors to the Vue
+			// replacement, retaining the native canvas until Vue has data.
+			modUtils.replaceOne(/var a6C=null;/g,
+				'var a6C=null;function fxPublishTeamChart(force){var fxAdapter=window.__fx?.gameTeamChartAdapter?.receiveNativeSnapshot;if(!aE.iX||!a6C||!fxAdapter)return;var fxNow=Date.now();if(!force&&fxNow-(window.__fx.gameTeamChartLastSent||0)<180)return;window.__fx.gameTeamChartLastSent=fxNow;var fxTeams=[];for(var fxTeam=0;fxTeam<=aE.a0t;fxTeam++)fxTeams.push({id:fxTeam,pixels:Number(a6C[fxTeam])||0,color:String(bj.aa2[bj.lL[fxTeam]]||"#78869a")});fxAdapter({updatedAt:fxNow,teams:fxTeams});}');
+			modUtils.replaceOne(/aZp=true;/g, 'aZp=true;fxPublishTeamChart();');
+			modUtils.replaceOne(/aZr\(\);\};this\.lV=/g, 'aZr();fxPublishTeamChart(true);};this.lV=');
+			modUtils.replaceOne(
+				/this\.yI=function\(\)\{if\(aE\.iX\)\{if\(aE\.o4\)\{yJ\.drawImage\(canvas,bf\.gap,bf\.gap\);\}else\{yJ\.drawImage\(canvas,bf\.gap,aBv\+2\*bf\.gap\);\}\}\}/g,
+				'this.yI=function(){if(aE.iX&&!window.__fx?.gameTeamChartReady){if(aE.o4){yJ.drawImage(canvas,bf.gap,bf.gap);}else{yJ.drawImage(canvas,bf.gap,aBv+(__fx.settingsApi.getBoolean("zfx.leaderboard.showTabs")?(window.__fx.leaderboardFilter.tabBarOffset||0):0)+2*bf.gap);}}}'
+			);
+			// Keep the small team icon in the leaderboard aligned with its added tab row.
+			modUtils.replaceOne(/Math\.floor\(aE9\+aE2\+0\.4\*aEC\)/g,
+				'Math.floor(aE9+aE2+0.4*aEC+(__fx.settingsApi.getBoolean("zfx.leaderboard.showTabs")?__fx.leaderboardFilter.tabBarOffset:0))');
+			console.info("[ZFX Client] Current native leaderboard tab canvas hook installed.");
+			return;
+		} catch (error) {
+			console.warn("[ZFX Client] Current native leaderboard tab hook could not be installed:", error);
+		}
+	}
 	// Player list and leaderboard filter tabs
 	if (!dict.playerData || !dict.rawPlayerNames || !dict.playerTerritories) {
 		console.info("[ZFX Client] Native player-data fields could not be identified; leaderboard filters are unavailable.");

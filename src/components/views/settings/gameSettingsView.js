@@ -22,36 +22,53 @@ export const GameSettingsPanel = defineComponent({
       { id: "controls", label: "Controls", icon: "⌨" },
       { id: "connection", label: "Connection", icon: "⌁" },
     ]);
-    const labels = computed(() => {
-      const native = snapshot.value?.labels || {};
-      return isGerman.value ? {
-        title: "Spieleinstellungen", subtitle: "Spieloptionen in der ZFX-Ansicht.", close: "Schließen",
-        clientSettings: "ZFX-Einstellungen", gameSettings: "Spieleinstellungen",
-        language: "Sprache", display: "Anzeige", select: "Auswählen", fontPlaceholder: "Schriftart eingeben",
-        generalEyebrow: "ALLGEMEINE OPTIONEN", generalDescription: "Sprache und Verhalten des Nachrichtenfensters festlegen.",
-        displayEyebrow: "ANZEIGEOPTIONEN", displayDescription: "Auflösung, Textdarstellung und visuelle Effekte anpassen.",
-        connectionEyebrow: "NETZWERKOPTIONEN", connectionDescription: "Festlegen, wie die Verbindung zum Spielserver hergestellt wird.",
-        messageKeepClosed: native.keepClosed || "Geschlossen halten", messageMuted: native.muted || "Stummgeschaltet",
-        keyHint: "Taste anklicken und neue Tastenkombination drücken", resetKeys: "Tastenkürzel zurücksetzen",
-        resetAll: native.reset || "Einstellungen zurücksetzen", confirmReset: "Alle Spieleinstellungen auf Standard zurücksetzen?",
-        intensity: native.intensity || "Intensität", live: "Änderungen werden direkt im Spiel übernommen.",
-      } : {
-        title: "Game Settings", subtitle: "Game options in the ZFX interface.", close: "Close",
-        clientSettings: "ZFX Settings", gameSettings: "Game Settings",
-        language: "Language", display: "Display", select: "Select", fontPlaceholder: "Enter font name",
-        generalEyebrow: "GENERAL OPTIONS", generalDescription: "Configure the language and in-game message behavior.",
-        displayEyebrow: "DISPLAY OPTIONS", displayDescription: "Adjust resolution, text rendering, and visual effects.",
-        connectionEyebrow: "NETWORK OPTIONS", connectionDescription: "Choose how the game connects to the server.",
-        messageKeepClosed: native.keepClosed || "Keep Closed", messageMuted: native.muted || "Is Muted",
-        keyHint: "Click a key field and press a new key", resetKeys: "Reset shortcuts",
-        resetAll: native.reset || "Reset settings", confirmReset: "Reset all game settings to their defaults?",
-        intensity: native.intensity || "Intensity", live: "Changes are applied to the game immediately.",
-      };
+    const labels = computed(() => isGerman.value ? {
+      title: "Spieleinstellungen", subtitle: "Spieloptionen in der ZFX-Ansicht.", close: "Schließen",
+      clientSettings: "ZFX-Einstellungen", gameSettings: "Spieleinstellungen", language: "Sprache", display: "Anzeige", select: "Auswählen", fontPlaceholder: "Schriftart eingeben",
+      generalEyebrow: "ALLGEMEINE OPTIONEN", generalDescription: "Sprache und Verhalten des Nachrichtenfensters festlegen.",
+      displayEyebrow: "ANZEIGEOPTIONEN", displayDescription: "Auflösung, Textdarstellung und visuelle Effekte anpassen.",
+      connectionEyebrow: "NETZWERKOPTIONEN", connectionDescription: "Festlegen, wie die Verbindung zum Spielserver hergestellt wird.",
+      messageKeepClosed: "Nachrichtenfenster geschlossen halten", messageMuted: "Nachrichtenfenster stummschalten",
+      keyHint: "Taste anklicken und neue Tastenkombination drücken", resetKeys: "Tastenkürzel zurücksetzen",
+      resetAll: "Einstellungen zurücksetzen", confirmReset: "Alle Spieleinstellungen auf Standard zurücksetzen?",
+      intensity: "Intensität", live: "Änderungen werden direkt im Spiel übernommen.",
+    } : {
+      title: "Game Settings", subtitle: "Game options in the ZFX interface.", close: "Close",
+      clientSettings: "ZFX Settings", gameSettings: "Game Settings", language: "Language", display: "Display", select: "Select", fontPlaceholder: "Enter font name",
+      generalEyebrow: "GENERAL OPTIONS", generalDescription: "Configure the language and in-game message behavior.",
+      displayEyebrow: "DISPLAY OPTIONS", displayDescription: "Adjust resolution, text rendering, and visual effects.",
+      connectionEyebrow: "NETWORK OPTIONS", connectionDescription: "Choose how the game connects to the server.",
+      messageKeepClosed: "Keep message window closed", messageMuted: "Mute message window",
+      keyHint: "Click a key field and press a new key", resetKeys: "Reset shortcuts",
+      resetAll: "Reset settings", confirmReset: "Reset all game settings to their defaults?",
+      intensity: "Intensity", live: "Changes are applied to the game immediately.",
     });
-    const nativeLabels = computed(() => snapshot.value?.labels || {});
-    const gameOptions = computed(() => snapshot.value?.options || {});
-    const keyGroups = computed(() => snapshot.value?.shortcutGroups || []);
-    const defaultLabels = computed(() => isGerman.value
+    const nativeLabels = computed(() => isGerman.value ? {
+      resolution: "Auflösung", minimumFont: "Minimale Schriftgröße", textSpeed: "Textdarstellungsgeschwindigkeit",
+      largeUi: "Große Benutzeroberfläche", placeBalance: "Kontostand oberhalb platzieren", hideZoom: "Zoomtasten ausblenden",
+      font: "Schriftart", messageBox: "Nachrichtenfenster", connection: "Mehrspieler-Verbindung", highlighting: "Hervorhebung", shortcuts: "Tastenkürzel",
+    } : {
+      resolution: "Resolution", minimumFont: "Minimum font size", textSpeed: "Text rendering speed",
+      largeUi: "Large UI", placeBalance: "Place balance above", hideZoom: "Hide zoom buttons",
+      font: "Font", messageBox: "Message window", connection: "Multiplayer connection", highlighting: "Highlighting", shortcuts: "Shortcut keys",
+    });
+    const gameOptions = computed(() => isGerman.value ? {
+      language: [{ value: "en", label: "Englisch" }, { value: "de", label: "Deutsch" }],
+      resolution: ["Niedrig", "Mittel", "Hoch", "Sehr hoch"], minimumFont: ["Mittel", "Klein", "Sehr klein"],
+      textSpeed: ["Langsam", "Normal", "Schnell"], connection: ["Automatisch (empfohlen)", "Direkt", "Über Proxy"],
+    } : {
+      language: [{ value: "en", label: "English" }, { value: "de", label: "German" }],
+      resolution: ["Low", "Medium", "High", "Very high"], minimumFont: ["Medium", "Small", "Very small"],
+      textSpeed: ["Slow", "Normal", "Fast"], connection: ["Automatic (recommended)", "Direct", "Via proxy"],
+    });
+    const keyGroups = computed(() => {
+      const actions = isGerman.value
+        ? ["Angriff an Mausposition", "Schiff zur Mausposition senden", "Angriffsanteil erhöhen", "Angriffsanteil verringern", "Angriffsanteil leicht erhöhen", "Angriffsanteil leicht verringern", "Oberfläche ein-/ausblenden", "Hineinzoomen", "Herauszoomen", "Kamera nach links", "Kamera nach rechts", "Kamera nach oben", "Kamera nach unten", "Schwächsten Angriff ergänzen", "Friedensabstimmung starten", "Schiff an Mausposition abfangen"]
+        : ["Initiate land attack at pointer", "Launch ship towards pointer", "Increase attack percentage", "Decrease attack percentage", "Slightly increase percentage", "Slightly decrease percentage", "Toggle UI visibility", "Zoom in", "Zoom out", "Camera left", "Camera right", "Camera up", "Camera down", "Add to weakest attack", "Call peace vote", "Intercept ship at pointer"];
+      const shortcuts = snapshot.value?.shortcuts || [];
+      const keys = shortcuts.map((value, index) => ({ index, value: value || "" }));
+      return actions.map((label, index) => ({ label, keys: keys.slice(index * 2, index * 2 + 2) }));
+    });    const defaultLabels = computed(() => isGerman.value
       ? { default: "Standard", enabled: "Aktiviert", disabled: "Deaktiviert", empty: "Leer", none: "Keine Taste", game: "Spielstandard" }
       : { default: "Default", enabled: "Enabled", disabled: "Disabled", empty: "Empty", none: "No key", game: "Game default" });
     const notifySettingsChanged = () => window.dispatchEvent(new CustomEvent("fx-settings-changed"));
@@ -80,10 +97,7 @@ export const GameSettingsPanel = defineComponent({
           ...current,
           values: { ...current.values, ...draft.values },
           connection: draft.connection,
-          shortcutGroups: (current.shortcutGroups || []).map(group => ({
-            ...group,
-            keys: (group.keys || []).map(key => ({ ...key, value: draft.shortcuts[key.index] ?? key.value })),
-          })),
+          shortcuts: (current.shortcuts || []).map((value, index) => draft.shortcuts[index] ?? value),
         } : current;
       }
     }
@@ -158,11 +172,9 @@ export const GameSettingsPanel = defineComponent({
               <article class="fx-game-setting-card"><div class="fx-game-setting-copy"><strong>{{ nativeLabels.textSpeed }}</strong><small>{{ nativeDefault(11, gameOptions.textSpeed) }}</small></div><select :value="snapshot.values[11]" @change="setField(11, Number($event.target.value))"><option v-for="(option, index) in gameOptions.textSpeed" :key="index" :value="index">{{ option }}</option></select></article>
               <article class="fx-game-setting-card"><div class="fx-game-setting-copy"><strong>{{ nativeLabels.font }}</strong><small>{{ nativeDefault(5) }}</small><small>{{ isGerman ? 'Schriftart für die Spieloberfläche.' : 'Font used by the game interface.' }}</small></div><input class="fx-game-setting-text" type="text" maxlength="80" :value="snapshot.values[5]" :placeholder="labels.fontPlaceholder" @input="setField(5, $event.target.value)"></article>
               <article class="fx-game-setting-card"><div class="fx-game-setting-copy"><strong>{{ nativeLabels.highlighting }}</strong><small>{{ nativeDefault(15) }} · {{ nativeDefault(16) }}</small><small>{{ labels.intensity }}: {{ snapshot.values[16] }}</small></div><label class="fx-game-setting-toggle"><input type="checkbox" :checked="snapshot.values[15]" @change="setField(15, $event.target.checked)"><span></span></label><input class="fx-game-setting-range" type="range" min="0" max="16" :value="snapshot.values[16]" @input="setField(16, Number($event.target.value))"></article>
-              <article class="fx-game-setting-card is-checks">
-                <label><input type="checkbox" :checked="snapshot.values[2]" @change="setField(2, $event.target.checked)"><span>{{ nativeLabels.largeUi }}</span><small>{{ nativeDefault(2) }}</small></label>
-                <label><input type="checkbox" :checked="snapshot.values[7]" @change="setField(7, $event.target.checked)"><span>{{ nativeLabels.placeBalance }}</span><small>{{ nativeDefault(7) }}</small></label>
-                <label><input type="checkbox" :checked="snapshot.values[8]" @change="setField(8, $event.target.checked)"><span>{{ nativeLabels.hideZoom }}</span><small>{{ nativeDefault(8) }}</small></label>
-              </article>
+              <article class="fx-game-setting-card"><div class="fx-game-setting-copy"><strong>{{ nativeLabels.largeUi }}</strong><small>{{ nativeDefault(2) }}</small></div><label class="fx-game-setting-toggle"><input type="checkbox" :checked="snapshot.values[2]" @change="setField(2, $event.target.checked)"><span></span></label></article>
+              <article class="fx-game-setting-card"><div class="fx-game-setting-copy"><strong>{{ nativeLabels.placeBalance }}</strong><small>{{ nativeDefault(7) }}</small></div><label class="fx-game-setting-toggle"><input type="checkbox" :checked="snapshot.values[7]" @change="setField(7, $event.target.checked)"><span></span></label></article>
+              <article class="fx-game-setting-card"><div class="fx-game-setting-copy"><strong>{{ nativeLabels.hideZoom }}</strong><small>{{ nativeDefault(8) }}</small></div><label class="fx-game-setting-toggle"><input type="checkbox" :checked="snapshot.values[8]" @change="setField(8, $event.target.checked)"><span></span></label></article>
             </div>
             <div v-else-if="selectedSection === 'controls'" class="fx-game-settings-section">
               <div class="fx-game-settings-section-heading"><span>{{ nativeLabels.shortcuts }}</span><h2>{{ sectionLabel }}</h2><p>{{ labels.keyHint }}</p></div>

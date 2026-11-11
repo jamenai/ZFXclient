@@ -2,14 +2,18 @@ const playerDataProperties = [
     "playerTerritories",
     "playerBalances",
     "rawPlayerNames",
-    "playerCommitted"
+    "playerCommitted",
+    "playerAlive"
 ];
 const gameObjectProperties = [
     "playerId",
     "gIsTeamGame",
     "gHumans",
+    "gBots",
+    "gSpectators",
     "gLobbyMaxJoin",
     "gameState",
+    "gMatchState",
     "gIsSingleplayer",
     "gIsReplay",
     "gSelectableSpawn",
@@ -24,14 +28,18 @@ const arrayLikeProperties = new Set([
     "playerBalances",
     "rawPlayerNames",
     "playerCommitted",
+    "playerAlive",
     "tickFlags",
     "tickCounts",
 ]);
 const numericProperties = new Set([
     "playerId",
     "gHumans",
+    "gBots",
+    "gSpectators",
     "gLobbyMaxJoin",
-    "gameState"
+    "gameState",
+    "gMatchState"
 ]);
 
 function isArrayLike(value) {
@@ -51,6 +59,10 @@ export function createGameInterface(getTarget, getDictionary, onInvalidValue = (
     const reportedInvalidValues = new Set();
 
     const getValidatedVar = varName => {
+        if (varName === "gIsTeamGame") {
+            const gameType = getPath("game", "gGameType");
+            return Number.isFinite(gameType) ? gameType < 7 || gameType === 9 : undefined;
+        }
         let keys = [varName];
         if (playerDataProperties.includes(varName)) keys = ["playerData", varName];
         else if (gameObjectProperties.includes(varName)) keys = ["game", varName];

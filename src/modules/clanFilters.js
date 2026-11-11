@@ -158,6 +158,15 @@ export const leaderboardFilter = new (function() {
 export const clanFilter = new (function() {
     this.inOwnClan = new Array(512);
     this.inOwnClan.fill(false);
+    this.isInOwnClan = (id) => {
+        const gHumans = getVar("gHumans") || 0;
+        if (!Number.isInteger(id) || id < 0 || id >= gHumans) return false;
+        const rawNames = getVar("rawPlayerNames");
+        const playerId = getVar("playerId");
+        if (!rawNames || !Number.isInteger(playerId)) return false;
+        const ownClan = leaderboardFilter.parseClanFromPlayerName(rawNames[playerId]);
+        return ownClan !== null && leaderboardFilter.parseClanFromPlayerName(rawNames[id]) === ownClan;
+    };
     this.refresh = () => {
         const gHumans = getVar("gHumans");
         const ownClan = leaderboardFilter.parseClanFromPlayerName(getVar("rawPlayerNames")[getVar("playerId")]);

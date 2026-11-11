@@ -17,6 +17,12 @@ ZFX Client is an independently maintained client for Territorial.io, based on th
 
 **Use the latest ZFX Client here: https://client.mapella.org/**
 
+### Safe startup
+
+The ZFX shell and client update check load before the native game. Before loading Terri, the client asks the central ZFX service at `nexus.mapella.org` whether its built-in game version matches the current Territorial.io version. If Terri has updated or the check is unavailable, the native game stays unloaded while independent ZFX views remain usable. The service caches successful upstream checks for one minute; the service worker separately checks for ZFX Client updates.
+
+For local compatibility testing, the browser console can override the version sent to the service: `window.__fx.nativeStartup.setVersionOverride("2.17.6")`. Pass `null` to restore the version embedded in the client build: `window.__fx.nativeStartup.setVersionOverride(null)`. Each change reloads the page. This override only changes the version used for the compatibility decision; it does not change the bundled native game.
+
 ### ZFX Client features
 1. A compact lobby layout with filters for readiness, followed players, and clan members
 2. Player-list sorting by rank or followed status

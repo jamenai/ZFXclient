@@ -17,7 +17,15 @@ function drawOutline(context, mapAccess, mapSize, offsetMethod, isPlayerCellMeth
     const rowOffset = y * width;
     for (let x = 1; x < width - 1; x++) {
       const offset = mapAccess[offsetMethod](x, y);
-      if (mapAccess[isPlayerCellMethod](playerId, offset)) {
+      let isOwnCell;
+      try {
+        // Native ownership buffers are not populated during the first map
+        // image upload. Skip this pass; later uploads will retry the outline.
+        isOwnCell = mapAccess[isPlayerCellMethod](playerId, offset);
+      } catch {
+        return;
+      }
+      if (isOwnCell) {
         ownCells[rowOffset + x] = 1;
         hasOwnCells = true;
       }

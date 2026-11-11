@@ -160,6 +160,13 @@ const fxText = {
     uiAppearance: "UI appearance",
     uiTransparency: "UI transparency",
     uiTransparencyNote: "Controls transparency of the main ZFX panels. 0% is opaque; higher values show more of the map behind them.",
+    gameHudTransparency: "Game HUD transparency",
+    gameHudTransparencyNote: "Controls the transparency of the in-game status panel and ZFX leaderboard. 0% is opaque.",
+    gameStatusHudStyle: "Status HUD style",
+    gameStatusHudStyleNote: "Choose how the in-game status values are arranged.",
+    gameStatusHudStyleTiles: "Game tiles",
+    gameStatusHudStyleStrip: "Compact strip",
+    gameStatusHudStyleRows: "Icon rows",
     uiSkin: "Accent color",
     uiSkinNote: "Changes the primary accent color across ZFX views.",
     showLobbyTabLabels: "Show lobby tab labels",
@@ -256,6 +263,13 @@ const fxText = {
     uiAppearance: "Oberfl\u00e4che",
     uiTransparency: "Transparenz der UI",
     uiTransparencyNote: "Legt die Transparenz der wichtigsten ZFX-Fl\u00e4chen fest. 0 % ist deckend; h\u00f6here Werte zeigen mehr von der Karte dahinter.",
+    gameHudTransparency: "Transparenz des Game-HUDs",
+    gameHudTransparencyNote: "Legt die Transparenz des Spielstatus-Panels und des ZFX-Leaderboards fest. 0 % ist deckend.",
+    gameStatusHudStyle: "Status-HUD-Ansicht",
+    gameStatusHudStyleNote: "Legt fest, wie die Spielstatuswerte angeordnet werden.",
+    gameStatusHudStyleTiles: "Game-Kacheln",
+    gameStatusHudStyleStrip: "Kompaktleiste",
+    gameStatusHudStyleRows: "Symbolzeilen",
     uiSkin: "Akzentfarbe",
     uiSkinNote: "\u00c4ndert die prim\u00e4re Akzentfarbe der ZFX-Ansichten.",
     showLobbyTabLabels: "Lobby-Tab-Beschriftungen anzeigen",
@@ -739,6 +753,26 @@ const settingsManager = new (function () {
       step: 5,
     },
     {
+      for: "gameHudTransparency",
+      type: "rangeInput",
+      label: __fx.translateFX("gameHudTransparency"),
+      note: __fx.translateFX("gameHudTransparencyNote"),
+      min: 0,
+      max: 70,
+      step: 5,
+    },
+    {
+      for: "gameStatusHudStyle",
+      type: "selectMenu",
+      label: __fx.translateFX("gameStatusHudStyle"),
+      tooltip: __fx.translateFX("gameStatusHudStyleNote"),
+      options: [
+        { value: "tiles", label: __fx.translateFX("gameStatusHudStyleTiles") },
+        { value: "strip", label: __fx.translateFX("gameStatusHudStyleStrip") },
+        { value: "rows", label: __fx.translateFX("gameStatusHudStyleRows") },
+      ],
+    },
+    {
       for: "showLobbyTabLabels",
       type: "checkbox",
       label: __fx.translateFX("showLobbyTabLabels"),
@@ -1054,11 +1088,14 @@ const settingsManager = new (function () {
     };
     const [accent, accentRgb] = uiSkins[settings.uiSkin] || uiSkins.zfx;
     const transparency = Math.max(0, Math.min(45, Number(settings.uiTransparency ?? 15)));
+    const gameHudTransparency = Math.max(0, Math.min(70, Number(settings.gameHudTransparency ?? 15)));
     document.documentElement.dataset.fxLobbyTabLabels = settings.showLobbyTabLabels === false ? "hidden" : "visible";
     document.documentElement.style.setProperty("--fx-ui-accent", accent);
     document.documentElement.style.setProperty("--fx-ui-accent-rgb", accentRgb);
     document.documentElement.style.setProperty("--fx-ui-panel-alpha", String(.98 - transparency / 150));
     document.documentElement.style.setProperty("--fx-ui-backdrop-alpha", String(.88 - transparency / 100));
+    document.documentElement.style.setProperty("--fx-game-hud-panel-alpha", String(.96 - gameHudTransparency / 100));
+    document.documentElement.dataset.fxGameStatusStyle = ["tiles", "strip", "rows"].includes(settings.gameStatusHudStyle) ? settings.gameStatusHudStyle : "tiles";
     if (settings.customBackgroundUrl !== "") {
       document.body.style.backgroundImage =
         "url(" + settings.customBackgroundUrl + ")";

@@ -994,6 +994,47 @@ td {
 	font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
+#fx-native-version-banner {
+	position: fixed;
+	top: 12px;
+	left: calc(50% + var(--fx-sidebar-width, 0px) / 2);
+	transform: translateX(-50%);
+	z-index: 20000;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 14px;
+	width: min(760px, calc(100vw - var(--fx-sidebar-width, 0px) - 28px));
+	padding: 12px 16px;
+	border: 1px solid rgba(247, 190, 93, .42);
+	border-radius: 12px;
+	background: rgba(39, 31, 17, .96);
+	box-shadow: 0 12px 36px rgba(0, 0, 0, .34);
+	color: #fff0cc;
+	font: 600 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+#fx-native-version-banner[hidden] { display: none; }
+#fx-native-version-banner > span { flex: 1 1 auto; }
+#fx-native-version-banner .fx-native-version-actions {
+	display: flex;
+	flex: 0 0 auto;
+	gap: 8px;
+}
+#fx-native-version-banner button {
+	flex: 0 0 auto;
+	padding: 7px 11px;
+	border: 1px solid rgba(255, 224, 166, .35);
+	border-radius: 8px;
+	background: rgba(255, 224, 166, .12);
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+@media (max-width: 640px) {
+	#fx-native-version-banner { flex-wrap: wrap; }
+	#fx-native-version-banner .fx-native-version-actions { margin-left: auto; }
+}
+
 html:has(#fx-home-view),
 body:has(#fx-home-view) {
 	overflow: hidden !important;
@@ -2545,6 +2586,31 @@ body[data-fx-bot-protection="active"] #fx-sidebar {
 	align-items: center;
 	gap: 8px;
 	width: 100%;
+}
+
+.fx-custom-lobby-next-heading > .fx-custom-lobby-entry-share {
+	display: grid;
+	place-items: center;
+	flex: 0 0 34px;
+	width: 34px;
+	height: 34px;
+	min-height: 34px;
+	margin-left: auto;
+	padding: 7px;
+	border: 1px solid rgba(126, 185, 220, .3);
+	border-radius: 9px;
+	background: rgba(5, 17, 30, .56);
+	color: #bad3e5;
+}
+
+.fx-custom-lobby-next-heading > .fx-custom-lobby-entry-share svg {
+	width: 18px;
+	height: 18px;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 2;
+	stroke-linecap: round;
+	stroke-linejoin: round;
 }
 
 .fx-custom-lobby-next-icon {

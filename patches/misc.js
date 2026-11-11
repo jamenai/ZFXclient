@@ -1,5 +1,4 @@
 import { definePatch, insert } from "../modUtils.js"
-import { styleText } from "node:util";
 
 export default definePatch(({ insertCode, modifyCode, replaceCode, replaceRawCode, matchOne, replaceOne }) => {
   const optional = (label, action) => {
@@ -105,7 +104,7 @@ export default definePatch(({ insertCode, modifyCode, replaceCode, replaceRawCod
       ${insert(`if (__fx.isCustomLobbyVersion) alert("This version is for use with custom lobbies only. For normal multiplayer, use the version at https://jamenai.github.io/ZFXclient/")
       else`)} b(0);
 		}, ${insert(`__fx.isCustomLobbyVersion ? "rgba(50, 50, 50, 0.6)" : `)} c.d)`)
-  } catch (error) {
-    console.warn(styleText("yellow", `Warning: failed to apply patches specific to the custom lobby version`))
+  } catch {
+    console.info("[ZFX Client] Native custom-lobby version notice hook is absent in this game version.");
   }
 })

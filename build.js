@@ -81,6 +81,10 @@ const buildClientCode = () => /** @type {Promise<void>} */(new Promise((resolve,
 async function patchGameCode(buildTimestamp) {
 
 	let script = fs.readFileSync('./game/latest.js', { encoding: 'utf8' }).trim();
+	const gameVersionMatch = script.match(/var \w+=(\d+);var \w+=(\d+);var \w+=(\d+);this\.rVersion=/);
+	if (!gameVersionMatch) throw new Error("Could not determine the native game version for the startup compatibility check.");
+	const nativeGameVersion = gameVersionMatch.slice(1, 4).join(".");
+	const clientVersion = JSON.parse(fs.readFileSync(path.join(projectRoot, "version.json"), "utf8")).version;
 	console.debug("Script start: ", script.slice(0, 250))
 	console.debug("Script end: ", script.slice(-250))
 
@@ -97,15 +101,12 @@ async function patchGameCode(buildTimestamp) {
 	if (stringArrayRaw === undefined) throw new Error("cannot find the string array");
 	const stringArray = JSON.parse(stringArrayRaw);
 	script = script.replace(/\bS\[(\d+)\]/g, (_match, index) => `"${stringArray[index]}"`);
-	const nativeLogoRenderers = [
-		/(function aJ6\(eI,aJ5\)\{[\s\S]*?canvas\[eI\]=bD\.or\.a63\(canvas\[eI\],a64,a65\);)/,
-		/(function aKG\(eI,aKF\)\{[\s\S]*?canvas\[eI\]=bD\.or\.a6v\(canvas\[eI\],a6w,a6x\);)/,
-	];
-	const nativeLogoRenderer = nativeLogoRenderers.find(renderer => renderer.test(script));
-	if (nativeLogoRenderer) {
-		script = script.replace(nativeLogoRenderer, "$&if(eI===6||eI===22){var blank=document.createElement('canvas');blank.width=canvas[eI].width;blank.height=canvas[eI].height;canvas[eI]=blank;}");
+	const nativeLogoAssetLoader = /function aLa\(eL,name,aLb,sA\)\{a42\[eL\]=name;/;
+	if (nativeLogoAssetLoader.test(script)) {
+		script = script.replace(nativeLogoAssetLoader,
+			"$&if(name===\"territorial.io\"||name===\"logo\"){canvas[eL]=aLU;return;}");
 	} else {
-		console.warn("Native logo renderer changed; skipping logo canvas suppression.");
+		console.warn("Native logo asset loader changed; skipping logo suppression.");
 	}
 
 	// Keep the complete native game script available to patch matchers. The
@@ -116,13 +117,6 @@ async function patchGameCode(buildTimestamp) {
 
 	/** @type {{ code: string, addToDictionary: string[] }[]} */
 	const codeSegments = [{
-		code: `if (game.gIsReplay) { game.playerId = player; }`,
-		addToDictionary: ["gIsReplay"]
-	}, {
-		code: `this.a = Math.floor(0.066 * b.c);
-			d = b.d - 4 * uiSizes.gap - this.a;`,
-		addToDictionary: ["uiSizes", "gap"]
-	}, {
 		code: `var dt=MenuManager.getState();if(dt===6){if(d===4211){/*...*/}}`,
 		addToDictionary: ["MenuManager", "getState"]
 	}, {
@@ -140,18 +134,27 @@ async function patchGameCode(buildTimestamp) {
 		catch (error) { console.info(`[ZFX Client] Optional native dictionary signature changed: ${error.message}`); }
 	});
 
-	// Current native game 2.17.4 data layout shared by patches and adapters.
+	// Current native game data layout shared by patches and adapters.
 	Object.assign(modUtils.dictionary, {
 		game: "aE", playerId: "fM", playerData: "ah", rawPlayerNames: "a4O", playerNames: "a2A",
 		playerTerritories: "hQ", playerBalances: "he", playerBalance: "he", playerCommitted: "a7G",
-		playerStates: "a77", gHumans: "ky", gBots: "lK", gMaxPlayers: "fZ", gameState: "a3c",
-		gIsSingleplayer: "lI", gIsReplay: "i1", gIsTeamGame: "gIsTeamGame", gGameType: "gGameType",
-		gLobbyMaxJoin: "gLobbyMaxJoin", gSelectableSpawn: "i1",
+		playerAlive: "na", playerStates: "a77", gHumans: "ky", gBots: "lK", gSpectators: "a3h", gMaxPlayers: "fZ", gameState: "a3c", gMatchState: "a3f",
+		gIsSingleplayer: "lI", gIsReplay: "hl", gGameType: "lG",
+		gLobbyMaxJoin: "fZ", gSelectableSpawn: "i1",
 	});
 
 	const { default: applyPatches } = await import('./patches/main.js');
 	console.log("Applying patches...");
 	applyPatches(modUtils);
+	// Keep the native client's boot callable, but let the already-mounted ZFX
+	// shell decide when the game starts instead of relying on window.onload.
+	const nativeStartupPattern = /setTimeout\(by,10000\);window\.onload=function\(\)\{by\(\);\};/;
+	if (nativeStartupPattern.test(modUtils.script)) {
+		modUtils.script = modUtils.script.replace(nativeStartupPattern,
+			"window.__fxStartNativeGame=function(){if(window.__fx.nativeGameStarted)return;window.__fx.nativeGameStarted=true;by();};");
+	} else {
+		throw new Error("Native game startup signature changed; delayed startup cannot be installed safely.");
+	}
 
 	// for versions ^1.99.5.2
 	const minificationResult = await minify(modUtils.script, {
@@ -179,7 +182,7 @@ async function patchGameCode(buildTimestamp) {
 	// the dictionary should maybe get embedded into one of the files in the bundle
 	fs.writeFileSync(
 		artefactsPath,
-		`const buildTimestamp = "${buildTimestamp}"; const dictionary = ${JSON.stringify(dictionary)};\n`
+		`const buildTimestamp = "${buildTimestamp}"; window.__fxBuildInfo = ${JSON.stringify({ buildTimestamp, nativeGameVersion, clientVersion })}; const dictionary = ${JSON.stringify(dictionary)};\n`
 	);
 
 	console.log("Formatting code...");

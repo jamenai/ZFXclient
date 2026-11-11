@@ -92,7 +92,7 @@ const VueSidebar = defineComponent({
       languageVersion.value += 1;
       profileVersion.value += 1;
       accountId.value = String(window.__fx?.getNativeAccountId?.() || "").trim();
-      gameState.value = Number(window.__fx?.getGameVar?.("gameState") || 0);
+      gameState.value = Number(window.__fx?.getGameVar?.("gMatchState") || 0);
       const rows = [...document.querySelectorAll('[data-fx-lobby-player="true"]')];
       if (rows.length) {
         const ranks = rows.filter(row => row.dataset.fxLobbyReady === "ready" && !isSpectatorRow(row))

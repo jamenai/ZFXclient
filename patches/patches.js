@@ -15,6 +15,22 @@ function replaceRequired(modUtils, expression, replacement, featureName) {
 export default (/** @type {ModUtils} */ modUtils) => {
     const { insertCode, waitForMinification } = modUtils
 
+    // Catch native multiplayer socket errors against the current pre-minified
+    // close-handler signature. Keep the retry for 4215 and expose 4527 as the
+    // server's "already logged in" rejection.
+    const socketCloseLogPattern = /this\.(?<handler>\w+)=function\((?<socketIndex>\w+),(?<errorCode>\w+)\)\{console\.log\("socket close index "\+\k<socketIndex>\+" error "\+\k<errorCode>\);/g;
+    const { socketIndex, errorCode } = modUtils.matchOne(socketCloseLogPattern).groups;
+    const { socketManager, closeConnections } = modUtils.matchOne(
+        /(?<socketManager>\w+\.\w+)\.(?<closeConnections>\w+)\(3260\)/g,
+    ).groups;
+    modUtils.fxSocketManager = socketManager;
+    modUtils.fxCloseConnections = closeConnections;
+    modUtils.replaceOne(
+        socketCloseLogPattern,
+        `$&if(${errorCode}===4215&&window.__fx.multiplayerRetryAvailableUntil>Date.now()){window.__fx.multiplayerRetryAvailableUntil=0;${socketManager}.${closeConnections}(3260);window.__fx.multiplayerResetUntil=Date.now()+1000;window.__fx.multiplayerStartPending=true;setTimeout(()=>{window.__fx.multiplayerStartPending=false;window.__fx.nativeStartMultiplayer(true)},1050);return;}if(${errorCode}===4527&&${socketIndex}===0)window.__fx.gameSdk?.lobby?.reportConnectionError?.(${errorCode},${socketIndex});`,
+    );
+    modUtils.replaceOne(/"Player already in lobby"/g, '"Already logged in to the multiplayer lobby"');
+
     // The native lobby creates one exact map preview canvas per game entry.
     // Forward it together with that entry's map index and seed before attaching it.
     modUtils.replaceRawCode(
@@ -67,7 +83,9 @@ function applyPatches(/** @type {ModUtils} */ modUtils) {
     const { replace, replaceOne, replaceRawCode, safeDictionary, matchOne, matchRawCode, escapeRegExp } = modUtils;
     const homeNameInputPattern = /(?<nameInput>\w+)\s*=\s*new\s+\w+\(\s*(?<settingsBuffer>\w+)\.buffer\.data\[122\]\s*\)\s*;/g;
     const { nameInput, settingsBuffer } = matchOne(homeNameInputPattern).groups;
-    replaceOne(homeNameInputPattern, `$&window.__fx.getNativeHomeNameInput=()=>${nameInput}.e;window.__fx.getNativeAccountId=()=>(${settingsBuffer}.buffer.data[105]&&${settingsBuffer}.buffer.data[105].value)||"";window.__fx.getNativeGameLabel=id=>L(id);window.__fx.getNativePlayerColor=()=>{var value=Number((bm.buffer.data[121]&&bm.buffer.data[121].value));if(!Number.isInteger(value)||value<0||value>262143)return null;return "#"+bD.color.a6M(value).map(function(channel){return Math.round(channel*255/63).toString(16).padStart(2,"0")}).join("")};window.__fx.setNativePlayerColor=value=>{var match=/^#?([0-9a-f]{6})$/i.exec(String(value||""));if(!match)return false;var hex=match[1],rgb=[parseInt(hex.slice(0,2),16),parseInt(hex.slice(2,4),16),parseInt(hex.slice(4,6),16)];bm.qy.qz(121,bD.color.a6P(rgb));return true};window.__fx.setNativeHomeName=value=>{var input=${nameInput}.e;if(!input)return false;input.value=String(value).slice(0,20);input.dispatchEvent(new Event("blur"));return true};window.__fx.gameSettingsAdapter={getSnapshot:function(){var currentLanguage=(bm&&bm.buffer&&bm.buffer.data&&bm.buffer.data[12]&&bm.buffer.data[12].value)||"en";var values={},defaults={};[1,2,5,7,8,9,11,12,13,14,15,16].forEach(function(id){values[id]=(bm.buffer.data[id]&&bm.buffer.data[id].value);defaults[id]=(bm.buffer.data[id]&&bm.buffer.data[id].yq);});var languageOptions=[{value:"en",label:"English"},{value:"de",label:"Deutsch"}];if(!languageOptions.some(function(option){return option.value===currentLanguage;}))languageOptions.push({value:currentLanguage,label:currentLanguage});var shortcutDefaults=["Space","","KeyB","","KeyW","","KeyS","","KeyD","","KeyA","","KeyH","","NumpadAdd","","NumpadSubtract","","ArrowLeft","","ArrowRight","","ArrowUp","","ArrowDown","","KeyM","","KeyP","","KeyI",""];var shortcutValues=((ba&&ba.aFQ)||shortcutDefaults).slice();var shortcutGroups=((ba&&ba.aX8)||[]).map(function(label,index){return{label:label,keys:[0,1].map(function(offset){var keyIndex=index*2+offset;return{index:keyIndex,value:shortcutValues[keyIndex]||""};})};});return{values:values,defaults:defaults,connection:aa.aKe,defaultConnection:0,options:{language:languageOptions,resolution:[L(462),L(463),L(464),L(465)],minimumFont:[L(463),L(467),L(468)],textSpeed:[L(470),L(9),L(471)],connection:[L(480),L(481),L(482)]},labels:{information:L(452),informationNote:L(453),resolution:L(461),minimumFont:L(466),textSpeed:L(469),largeUi:L(472),placeBalance:L(473),hideZoom:L(474),font:L(475),messageBox:L(476),keepClosed:L(477),muted:L(478),connection:L(479),highlighting:L(483),intensity:L(484),shortcuts:L(485),reset:L(451),close:L(40)},shortcutGroups:shortcutGroups,shortcutDefaults:shortcutDefaults};},setField:function(id,value){if(!bm.buffer.data[id])return false;bm.qy.qz(id,String(value));return true;},setConnection:function(value){aa.aKe=Number(value)||0;},setShortcut:function(index,value){if(typeof (ba&&ba.aXA)!=="function")return false;ba.aXA(Number(index),String(value||""));return true;},resetShortcuts:function(){if(typeof (ba&&ba.aX7)!=="function")return false;ba.aX7();return true;},reset:function(){u.y();bm.qy.z7();u.v(2);}};`);
+    replaceOne(homeNameInputPattern, `$&window.__fx.getNativeHomeNameInput=()=>${nameInput}.e;window.__fx.getNativeAccountId=()=>(${settingsBuffer}.buffer.data[105]&&${settingsBuffer}.buffer.data[105].value)||"";window.__fx.getNativeGameLabel=id=>L(id);window.__fx.getNativePlayerColor=()=>{var value=Number((bm.buffer.data[121]&&bm.buffer.data[121].value));if(!Number.isInteger(value)||value<0||value>262143)return null;return "#"+bD.color.a6d(value).map(function(channel){return Math.round(channel).toString(16).padStart(2,"0")}).join("")};window.__fx.setNativePlayerColor=value=>{var match=/^#?([0-9a-f]{6})$/i.exec(String(value||""));if(!match)return false;var hex=match[1],rgb=[parseInt(hex.slice(0,2),16),parseInt(hex.slice(2,4),16),parseInt(hex.slice(4,6),16)];bm.r0.r1(121,bD.color.a6f(rgb));return true};window.__fx.setNativeHomeName=value=>{var input=${nameInput}.e;if(!input)return false;input.value=String(value).slice(0,20);input.dispatchEvent(new Event("blur"));return true};window.__fx.gameSettingsAdapter={getSnapshot:function(){var currentLanguage=(bm&&bm.buffer&&bm.buffer.data&&bm.buffer.data[12]&&bm.buffer.data[12].value)||"en";var values={},defaults={};[1,2,5,7,8,9,11,12,13,14,15,16].forEach(function(id){values[id]=(bm.buffer.data[id]&&bm.buffer.data[id].value);defaults[id]=(bm.buffer.data[id]&&bm.buffer.data[id].yq);});var languageOptions=[{value:"en",label:"English"},{value:"de",label:"Deutsch"}];if(!languageOptions.some(function(option){return option.value===currentLanguage;}))languageOptions.push({value:currentLanguage,label:currentLanguage});var shortcutDefaults=["Space","","KeyB","","KeyW","","KeyS","","KeyD","","KeyA","","KeyH","","NumpadAdd","","NumpadSubtract","","ArrowLeft","","ArrowRight","","ArrowUp","","ArrowDown","","KeyM","","KeyP","","KeyI",""];var shortcutValues=((ba&&ba.aFh)||shortcutDefaults).slice();return{values:values,defaults:defaults,connection:aa.aKu,defaultConnection:0,shortcuts:shortcutValues,shortcutDefaults:shortcutDefaults};},setField:function(id,value){if(!bm.buffer.data[id])return false;bm.r0.r1(id,value);return true;},setConnection:function(value){aa.aKu=Number(value)||0;},setShortcut:function(index,value){if(typeof (ba&&ba.aXV)!=="function")return false;ba.aXV(Number(index),String(value||""));return true;},resetShortcuts:function(){if(typeof (ba&&ba.aXS)!=="function")return false;ba.aXS();return true;},reset:function(){u.y();bm.qy.z7();u.v(2);}};`);
+    replaceOne(/reset:function\(\)\{u\.y\(\);bm\.qy\.z7\(\);u\.v\(2\);\}\};/g,
+        '$&window.dispatchEvent(new Event("fx-native-settings-adapter-ready"));');
 
 
     // The current game lazily creates overlay 29, while several live lobby
@@ -85,9 +103,6 @@ function applyPatches(/** @type {ModUtils} */ modUtils) {
 
     // Replace assets
     replaceOne(/(\(4,"crown",4,")[^"]+"\),/g, "$1" + assets.crownIcon + "\"),");
-    replaceOne(/(\(6,"territorial\.io",6,")[^"]+"\),/g, "$1" + assets.fxClientLogo + "\"),");
-    replaceOne(/(\(22,"logo",8,")[^"]+"\)/g, "$1" + assets.smallLogo + "\")");
-
     // Add update information
     try { replaceRawCode(`new k("🚀 New Game Update","The game was updated! Please reload the game. An internet connection is required.",!0,[`,
         `new k("🚀 New Game Update","The game was updated! Please reload the game. An internet connection is required."
@@ -115,6 +130,18 @@ function applyPatches(/** @type {ModUtils} */ modUtils) {
         console.info("[ZFX Client] Native troop-density panel hook is absent in this game version.");
     }
 
+    try { // Apply the Game HUD transparency setting to the native status panel background.
+        replaceOne(/(p0\.fillStyle=bE\.pR),p0\.fillRect\(0,0,aX\.j,aX\.k\),p0\.fillStyle=bE\.po/g,
+            '$1,p0.globalAlpha=1-Math.max(0,Math.min(70,__fx.settingsApi.getNumber("gameHudTransparency",15)))/100,p0.fillRect(0,0,aX.j,aX.k),p0.globalAlpha=1,p0.fillStyle=bE.po');
+        replaceOne(/(function aF8\(\)\{)/g,
+            '$1window.__fx.gameStatusHudAdapter?.receiveNativeSnapshot({updatedAt:Date.now(),rows:aEx.map(function(label,index){return{index:index,label:label,value:aF6(index),visible:!!aF0[index]};}).filter(function(row){return row.visible&&row.label;})});');
+        replaceOne(/this\.yI=function\(\)\{yJ\.drawImage\(canvas,fj,fl\)\}/g,
+            'this.yI=function(){if(window.__fx?.gameStatusHudReady)return;yJ.drawImage(canvas,fj,fl)}');
+        console.info("[ZFX Client] Native status HUD transparency hook installed.");
+    } catch (error) {
+        console.info("[ZFX Client] Native status HUD transparency hook is absent in this game version.");
+    }
+
     // Increment win counter on wins
     replaceRawCode(`=function(sE){a8.gD[sE]&&(o.ha(sE,2),b.h9<100?xD(0,__L([a8.jx[sE]]),3,sE,ad.gN,ad.kl,-1,!0):xD(0,__L([a8.jx[sE]]),3,sE,ad.gN,ad.kl,-1,!0))`,
         `=function(sE){
@@ -139,7 +166,21 @@ function applyPatches(/** @type {ModUtils} */ modUtils) {
         console.info("[ZFX Client] Native menu button layout changed; sidebar actions remain available.");
     }
 
-    { // Keybinds
+    try { // Keybinds; this legacy post-minify hook is optional on newer games.
+        // Native 2.18 attack percentage control. The relative setter is the
+        // same method used by the built-in keyboard shortcuts (1/32 step).
+        // Expose it directly; older builds exposed this through a separate
+        // attack-bar object that no longer exists.
+        const nativeRelativeAttack = /else if\(ba\.em\(code,10\)\)\{aS\.a5l\(31\/32\);\}else if\(ba\.em\(code,8\)\)\{aS\.a5l\(32\/31\);\}/g;
+        if (nativeRelativeAttack.test(modUtils.script)) {
+            nativeRelativeAttack.lastIndex = 0;
+            replaceOne(nativeRelativeAttack,
+                '$&window.__fx.keybindFunctions.setRelative=value=>{var factor=Number(value);if(Number.isFinite(factor)&&factor>0)aS.a5l(factor);};');
+            replaceOne(/this\.a5l=function\(oD\)\{if\(aE\.a3f===0\|\|!this\.iP\(\)\)\{return;\}if\(aCV\(oD\)\)\{bi\.du=true;\}\};function aCV\(a66\)\{/g,
+                '$&window.__fx.keybindFunctions.setAbsolute=value=>{var percentage=Math.max(1/1024,Math.min(1,Number(value)));if(Number.isFinite(percentage)&&aE.a3f!==0&&this.iP()){jG=percentage;aCL();bi.du=true;}};');
+            replaceOne(/function a5Q\(e\)\{if\(a5T\(\)\)\{return;\}if\(i\.uc>0\)\{return;\}var code=e\.code;if\(!code\|\|!code\.length\)\{return;\}/g,
+                '$&if(window.__fx?.keybindHandler?.(code)){e.preventDefault();return;}');
+        } else {
         // match required variables
         const { 0: match, groups: { attackBarObject, setRelative } } = matchOne(/:\w+\.\w+\(\w+,8\)\?(?<attackBarObject>\w+)\.(?<setRelative>\w+)\(32\/31\):/g);
         // create a setAbsolutePercentage function on the attack percentage bar object,
@@ -151,6 +192,9 @@ function applyPatches(/** @type {ModUtils} */ modUtils) {
         // insert keybind handling code into the keyDown handler function
         replaceOne(new RegExp(/(function \w+\((?<event>\w+)\){)([^}]+matched)/g.source.replace(/matched/g, escapeRegExp(match)), "g"),
             "$1 if (__fx.keybindHandler($<event>.key)) return; $3");
+        }
+    } catch (error) {
+        console.info("[ZFX Client] Legacy post-minification keybind hook is unavailable; native keybind adapter remains active.");
     }
 
     // Custom starting attack percentage
@@ -169,44 +213,49 @@ function applyPatches(/** @type {ModUtils} */ modUtils) {
     //"$1 if (settings.hideAllLinks) $3[0] = $3[1] = $<linksHidden>; else $3[0] = $3[1] = true; $2")
 
     // Clear canvas background if a custom background is being used
-    replaceRawCode(`,this.qk=function(){var a4n,a4m;aq.pd?(a4m=aL.gA/aq.eE,a4n=aL.gF/aq.eF,canvas.setTransform(a4m=a4n<a4m?a4m:a4n,0,0,a4m,`,
+    try { replaceRawCode(`,this.qk=function(){var a4n,a4m;aq.pd?(a4m=aL.gA/aq.eE,a4n=aL.gF/aq.eF,canvas.setTransform(a4m=a4n<a4m?a4m:a4n,0,0,a4m,`,
         `,this.qk=function(){var a4n,a4m;
         if (__fx.makeMainMenuTransparent) canvas.clearRect(0,0,aL.gA,aL.gF);
         else aq.pd?(a4m=aL.gA/aq.eE,a4n=aL.gF/aq.eF,canvas.setTransform(a4m=a4n<a4m?a4m:a4n,0,0,a4m,`);
+    } catch { console.info("[ZFX Client] Native custom-background transform hook is absent in this game version."); }
 
     // Track donations
     replaceOne(/(this\.\w+=function\((\w+),(\w+)\)\{)(\2===\w+\.\w+&&\(\w+\.\w+\((\w+\.\w+)\[0\],\5\[1\],\3\),this\.(\w+)\[12\]\+=\5\[1\],this\.\6\[16\]\+=\5\[0\]\),\3===\w+\.\w+&&\()/g,
         `$1 __fx.donationsTracker.logDonation($2, $3, $5[0], ${dict.sidebar}.${dict.getTime}()); $4`)
 
 
-    // Detailed team pie chart percentage
-    replaceRawCode(`qr=Math.floor(100*f0+.5)+"%"`,
-        `qr = (__fx.settingsApi.getBoolean("detailedTeamPercentage") ? (100*f0).toFixed(2) : Math.floor(100*f0+.5)) + "%"`)
-    replaceRawCode(",fontSize=+dz*Math.min(f0,.37);", ',fontSize=(__fx.settingsApi.getBoolean("detailedTeamPercentage") ? 0.75 : 1)*dz*Math.min(f0,.37);')
+    // Keep the team pie labels readable when two-decimal percentages are on.
+    try {
+        modUtils.replaceOne(/fontSize\s*=\s*1\s*\*\s*eK\s*\*\s*Math\.min\(g4,\s*\.37\)/g,
+            'fontSize=(__fx.settingsApi.getBoolean("detailedTeamPercentage")?0.68:0.85)*eK*Math.min(g4,.37)')
+    } catch { console.info("[ZFX Client] Native team percentage font hook is absent in this game version."); }
 
     // Reserve the sidebar width in the game's logical viewport and keep mouse/touch coordinates aligned.
     replaceOne(/document\.body\.firstChild/g, 'document.getElementById("fx-game-shell").firstChild');
-    const { socketManager, closeConnections } = matchOne(
-        /(?<socketManager>\w+\.\w+)\.(?<closeConnections>\w+)\(3260\)/g
-    ).groups;
+    const socketManager = modUtils.fxSocketManager;
+    const closeConnections = modUtils.fxCloseConnections;
+    if (!socketManager || !closeConnections) throw new Error("Native socket manager hook is unavailable.");
     const { isConnectedMethod } = matchOne(
         /this\.(?<isConnectedMethod>\w+)=function\(\w+\)\{return \w+\[\w+\]\.\w+&&\w+\[\w+\]\.\w+\(\);?\}/g
     ).groups;
     const socketActivePattern = /function (?<activeSocketMethod>\w+)\((?<socketIndex>\w+)\)\{return \w+\[\k<socketIndex>\]\.\w+&&\w+\[\k<socketIndex>\]\.\w+\(\)\}/g;
     const { activeSocketMethod } = matchOne(socketActivePattern).groups;
     replaceOne(socketActivePattern, `$&;window.__fx.isSocketActive=id=>${activeSocketMethod}(id)`);
-    const socketCloseHandlerPattern = /this\.(?<handler>\w+)=function\((?<socketIndex>\w+),(?<errorCode>\w+)\)\{(?=if\(console\.log\("socket close index "\+\k<socketIndex>\+" error "\+\k<errorCode>\),)/g;
-    const { errorCode } = matchOne(socketCloseHandlerPattern).groups;
-    replaceOne(
-        socketCloseHandlerPattern,
-        `$&if(${errorCode}===4215&&__fx.multiplayerRetryAvailableUntil>Date.now()){__fx.multiplayerRetryAvailableUntil=0;${socketManager}.${closeConnections}(3260);__fx.multiplayerResetUntil=Date.now()+1000;__fx.multiplayerStartPending=true;setTimeout(()=>{__fx.multiplayerStartPending=false;__fx.startMultiplayer(true)},1050);return;}`
-    );
     const homeMethodPattern = /this\.(?<homeMethod>\w+)=function\(\)\{(?<menuManager>\w+)\.(?<menuStateMethod>\w+)\(5,5\)\}/g;
     const { menuManager, menuStateMethod } = matchOne(homeMethodPattern).groups;
     const menuStateFieldPattern = new RegExp(
         `this\\.${menuStateMethod}=function\\((?<stateArgument>\\w+)[^)]*\\)\\{(?<setterBody>[^}]*?this\\.tZ\\(\\)[^}]*?this\\.(?<menuStateField>\\w+)===\\k<stateArgument>)`, "g"
     );
-    const stateFieldMatches = [...modUtils.script.matchAll(menuStateFieldPattern)];
+    let stateFieldMatches = [...modUtils.script.matchAll(menuStateFieldPattern)];
+    // Current native menu manager (dK/u) stores its state in `uw`; its setter
+    // has nested branches, so the older single-block signature above cannot
+    // reach the assignment. Derive the field from the setter's first argument.
+    if (stateFieldMatches.length === 0) {
+        const currentMenuStateSetterPattern = new RegExp(
+            `this\\.${menuStateMethod}=function\\((?<stateArgument>\\w+),[^)]*\\)\\{[\\s\\S]{0,1000}?this\\.(?<menuStateField>\\w+)=\\k<stateArgument>;`, "g"
+        );
+        stateFieldMatches = [...modUtils.script.matchAll(currentMenuStateSetterPattern)];
+    }
     if (stateFieldMatches.length > 1) throw new Error(`Expected at most one native menu state field, found ${stateFieldMatches.length}.`);
     const menuStateField = stateFieldMatches[0]?.groups.menuStateField;
     const observeNativeLobby = menuStateField
@@ -218,11 +267,15 @@ function applyPatches(/** @type {ModUtils} */ modUtils) {
     );
     const accountMenuButtonsPattern = /for\(var (?<index>\w+)=0;\k<index><(?<buttons>\w+)\.length;\k<index>\+\+\)\k<buttons>\[\k<index>\]\.button\.style\.position="absolute";/g;
     const { buttons: accountMenuButtons } = matchOne(accountMenuButtonsPattern).groups;
-    replaceOne(accountMenuButtonsPattern, `$&window.__fx.setNativeMenuState=state=>${menuManager}.${menuStateMethod}(state);__fx.nativeHomeMenuButtons=${accountMenuButtons}.map(entry=>entry.button);__fx.nativeHomeControlVisibility=__fx.nativeHomeControlVisibility||new WeakMap();__fx.setNativeHomeControlsHidden=__fx.setNativeHomeControlsHidden||function(hidden){var controls=(__fx.nativeHomeMenuButtons||[]).concat([__fx.getNativeHomeNameInput?.()]);var map=__fx.nativeHomeControlVisibility;controls.forEach(function(element){if(!element)return;if(!map.has(element))map.set(element,[element.style.getPropertyValue("visibility"),element.style.getPropertyPriority("visibility")]);if(hidden)element.style.setProperty("visibility","hidden","important");else{var previous=map.get(element);if(previous[0])element.style.setProperty("visibility",previous[0],previous[1]);else element.style.removeProperty("visibility");}});};__fx.setNativeHomeControlsHidden(true);__fx.openAccount=function(){${accountMenuButtons}[2].button.click()};__fx.openCustomScenario=function(){${accountMenuButtons}[1].button.click()};__fx.openGameMenu=function(){${accountMenuButtons}[3].button.click()};__fx.isMultiplayerConnected=()=>__fx.isSocketActive(0)&&${socketManager}.${isConnectedMethod}(0);__fx.reconnectMultiplayer=function(){if(!__fx.isMultiplayerConnected())return false;if(__fx.multiplayerStartPending)return true;__fx.multiplayerRetryAvailableUntil=0;${socketManager}.${closeConnections}(3260);__fx.multiplayerResetUntil=Date.now()+1000;__fx.multiplayerStartPending=true;setTimeout(()=>{__fx.multiplayerStartPending=false;__fx.startMultiplayer(true)},1050);return true};__fx.startMultiplayer=function(isRetry){__fx.requestCustomLobbyView?.();__fx.installNativeLobbyRouteObserver?.(${menuManager},${JSON.stringify(menuStateMethod)},${JSON.stringify(menuStateField)});if(__fx.multiplayerStartPending)return;if(!isRetry)__fx.multiplayerRetryAvailableUntil=Date.now()+10000;var wait=__fx.multiplayerResetUntil-Date.now();if(wait>0){__fx.multiplayerStartPending=true;setTimeout(()=>{__fx.multiplayerStartPending=false;__fx.startMultiplayer(isRetry)},wait+50);return;}if(__fx.isSocketActive(0)){if(${socketManager}.${isConnectedMethod}(0))${accountMenuButtons}[0].button.click();return;}${accountMenuButtons}[0].button.click()};__fx.openGameMenuAction=function(key){var action=__fx.gameMenuActions?.[key];return typeof action==="function"?action():false};`);
+    replaceOne(accountMenuButtonsPattern, `$&window.__fx.setNativeMenuState=state=>${menuManager}.${menuStateMethod}(state);__fx.nativeHomeMenuButtons=${accountMenuButtons}.map(entry=>entry.button);__fx.nativeHomeControlVisibility=__fx.nativeHomeControlVisibility||new WeakMap();__fx.setNativeHomeControlsHidden=__fx.setNativeHomeControlsHidden||function(hidden){var controls=(__fx.nativeHomeMenuButtons||[]).concat([__fx.getNativeHomeNameInput?.()]);var map=__fx.nativeHomeControlVisibility;controls.forEach(function(element){if(!element)return;if(!map.has(element))map.set(element,[element.style.getPropertyValue("visibility"),element.style.getPropertyPriority("visibility")]);if(hidden)element.style.setProperty("visibility","hidden","important");else{var previous=map.get(element);if(previous[0])element.style.setProperty("visibility",previous[0],previous[1]);else element.style.removeProperty("visibility");}});};__fx.setNativeHomeControlsHidden(true);__fx.openAccount=function(){${accountMenuButtons}[2].button.click()};__fx.openCustomScenario=function(){${accountMenuButtons}[1].button.click()};__fx.openGameMenu=function(){${accountMenuButtons}[3].button.click()};__fx.isMultiplayerConnected=()=>__fx.isSocketActive(0)&&${socketManager}.${isConnectedMethod}(0);__fx.reconnectMultiplayer=function(){if(!__fx.isMultiplayerConnected())return false;if(__fx.multiplayerStartPending)return true;__fx.multiplayerRetryAvailableUntil=0;${socketManager}.${closeConnections}(3260);__fx.multiplayerResetUntil=Date.now()+1000;__fx.multiplayerStartPending=true;setTimeout(()=>{__fx.multiplayerStartPending=false;__fx.nativeStartMultiplayer(true)},1050);return true};__fx.nativeStartMultiplayer=function(isRetry){__fx.requestCustomLobbyView?.();__fx.installNativeLobbyRouteObserver?.(${menuManager},${JSON.stringify(menuStateMethod)},${JSON.stringify(menuStateField)});if(__fx.multiplayerStartPending)return;if(!isRetry)__fx.multiplayerRetryAvailableUntil=Date.now()+10000;var wait=__fx.multiplayerResetUntil-Date.now();if(wait>0){__fx.multiplayerStartPending=true;setTimeout(()=>{__fx.multiplayerStartPending=false;__fx.nativeStartMultiplayer(isRetry)},wait+50);return;}if(__fx.isSocketActive(0)){if(${socketManager}.${isConnectedMethod}(0))${accountMenuButtons}[0].button.click();return;}${accountMenuButtons}[0].button.click()};__fx.openGameMenuAction=function(key){var action=__fx.gameMenuActions?.[key];return typeof action==="function"?action():false};`);
     replaceOne(accountMenuButtonsPattern, `$&__fx.nativeHomeMenuButtons=${accountMenuButtons}.map(entry=>entry.button);__fx.nativeHomeControlVisibility=__fx.nativeHomeControlVisibility||new WeakMap();__fx.setNativeHomeControlsHidden=__fx.setNativeHomeControlsHidden||function(hidden){var controls=(__fx.nativeHomeMenuButtons||[]).concat([__fx.getNativeHomeNameInput?.()]);var map=__fx.nativeHomeControlVisibility;controls.forEach(function(element){if(!element)return;if(!map.has(element))map.set(element,[element.style.getPropertyValue("visibility"),element.style.getPropertyPriority("visibility")]);if(hidden)element.style.setProperty("visibility","hidden","important");else{var previous=map.get(element);if(previous[0])element.style.setProperty("visibility",previous[0],previous[1]);else element.style.removeProperty("visibility");}});};__fx.setNativeHomeControlsHidden(true);__fx.openAccount=function(){${accountMenuButtons}[2].button.click()};__fx.openCustomScenario=function(){${accountMenuButtons}[1].button.click()};__fx.openGameMenu=function(){${accountMenuButtons}[3].button.click()};__fx.isMultiplayerConnected=()=>__fx.isSocketActive(0)&&${socketManager}.${isConnectedMethod}(0);__fx.reconnectMultiplayer=function(){if(!__fx.isMultiplayerConnected())return false;if(__fx.multiplayerStartPending)return true;__fx.multiplayerRetryAvailableUntil=0;${socketManager}.${closeConnections}(3260);__fx.multiplayerResetUntil=Date.now()+1000;__fx.multiplayerStartPending=true;setTimeout(()=>{__fx.multiplayerStartPending=false;__fx.startMultiplayer(true)},1050);return true};__fx.startMultiplayer=function(isRetry){__fx.requestCustomLobbyView?.();__fx.installNativeLobbyRouteObserver?.(${menuManager},${JSON.stringify(menuStateMethod)},${JSON.stringify(menuStateField)});if(__fx.multiplayerStartPending)return;if(!isRetry)__fx.multiplayerRetryAvailableUntil=Date.now()+10000;var wait=__fx.multiplayerResetUntil-Date.now();if(wait>0){__fx.multiplayerStartPending=true;setTimeout(()=>{__fx.multiplayerStartPending=false;__fx.startMultiplayer(isRetry)},wait+50);return;}if(__fx.isSocketActive(0)){if(${socketManager}.${isConnectedMethod}(0))${accountMenuButtons}[0].button.click();return;}${accountMenuButtons}[0].button.click()};__fx.openGameMenuAction=function(key){var action=__fx.gameMenuActions?.[key];return typeof action==="function"?action():false};`);
+    modUtils.replace(/__fx\.startMultiplayer(?=[=(])/g, "__fx.nativeStartMultiplayer");
+    const nativeHomeButtonsAssignment = /__fx\.nativeHomeMenuButtons=\w+\.map\(entry=>entry\.button\);/g;
+    modUtils.replace(nativeHomeButtonsAssignment,
+        `$&__fx.nativeMenuState=5;window.dispatchEvent(new Event("fx-native-menu-state-change"));`);
     try { replaceOne(
         /function dJ\(\)\{/g,
-        `window.__fx.gameMenuActions={leaderboard:()=>u.v(16),logs:()=>u.v(17),replays:()=>u.v(3,1),goldTransfer:()=>u.v(18),settings:()=>u.v(2)};window.__fx.goldTransferAdapter={getSnapshot:function(){return{accountId:String(bm?.buffer?.data?.[105]?.value||""),recipient:String(bm?.buffer?.data?.[148]?.value||""),amount:String(bm?.buffer?.data?.[149]?.value||""),loggedIn:!!b1?.z?.eg?.(0)};},resolveRecipientId:function(name){var normalize=function(value){return String(value||"").trim().toLocaleLowerCase();};var wanted=normalize(name);if(!wanted||!bq||!bq.wo||!Array.isArray(bq.wo.w9))return null;var matches=bq.wo.w9.filter(function(player){if(!player||player.ue==null)return false;var raw=normalize(player.username);var filtered=normalize(window.__fx?.nameFilter?.filter?.(player.username)||player.username);return raw===wanted||filtered===wanted;});return matches.length===1?String(matches[0].ue):null;},send:function(recipient,amount){var target=String(recipient||"").trim();var value=Number(amount);if(!b1?.z?.eg?.(0)||!target||!Number.isInteger(value)||value<1)return false;bm.qt.qu(148,target);bm.qt.qu(149,String(value));b1.aIy.aIz({action:0,ua:target,value:value});return true;}};window.__fx.setNativeMenuState=state=>u.v(state);window.__fx.refreshSavedAccounts=function(){if(!bm||!bm.z||typeof bm.z.yu!=="function")return false;bm.z.yu();var data=bm.buffer.data[117];if(!data)return false;window.__fx.myAccountAdapter?.setSavedAccounts?.(data,function(index){data.value=index;},function(){var credentials=bm.z.yy(data.value);if(!credentials)return false;bm.qt.qu(105,credentials.ua);bm.qt.qu(106,credentials.password);u.v(8,u.a4Z().a4a,new ud(18));return true;},function(){var index=Number(data.value)||0;if(index<1)return;bm.z.yx(index);bm.z.yu();window.__fx.refreshSavedAccounts();});return true;};setTimeout(()=>window.__fx.refreshSavedAccounts(),0);$&`
+        `window.__fx.gameMenuActions={leaderboard:()=>u.v(16),logs:()=>u.v(17),replays:()=>u.v(3,1),goldTransfer:()=>u.v(18),settings:()=>u.v(2)};window.__fx.goldTransferAdapter={getSnapshot:function(){return{accountId:String(bm?.buffer?.data?.[105]?.value||""),recipient:String(bm?.buffer?.data?.[148]?.value||""),amount:String(bm?.buffer?.data?.[149]?.value||""),loggedIn:!!b1?.z?.eg?.(0)};},resolveRecipientId:function(name){var normalize=function(value){return String(value||"").trim().toLocaleLowerCase();};var wanted=normalize(name);if(!wanted||!bq||!bq.wo||!Array.isArray(bq.wo.w9))return null;var matches=bq.wo.w9.filter(function(player){if(!player||player.ue==null)return false;var raw=normalize(player.username);var filtered=normalize(window.__fx?.nameFilter?.filter?.(player.username)||player.username);return raw===wanted||filtered===wanted;});return matches.length===1?String(matches[0].ue):null;},send:function(recipient,amount){var target=String(recipient||"").trim();var value=Number(amount);if(!b1?.z?.eg?.(0)||!target||!Number.isInteger(value)||value<1)return false;bm.qt.qu(148,target);bm.qt.qu(149,String(value));b1.aIy.aIz({action:0,ua:target,value:value});return true;}};window.__fx.setNativeMenuState=state=>u.v(state);$&`
     ); } catch (error) { console.info("[ZFX Client] Native game-menu adapter hook is absent in this game version."); }
     const { viewportWidth, viewportHeight, dimension } = matchOne(
         /(?<viewportWidth>\w+)=(?<dimension>\w+)\(document\.documentElement\.clientWidth\)(?=,(?<viewportHeight>\w+)=\k<dimension>\(window\.visualViewport)/g
@@ -237,10 +290,10 @@ function applyPatches(/** @type {ModUtils} */ modUtils) {
         '$<canvas>.style.left="0px",$&'
     );
 
-    replaceOne(
+    try { replaceOne(
         /this\.(?<resizeMethod>\w+)=function\((?<resizeArg>\w+)\)\{by=!0,resize\(\k<resizeArg>\)\}/g,
         "$&,(()=>{const handler=()=>resize(0);let attempts=0;const attach=()=>{if(__fx.sidebar?.setResizeHandler){__fx.sidebar.setResizeHandler(handler);return}if(++attempts<100)setTimeout(attach,50)};attach()})()"
-    );
+    ); } catch { console.info("[ZFX Client] Native sidebar resize hook is absent in this game version."); }
 
     const { scaleObject, scaleField } = matchOne(
         /\w+=Math\.floor\(\.5\+\w+\*(?<scaleObject>\w+)\.(?<scaleField>\w+)\),\w+=Math\.floor\(\.5\+\w+\*\k<scaleObject>\.\k<scaleField>\)/g

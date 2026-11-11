@@ -1,11 +1,18 @@
 {
-    "version": "0.1.39",
+    "version": "0.1.40",
     "lastUpdated": "November 11, 2026",
     "changes": [
-        "Initialize the native account context before submitting Vue login"
+        "Use the active native login screen context when submitting credentials"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.39",
+            "lastUpdated": "November 11, 2026",
+            "changes": [
+                "Initialize the native account context before submitting Vue login"
+            ]
+        },
         {
             "version": "0.1.38",
             "lastUpdated": "November 11, 2026",

@@ -6,6 +6,6 @@ export default definePatch(({ replaceOne }) => {
   // and opening its own credential submission screen (ux(18)).
   replaceOne(
     /function aSV\(\)\{/g,
-    "$&if(window.__fx)window.__fx.nativeLoginAdapter={login:function(accountName,password){var accountMenu=u.a8s(7);if(!accountMenu){u.v(7);accountMenu=u.a8s(7);}if(!accountMenu||accountMenu.a4w==null)return false;bm.r0.r1(105,bJ.f3.zq(String(accountName||\"\"),5));bm.r0.r1(106,bJ.f3.zq(String(password||\"\"),15));u.v(8,accountMenu.a4w,new ux(18));return true;},cancel:function(){var accountMenu=u.a8s(7);if(!accountMenu)return false;u.v(7,accountMenu.a4w);return true;}};",
+    "$&if(window.__fx)window.__fx.nativeLoginAdapter={login:function(accountName,password){var loginMenu=u.a4v();if(!loginMenu||loginMenu.a4w==null)return false;bm.r0.r1(105,bJ.f3.zq(String(accountName||\"\"),5));bm.r0.r1(106,bJ.f3.zq(String(password||\"\"),15));u.v(8,loginMenu.a4w,new ux(18));return true;},cancel:function(){var loginMenu=u.a4v();if(!loginMenu||loginMenu.a4w==null)return false;u.v(loginMenu.a4w);return true;}};",
   );
 });

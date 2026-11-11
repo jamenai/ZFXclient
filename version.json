@@ -1,11 +1,18 @@
 {
-    "version": "0.1.44",
+    "version": "0.1.45",
     "lastUpdated": "November 11, 2026",
     "changes": [
-        "Use the active profile language consistently in both settings tabs"
+        "Make the home view follow the active profile language"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.44",
+            "lastUpdated": "November 11, 2026",
+            "changes": [
+                "Use the active profile language consistently in both settings tabs"
+            ]
+        },
         {
             "version": "0.1.43",
             "lastUpdated": "November 11, 2026",

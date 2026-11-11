@@ -18,7 +18,13 @@ const FxHomeView = defineComponent({
     const fullPlayerName = ref("");
     const profileName = ref("");
     const clan = ref("");
-    const isGerman = computed(() => (window.__fx?.getGameLanguage?.() || navigator.language || "en").toLowerCase().startsWith("de"));
+    const selectedLanguage = () => String(
+      window.__fx?.settingsNamespaces?.native?.get?.("language")
+        || window.__fx?.getGameLanguage?.() || navigator.language || "en",
+    ).toLowerCase();
+    const language = ref(selectedLanguage());
+    const isGerman = computed(() => language.value.startsWith("de"));
+    const updateLanguage = () => { language.value = selectedLanguage(); };
     const labels = computed(() => isGerman.value ? {
       accountId: "Account-ID",
       eyebrow: "DEIN SPIEL. DEIN CLIENT.", subtitle: "Dein Territorial.io-Spielbereich",
@@ -313,9 +319,12 @@ const FxHomeView = defineComponent({
     };
 
     onMounted(() => {
+      updateLanguage();
       refresh();
       timer = window.setInterval(refresh, 300);
       window.addEventListener("fx-native-menu-state-change", refresh);
+      window.addEventListener("fx-game-language-change", updateLanguage);
+      window.addEventListener("fx-settings-profile-loaded", updateLanguage);
       nativeHomeExtrasObserver = new MutationObserver(() => {
         if (visible.value) setNativeHomeExtrasHidden(true);
       });
@@ -331,6 +340,8 @@ const FxHomeView = defineComponent({
       setNativeHomeButtonsHidden(false);
       setNativeHomeExtrasHidden(false);
       window.removeEventListener("fx-native-menu-state-change", refresh);
+      window.removeEventListener("fx-game-language-change", updateLanguage);
+      window.removeEventListener("fx-settings-profile-loaded", updateLanguage);
       if (window.__fx?.openPlayerNameView === openNameEditor) delete window.__fx.openPlayerNameView;
       if (window.__fx?.startMultiplayerFromHome === startMultiplayer) delete window.__fx.startMultiplayerFromHome;
       if (window.__fx?.startMultiplayerForJoinLinkFromHome === startMultiplayerForJoinLink) delete window.__fx.startMultiplayerForJoinLinkFromHome;

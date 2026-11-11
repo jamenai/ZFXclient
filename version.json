@@ -1,11 +1,18 @@
 {
-    "version": "0.1.43",
+    "version": "0.1.44",
     "lastUpdated": "November 11, 2026",
     "changes": [
-        "Use the provided profile as the protected system default settings profile"
+        "Use the active profile language consistently in both settings tabs"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.43",
+            "lastUpdated": "November 11, 2026",
+            "changes": [
+                "Use the provided profile as the protected system default settings profile"
+            ]
+        },
         {
             "version": "0.1.42",
             "lastUpdated": "November 11, 2026",

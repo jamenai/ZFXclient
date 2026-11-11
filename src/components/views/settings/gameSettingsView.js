@@ -87,7 +87,8 @@ export const GameSettingsPanel = defineComponent({
     }
 
     function refresh() {
-      const selectedLanguage = window.__fx?.getGameLanguage?.();
+      const selectedLanguage = window.__fx?.settingsNamespaces?.native?.get?.("language")
+        || window.__fx?.getGameLanguage?.();
       if (selectedLanguage) language.value = String(selectedLanguage).toLowerCase();
       const adapter = window.__fx?.gameSettingsAdapter;
       if (typeof adapter?.getSnapshot === "function") {
@@ -104,6 +105,7 @@ export const GameSettingsPanel = defineComponent({
     function setField(id, value) {
       if ([2, 7, 8, 13, 14, 15].includes(id)) value = value ? 1 : 0;
       setNativeSettingsDraft(id, value);
+      if (id === 12) window.dispatchEvent(new Event("fx-game-language-change"));
       notifySettingsChanged();
       refresh();
     }

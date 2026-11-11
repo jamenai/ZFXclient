@@ -20,7 +20,9 @@ const CustomQuickEmojis = createCustomQuickEmojis({
 });
 // Settings follow the language selected in the game. If the game has not exposed
 // its setting yet, use English instead of silently inheriting the browser locale.
-const settingsLanguage = () => String(__fx.getGameLanguage?.() || "en").toLowerCase();
+const settingsLanguage = () => String(
+  __fx.settingsNamespaces?.native?.get?.("language") || __fx.getGameLanguage?.() || "en",
+).toLowerCase();
 const settingsTextDe = {
   "Default:": "Standard:", Enabled: "Aktiviert", Disabled: "Deaktiviert", Empty: "Leer",
   Leaderboard: "Rangliste",
@@ -348,8 +350,7 @@ const fxText = {
   },
 };
 __fx.translateFX = key => {
-  const selectedLanguage = __fx.getGameLanguage?.() || "en";
-  return fxText[selectedLanguage.toLowerCase().startsWith("de") ? "de" : "en"][key] ?? key;
+  return fxText[settingsLanguage().startsWith("de") ? "de" : "en"][key] ?? key;
 };
 
 var settings = createDefaultSettings();

@@ -62,7 +62,9 @@ const VueSettingsView = defineComponent({
       popups: ["Popups", "Pop-ups"],
     };
     const updateLanguage = () => {
-      isGerman.value = String(window.__fx?.getGameLanguage?.() || "en").toLowerCase().startsWith("de");
+      const language = window.__fx?.settingsNamespaces?.native?.get?.("language")
+        || window.__fx?.getGameLanguage?.() || "en";
+      isGerman.value = String(language).toLowerCase().startsWith("de");
     };
     const handleGameLanguageChange = () => {
       updateLanguage();

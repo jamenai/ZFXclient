@@ -68,14 +68,14 @@ const LoginView = defineComponent({
       try {
         let adapter = window.__fx?.nativeLoginAdapter;
         if (typeof adapter?.login !== "function") {
-          window.__fx?.setNativeMenuState?.(6);
+          window.__fx?.setNativeMenuState?.(7);
           await new Promise(resolve => requestAnimationFrame(resolve));
           adapter = window.__fx?.nativeLoginAdapter;
         }
         if (typeof adapter?.login === "function") started = await adapter.login(name, password.value);
         if (!started && typeof window.__fx?.setNativeMenuState === "function") {
-          // Recreate the native form once in case its fields were not ready when the view opened.
-          window.__fx.setNativeMenuState(6);
+          // Recreate the native account context once in case it was not ready when the view opened.
+          window.__fx.setNativeMenuState(7);
           await new Promise(resolve => requestAnimationFrame(resolve));
           adapter = window.__fx?.nativeLoginAdapter;
           if (typeof adapter?.login === "function") started = await adapter.login(name, password.value);

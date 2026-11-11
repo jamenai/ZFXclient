@@ -1,11 +1,18 @@
 {
-    "version": "0.1.38",
+    "version": "0.1.39",
     "lastUpdated": "November 11, 2026",
     "changes": [
-        "Make the native login adapter available when the Vue login view opens"
+        "Initialize the native account context before submitting Vue login"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.38",
+            "lastUpdated": "November 11, 2026",
+            "changes": [
+                "Make the native login adapter available when the Vue login view opens"
+            ]
+        },
         {
             "version": "0.1.37",
             "lastUpdated": "November 11, 2026",

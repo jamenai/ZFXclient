@@ -227,9 +227,9 @@ const MyAccountView = defineComponent({
       handedOffToNative.value = true;
       close();
       window.requestAnimationFrame(() => {
-        // The native login adapter is created with the native login screen.
-        // Initialize that screen first, then immediately cover it with Vue.
-        window.__fx?.setNativeMenuState?.(6);
+        // The native login submit callback needs its parent account menu (state 7).
+        // Initialize that context before showing the Vue login form.
+        window.__fx?.setNativeMenuState?.(7);
         window.__fx?.openVueLoginView?.();
       });
       return true;

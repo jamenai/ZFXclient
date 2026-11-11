@@ -158,8 +158,6 @@ const MyAccountView = defineComponent({
       const currentMenuState = Number(window.__fx?.nativeMenuState);
       returnMenuState = Number.isInteger(currentMenuState) ? currentMenuState : 5;
       handedOffToNative.value = false;
-      try { window.__fx?.openAccount?.(); }
-      catch (error) { console.warn("[ZFX Client MyAccountView] Could not open the native account screen", error); }
       window.__fx?.refreshSavedAccounts?.();
       refresh();
       activeSection.value = "overview";
@@ -233,6 +231,16 @@ const MyAccountView = defineComponent({
         window.__fx?.openVueLoginView?.();
       });
       return true;
+    }
+    function createNativeAccount() {
+      handedOffToNative.value = true;
+      close();
+      requestAnimationFrame(() => {
+        window.__fx?.setNativeMenuState?.(5);
+        if (!window.__fx?.startNativeAccountCreation?.()) {
+          console.warn("[ZFX Client MyAccountView] Native account creation is unavailable");
+        }
+      });
     }
     function findNativeButton(labelId, prefix = false) {
       const expected = String(window.__fx?.getNativeGameLabel?.(labelId) || "").trim();
@@ -317,7 +325,7 @@ const MyAccountView = defineComponent({
     return {
       visible, activeSection, navigation, playerName, accountId, gameProfile, savedAccounts, status, isGerman,
       bioDraft, emailDraft, verificationCode, labels: extendedLabels, close, copyId, changeName,
-      handoffToNative, requestEmailCode, submitEmailCode, saveBio, useSavedAccount, removeSavedAccount, openLoginView,
+      handoffToNative, requestEmailCode, submitEmailCode, saveBio, useSavedAccount, removeSavedAccount, openLoginView, createNativeAccount,
     };
   },
   template: `
@@ -379,6 +387,7 @@ const MyAccountView = defineComponent({
           </section>
           <article class="fx-my-account-action-grid">
             <button type="button" @click="openLoginView"><span>SW</span><strong>{{ labels.switchAccount }}</strong><i>&rsaquo;</i></button>
+            <button type="button" @click="createNativeAccount"><span>+</span><strong>{{ labels.createAccount }}</strong><i>&rsaquo;</i></button>
             <button type="button" class="is-danger" @click="handoffToNative({ labelId: 214, prefix: true })"><span>X</span><strong>{{ labels.deleteAccount }}</strong><i>&rsaquo;</i></button>
           </article>
           </section>

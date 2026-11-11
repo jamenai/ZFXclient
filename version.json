@@ -1,11 +1,25 @@
 {
-    "version": "0.1.40",
+    "version": "0.1.42",
     "lastUpdated": "November 11, 2026",
     "changes": [
-        "Use the active native login screen context when submitting credentials"
+        "Include the native data usage acceptance step in account creation"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.41",
+            "lastUpdated": "November 11, 2026",
+            "changes": [
+                "Keep the native data usage acceptance step in account creation"
+            ]
+        },
+        {
+            "version": "0.1.40",
+            "lastUpdated": "November 11, 2026",
+            "changes": [
+                "Use the active native login screen context when submitting credentials"
+            ]
+        },
         {
             "version": "0.1.39",
             "lastUpdated": "November 11, 2026",

@@ -1,11 +1,18 @@
 {
-    "version": "0.1.42",
+    "version": "0.1.43",
     "lastUpdated": "November 11, 2026",
     "changes": [
-        "Include the native data usage acceptance step in account creation"
+        "Use the provided profile as the protected system default settings profile"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.42",
+            "lastUpdated": "November 11, 2026",
+            "changes": [
+                "Include the native data usage acceptance step in account creation"
+            ]
+        },
         {
             "version": "0.1.41",
             "lastUpdated": "November 11, 2026",

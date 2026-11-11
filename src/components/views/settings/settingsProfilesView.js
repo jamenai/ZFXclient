@@ -2,6 +2,7 @@ import { computed, defineComponent, onBeforeUnmount, onMounted, ref } from "vue/
 import settingsManager, { saveSettings, settingsApi } from "../../../modules/settings/settings.js";
 import { createDefaultSettings } from "../../../modules/settings/settingsSchema.js";
 import { mergeSettings } from "../../../modules/settings/settingsStore.js";
+import systemDefaultProfile from "../../../modules/settings/systemDefaultProfile.json";
 
 export const PROFILE_STORAGE_KEY = "zfx_settings_profiles_v1";
 const PROFILE_FORMAT = "zfx-settings-profile";
@@ -96,9 +97,10 @@ export function readProfiles() {
 
 export function createSystemDefaultProfile() {
   return normalizeProfile({
-    format: PROFILE_FORMAT, schemaVersion: PROFILE_SCHEMA_VERSION, id: SYSTEM_DEFAULT_PROFILE_ID,
-    name: "Default", updatedAt: 0,
-    native: { resetToDefaults: true, values: {}, connection: 0, shortcuts: {} }, zfx: createDefaultSettings(),
+    ...systemDefaultProfile,
+    id: SYSTEM_DEFAULT_PROFILE_ID,
+    name: "Default",
+    updatedAt: 0,
   });
 }
 
@@ -127,7 +129,10 @@ function ensureInitialCustomProfile() {
 function profileNativeDraft(profile) {
   const snapshot = window.__fx?.gameSettingsAdapter?.getSnapshot?.();
   const settings = profile.native.resetToDefaults
-    ? Object.fromEntries(Object.entries(NATIVE_SETTING_KEYS).filter(([id]) => snapshot?.defaults?.[id] !== undefined).map(([id, key]) => [key, snapshot.defaults[id]]))
+    ? {
+        ...Object.fromEntries(Object.entries(NATIVE_SETTING_KEYS).filter(([id]) => snapshot?.defaults?.[id] !== undefined).map(([id, key]) => [key, snapshot.defaults[id]])),
+        ...profile.native.settings,
+      }
     : { ...profile.native.settings };
   return {
     settings,

@@ -1,0 +1,120 @@
+{
+  "format": "zfx-settings-profile",
+  "schemaVersion": 3,
+  "id": "zfx-system-default",
+  "name": "Default",
+  "updatedAt": 0,
+  "native": {
+    "resetToDefaults": true,
+    "settings": {
+      "messageKeepClosed": 1,
+      "messageMuted": 1,
+      "language": "en",
+      "minimumFont": 0,
+      "placeBalance": 1
+    },
+    "values": {
+      "7": 1,
+      "9": 0,
+      "12": "en",
+      "13": 1,
+      "14": 1
+    },
+    "connection": 0,
+    "shortcuts": {}
+  },
+  "zfx": {
+    "displayWinCounter": false,
+    "displayTickNumber": true,
+    "showCountryFlagsOnLand": true,
+    "showWorldClock": true,
+    "useFullscreenMode": false,
+    "hoveringTooltip": false,
+    "realisticNames": false,
+    "showPlayerDensity": true,
+    "showEstimatedEliminationAttack": false,
+    "estimatedAttackTroopMultiplier": 2,
+    "estimatedAttackGreenThreshold": 25,
+    "coloredDensity": true,
+    "densityDisplayStyle": "absoluteQuotient",
+    "hideBotNames": true,
+    "highlightClanSpawns": true,
+    "highlightSelfTerritory": false,
+    "selfTerritoryOutlineWidth": 3,
+    "selfTerritoryGlow": 6,
+    "highlightDuplicateIps": false,
+    "detailedTeamPercentage": true,
+    "openDonationHistoryFromLb": true,
+    "showLeaderboardTabs": true,
+    "customBackgroundUrl": "",
+    "keybindButtons": true,
+    "attackPercentageKeybinds": [
+      {
+        "key": "",
+        "type": "absolute",
+        "value": 0.28
+      },
+      {
+        "key": "",
+        "type": "absolute",
+        "value": 0.35
+      },
+      {
+        "key": "",
+        "type": "absolute",
+        "value": 0.32
+      },
+      {
+        "key": "",
+        "type": "absolute",
+        "value": 0.44
+      },
+      {
+        "key": "",
+        "type": "absolute",
+        "value": 0.1
+      },
+      {
+        "key": "",
+        "type": "absolute",
+        "value": 0.14
+      }
+    ],
+    "startingPercentageEnabled": false,
+    "startingPercentage": 50,
+    "hidePropagandaPopup": false,
+    "showLobbyNotificationCloseButton": false,
+    "lobbyNotifications.autoMinimize": true,
+    "lobbyNotifications.autoMinimizeDelaySeconds": 6,
+    "showReplayTimebar": true,
+    "customQuickEmojisEnabled": false,
+    "customQuickEmojis": [
+      1011,
+      1012,
+      1013,
+      1014,
+      1015,
+      1016,
+      1017,
+      1018,
+      1019
+    ],
+    "lobbyReminderRules": [],
+    "lobbyFontScale": 100,
+    "uiTransparency": 15,
+    "gameHudTransparency": 15,
+    "gameStatusHudStyle": "tiles",
+    "uiSkin": "zfx",
+    "showLobbyTabLabels": true,
+    "mutePingAll": false,
+    "mutePingEveryone": false,
+    "mutePingRoom": false,
+    "mutePingClan": false,
+    "mutePingLanguage": false,
+    "mutePingDirect": false,
+    "hideInappropriateNames": false,
+    "followedAccountNicknames": {},
+    "followedAccountColors": {},
+    "savedAccountLabels": {}
+  }
+}

@@ -1,11 +1,18 @@
 {
-    "version": "0.1.45",
+    "version": "0.1.46",
     "lastUpdated": "November 11, 2026",
     "changes": [
-        "Make the home view follow the active profile language"
+        "Load saved account data without opening the native account screen"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.45",
+            "lastUpdated": "November 11, 2026",
+            "changes": [
+                "Make the home view follow the active profile language"
+            ]
+        },
         {
             "version": "0.1.44",
             "lastUpdated": "November 11, 2026",

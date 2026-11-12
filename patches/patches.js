@@ -130,14 +130,25 @@ function applyPatches(/** @type {ModUtils} */ modUtils) {
         console.info("[ZFX Client] Native troop-density panel hook is absent in this game version.");
     }
 
-    try { // Apply the Game HUD transparency setting to the native status panel background.
-        replaceOne(/(p0\.fillStyle=bE\.pR),p0\.fillRect\(0,0,aX\.j,aX\.k\),p0\.fillStyle=bE\.po/g,
-            '$1,p0.globalAlpha=1-Math.max(0,Math.min(70,__fx.settingsApi.getNumber("gameHudTransparency",15)))/100,p0.fillRect(0,0,aX.j,aX.k),p0.globalAlpha=1,p0.fillStyle=bE.po');
-        replaceOne(/(function aF8\(\)\{)/g,
-            '$1var fxStatusNow=Date.now();if(window.__fx.gameStatusHudAdapter?.receiveNativeSnapshot&&fxStatusNow-(window.__fx.gameStatusHudLastSent||0)>=250){window.__fx.gameStatusHudLastSent=fxStatusNow;window.__fx.gameStatusHudAdapter.receiveNativeSnapshot({updatedAt:fxStatusNow,rows:aEx.map(function(label,index){return{index:index,label:label,value:aF6(index),visible:!!aF0[index]};}).filter(function(row){return row.visible&&row.label;})});}');
-        replaceOne(/this\.yI=function\(\)\{yJ\.drawImage\(canvas,fj,fl\)\}/g,
-            'this.yI=function(){if(window.__fx?.gameStatusHudReady)return;yJ.drawImage(canvas,fj,fl)}');
-        console.info("[ZFX Client] Native status HUD transparency hook installed.");
+    try { // Feed the native status values into the Vue HUD and suppress the duplicate native panel.
+        if (/gameStatusHudAdapter\?\.receiveNativeSnapshot\&\&fxStatusNow/.test(modUtils.script)) {
+            console.info("[ZFX Client] Current native status-data adapter is installed.");
+        } else if (/function cU\(\)\{/.test(modUtils.script)
+            && /this\.el=function\(\)\{aFj\(\);aFk\(\);this\.nH\(\);aFl\(\);aFc\(\);aFm\(\);aFn\(\);aFo\(\);\};/.test(modUtils.script)) {
+            replaceOne(/this\.el=function\(\)\{aFj\(\);aFk\(\);this\.nH\(\);aFl\(\);aFc\(\);aFm\(\);aFn\(\);aFo\(\);\};/g,
+                'this.el=function(){aFj();aFk();this.nH();aFl();aFc();aFm();aFn();aFo();var fxStatusNow=Date.now();if(window.__fx?.gameStatusHudAdapter?.receiveNativeSnapshot&&fxStatusNow-(window.__fx.gameStatusHudLastSent||0)>=250){window.__fx.gameStatusHudLastSent=fxStatusNow;window.__fx.gameStatusHudAdapter.receiveNativeSnapshot({updatedAt:fxStatusNow,rows:aFU.map(function(label,index){return{index:index,label:label,value:aFd(index),visible:!!aFX[index]};}).filter(function(row){return row.visible&&row.label;})});}};');
+            replaceOne(/this\.yr=function\(\)\{ys\.drawImage\(canvas,fn,fp\);\};/g,
+                'this.yr=function(){if(window.__fx?.gameStatusHudReady)return;ys.drawImage(canvas,fn,fp);};');
+            console.info("[ZFX Client] Installed native status-data adapter for the current game HUD.");
+        } else {
+            replaceOne(/(p0\.fillStyle=bE\.pR),p0\.fillRect\(0,0,aX\.j,aX\.k\),p0\.fillStyle=bE\.po/g,
+                '$1,p0.globalAlpha=1-Math.max(0,Math.min(70,__fx.settingsApi.getNumber("gameHudTransparency",15)))/100,p0.fillRect(0,0,aX.j,aX.k),p0.globalAlpha=1,p0.fillStyle=bE.po');
+            replaceOne(/(function aF8\(\)\{)/g,
+                '$1var fxStatusNow=Date.now();if(window.__fx.gameStatusHudAdapter?.receiveNativeSnapshot&&fxStatusNow-(window.__fx.gameStatusHudLastSent||0)>=250){window.__fx.gameStatusHudLastSent=fxStatusNow;window.__fx.gameStatusHudAdapter.receiveNativeSnapshot({updatedAt:fxStatusNow,rows:aEx.map(function(label,index){return{index:index,label:label,value:aF6(index),visible:!!aF0[index]};}).filter(function(row){return row.visible&&row.label;})});}');
+            replaceOne(/this\.yI=function\(\)\{yJ\.drawImage\(canvas,fj,fl\)\}/g,
+                'this.yI=function(){if(window.__fx?.gameStatusHudReady)return;yJ.drawImage(canvas,fj,fl)}');
+            console.info("[ZFX Client] Native status HUD transparency hook installed.");
+        }
     } catch (error) {
         console.info("[ZFX Client] Native status HUD transparency hook is absent in this game version.");
     }

@@ -1,6 +1,7 @@
 import { definePatch } from "../modUtils.js";
 
 export default definePatch((modUtils) => {
+  const installedNativeHooks = new Set();
   const optional = (pattern, replacement, label) => {
     const before = modUtils.script;
     try {
@@ -8,8 +9,12 @@ export default definePatch((modUtils) => {
       // can retain a stale function reference when this patch is composed
       // after other adapters have wrapped the ModUtils instance.
       modUtils.script = modUtils.script.replace(pattern, replacement);
-      if (modUtils.script === before) console.info(`[ZFX Client] Native ${label} adapter hook is absent in this game version.`);
-    } catch { console.info(`[ZFX Client] Native ${label} adapter hook is absent in this game version.`); }
+      if (modUtils.script === before) {
+        if (!installedNativeHooks.has(label)) console.info(`[ZFX Client] Native ${label} adapter hook is absent in this game version.`);
+      } else installedNativeHooks.add(label);
+    } catch {
+      if (!installedNativeHooks.has(label)) console.info(`[ZFX Client] Native ${label} adapter hook is absent in this game version.`);
+    }
   };
 
   // Territorial.io 2.17.9 stores upcoming entries in bq.tb and lobby players

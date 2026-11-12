@@ -538,7 +538,7 @@ const GameLeaderboardHud = defineComponent({
           isBot: player.isBot ?? isNativeBot(player.id),
           isAlive: player.isAlive !== false,
           teamId: player.teamId ?? fx?.getNativePlayerTeamId?.(player.id) ?? null,
-          color: player.color || fx?.gameLeaderboardAdapter?.getPlayerColor?.(player.id) || fx?.getNativePlayerTeamColor?.(player.id) || null,
+          color: player.color || fx?.gameLeaderboardAdapter?.getPlayerColor?.(player.id) || fx?.getNativePlayerColor?.(player.id) || fx?.getNativePlayerTeamColor?.(player.id) || null,
           clanTag,
           isOwn: player.id === ownPlayerId,
           isClanMate: player.id !== ownPlayerId && ownClan !== null && clanTag === ownClan,
@@ -605,12 +605,17 @@ const GameLeaderboardHud = defineComponent({
     const receiveStatus = value => {
       if (!value || !Array.isArray(value.rows)) return;
       const fx = window.__fx;
+      const playerId = Number(fx?.getGameVar?.("playerId"));
+      const playerTerritories = fx?.getGameVar?.("playerTerritories");
+      const densityValue = Number.isInteger(playerId) ? fx?.utils?.getDensity?.(playerId) : null;
+      const maxTroopsValue = Number.isInteger(playerId) && playerTerritories
+        ? fx?.utils?.getMaxTroops?.(playerTerritories, playerId)
+        : null;
       let densityColor = null;
       let densityFill = 0;
       try {
-        const playerId = Number(fx?.getGameVar?.("playerId"));
         const balance = Number(fx?.getGameVar?.("playerBalances")?.[playerId]);
-        const pixels = Number(fx?.getGameVar?.("playerTerritories")?.[playerId]);
+        const pixels = Number(playerTerritories?.[playerId]);
         if (Number.isFinite(balance) && Number.isFinite(pixels) && pixels > 0) {
           densityFill = Math.max(0, Math.min(100, balance / (pixels * 150) * 100));
         }
@@ -621,14 +626,17 @@ const GameLeaderboardHud = defineComponent({
       const mappedRows = value.rows
         .filter(row => row.visible && row.label)
         .map(row => ({ ...row, ...statusMeta(row.label, row.index) }));
-      const maxTroops = mappedRows.find(row => row.key === "max-troops");
+      const maxTroops = mappedRows.find(row => row.key === "max-troops")
+        || (maxTroopsValue != null ? { key: "max-troops", value: String(maxTroopsValue) } : null);
       const interest = mappedRows.find(row => row.key === "interest");
       const percentage = mappedRows.find(row => row.key === "percentage");
       const pixels = mappedRows.find(row => row.key === "pixels");
+      const density = mappedRows.find(row => row.key === "density")
+        || (densityValue != null && densityValue !== "" ? { key: "density", icon: "â–¤", shortLabel: "Density", value: String(densityValue) } : null);
       const displayRows = mappedRows
         .filter(row => !["humans", "bots", "spectators", "max-troops", "interest", "percentage", "pixels"].includes(row.key))
         .map(row => ({ ...row, densityColor: row.key === "density" ? densityColor : null, densityFill, maxTroops: row.key === "density" ? maxTroops?.value : null, interest: row.key === "density" ? interest?.value : null }));
-      if (!displayRows.some(row => row.key === "density") && (maxTroops || interest)) {
+      if (!displayRows.some(row => row.key === "density") && (density || maxTroops || interest)) {
         displayRows.push({
           key: "density",
           icon: "â–¤",
@@ -639,6 +647,7 @@ const GameLeaderboardHud = defineComponent({
           maxTroops: maxTroops?.value,
           interest: interest?.value,
         });
+        if (density?.value != null) displayRows[displayRows.length - 1].value = density.value;
       }
       if (percentage || pixels) {
         displayRows.push({
@@ -700,7 +709,7 @@ const GameLeaderboardHud = defineComponent({
           territories: territoryValue,
           isAlive,
           teamId: fx?.getNativePlayerTeamId?.(id) ?? null,
-          color: fx?.gameLeaderboardAdapter?.getPlayerColor?.(id) || fx?.getNativePlayerTeamColor?.(id) || null,
+          color: fx?.gameLeaderboardAdapter?.getPlayerColor?.(id) || fx?.getNativePlayerColor?.(id) || fx?.getNativePlayerTeamColor?.(id) || null,
         });
       }
       if (!players.length) return;

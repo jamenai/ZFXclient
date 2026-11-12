@@ -9,10 +9,46 @@ export default definePatch((modUtils) => {
 	// the native team map and publish them when the territory map is mutated.
 	if (/function dS\(\)\{/.test(modUtils.script)) {
 		replaceOne(/function dS\(\)\{/g,
-			'function dS(){window.__fx.getNativePlayerTeamId=id=>Number.isInteger(Number(id))&&Number(id)>=0&&Number(id)<aE.fd?bj.lP[bj.fe[Number(id)]]:null;window.__fx.getNativePlayerTeamColor=id=>{var team=window.__fx.getNativePlayerTeamId(Number(id)),rgb=bj.aW6[team];return rgb?"rgb("+rgb[0]+","+rgb[1]+","+rgb[2]+")":null;};window.__fx.publishNativeTeamChart=function(){var adapter=window.__fx?.gameTeamChartAdapter?.receiveNativeSnapshot;if(!aE.ib||aE.a4E===0||!adapter)return;var now=Date.now();if(now-(window.__fx.gameTeamChartLastSent||0)<180)return;window.__fx.gameTeamChartLastSent=now;var teams=[];for(var teamId=0;teamId<bj.aW6.length;teamId++){var pixels=0;for(var player=0;player<aE.fd;player++)if(window.__fx.getNativePlayerTeamId(player)===teamId)pixels+=Number(ah.hU[player])||0;var color=bj.aW6[teamId];teams.push({id:teamId,pixels:pixels,color:"rgb("+color[0]+","+color[1]+","+color[2]+")"});}adapter({updatedAt:now,teams:teams});};');
+			'function dS(){window.__fx.getNativePlayerTeamId=id=>Number.isInteger(Number(id))&&Number(id)>=0&&Number(id)<aE.fd?bj.lP[bj.fe[Number(id)]]:null;window.__fx.getNativePlayerTeamColor=id=>{var team=window.__fx.getNativePlayerTeamId(Number(id)),rgb=bj.aW6[team];return rgb?"rgb("+rgb[0]+","+rgb[1]+","+rgb[2]+")":null;};window.__fx.getNativePlayerColor=id=>{id=Number(id);if(!Number.isInteger(id)||id<0||id>=aE.fd)return null;if(aE.ib)return window.__fx.getNativePlayerTeamColor(id);var color=aE.data.colorsData?.[id];return Number.isInteger(color)?"rgb("+(((color>>12)&63)<<2)+","+(((color>>6)&63)<<2)+","+((color&63)<<2)+")":null;};window.__fx.publishNativeTeamChart=function(){var adapter=window.__fx?.gameTeamChartAdapter?.receiveNativeSnapshot;if(!aE.ib||aE.a4E===0||!adapter)return;var now=Date.now();if(now-(window.__fx.gameTeamChartLastSent||0)<180)return;window.__fx.gameTeamChartLastSent=now;var teams=[];for(var teamId=0;teamId<bj.aW6.length;teamId++){var pixels=0;for(var player=0;player<aE.fd;player++)if(window.__fx.getNativePlayerTeamId(player)===teamId)pixels+=Number(ah.hU[player])||0;var color=bj.aW6[teamId];teams.push({id:teamId,pixels:pixels,color:"rgb("+color[0]+","+color[1]+","+color[2]+")"});}adapter({updatedAt:now,teams:teams});};');
 		replaceOne(/function aMu\(fK\)\{/g,
 			'function aMu(fK){window.__fx?.publishNativeTeamChart?.();');
 		console.info("[ZFX Client] Installed native team chart and player team-color adapters.");
+	}
+
+	// The 2.17.9 in-game player board keeps its complete placement order in
+	// md/kn. Publish it after the native update has removed eliminated players
+	// and refreshed the live territory ordering; the old canvas hook no longer
+	// exists in this version.
+	if (/this\.el=function\(\)\{aFD\(\);aFE\(\);aFF\(\);aFG\(\);\};/.test(modUtils.script)) {
+		replaceOne(/this\.el=function\(\)\{aFD\(\);aFE\(\);aFF\(\);aFG\(\);\};/g,
+			'this.el=function(){aFD();aFE();if(window.__fx?.gameLeaderboardAdapter?.receiveNativeSnapshot){var fxNow=Date.now();if(fxNow-(window.__fx.gameLeaderboardLastSent||0)>180){window.__fx.gameLeaderboardLastSent=fxNow;var fxPlayers=md.slice(0,aEf).map(function(id,index){return{id:id,rank:index+1,name:ah.a4x[id]||("Player "+(id+1)),territories:Number(ah.hU[id])||0,isAlive:ah.ne[id]!==0,isBot:id>=aE.l2,teamId:window.__fx.getNativePlayerTeamId?.(id)??null,color:window.__fx.getNativePlayerColor?.(id)??null};});var fxOwn=fxPlayers.find(function(player){return player.id===aE.fQ})||null;window.__fx.gameLeaderboardAdapter.receiveNativeSnapshot({updatedAt:fxNow,total:aE.fd,humanCount:aE.l2,botCount:aE.lO,spectatorCount:0,ownPlayerId:aE.fQ,ownRank:kn[aE.fQ]+1,players:fxPlayers,ownPlayer:fxOwn});}}aFF();aFG();};');
+		replaceOne(/this\.yr=function\(\)\{ys\.drawImage\(aEc,bf\.gap,bf\.gap\);\};/g,
+			'this.yr=function(){if(window.__fx?.gameLeaderboardHudReady)return;ys.drawImage(aEc,bf.gap,bf.gap);};');
+		replaceOne(/this\.hu=function\(fn,fp\)\{if\(a3D\(fn,fp\)\)\{/g,
+			'this.hu=function(fn,fp){if(window.__fx?.gameLeaderboardHudReady)return false;if(a3D(fn,fp)){');
+		replaceOne(/this\.a5m=function\(fn,fp\)\{var eh;/g,
+			'this.a5m=function(fn,fp){if(window.__fx?.gameLeaderboardHudReady)return false;var eh;');
+		replaceOne(/this\.a6B=function\(fn,fp\)\{if\(!aEu\)\{return false;\}/g,
+			'this.a6B=function(fn,fp){if(window.__fx?.gameLeaderboardHudReady)return false;if(!aEu){return false;}');
+		replaceOne(/this\.a5p=function\(fn,fp,deltaY\)\{var aFK;/g,
+			'this.a5p=function(fn,fp,deltaY){if(window.__fx?.gameLeaderboardHudReady)return false;var aFK;');
+		console.info("[ZFX Client] Installed native in-game leaderboard snapshot adapter.");
+	} else {
+		console.info("[ZFX Client] Native in-game leaderboard update hook is absent in this game version.");
+	}
+
+	// Current status panel cU owns the labels, visibility flags, and formatted
+	// values used by the four Vue status widgets. Forward its live rows and hide
+	// the native duplicate once the Vue replacement has data.
+	if (/function cU\(\)\{/.test(modUtils.script)
+		&& /this\.el=function\(\)\{aFj\(\);aFk\(\);this\.nH\(\);aFl\(\);aFc\(\);aFm\(\);aFn\(\);aFo\(\);\};/.test(modUtils.script)) {
+		replaceOne(/this\.el=function\(\)\{aFj\(\);aFk\(\);this\.nH\(\);aFl\(\);aFc\(\);aFm\(\);aFn\(\);aFo\(\);\};/g,
+			'this.el=function(){aFj();aFk();this.nH();aFl();aFc();aFm();aFn();aFo();var fxStatusNow=Date.now();if(window.__fx?.gameStatusHudAdapter?.receiveNativeSnapshot&&fxStatusNow-(window.__fx.gameStatusHudLastSent||0)>=250){window.__fx.gameStatusHudLastSent=fxStatusNow;window.__fx.gameStatusHudAdapter.receiveNativeSnapshot({updatedAt:fxStatusNow,rows:aFU.map(function(label,index){return{index:index,label:label,value:aFd(index),visible:!!aFX[index]};}).filter(function(row){return row.visible&&row.label;})});}};');
+		replaceOne(/this\.yr=function\(\)\{ys\.drawImage\(canvas,fn,fp\);\};/g,
+			'this.yr=function(){if(window.__fx?.gameStatusHudReady)return;ys.drawImage(canvas,fn,fp);};');
+		console.info("[ZFX Client] Installed native status-data adapter for the current game HUD.");
+	} else {
+		console.info("[ZFX Client] Native status-data update hook is absent in this game version.");
 	}
 
 	// 2.17.9 uses vY menu commands and formats the response in aX5. Publish

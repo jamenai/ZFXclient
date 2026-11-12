@@ -25,7 +25,7 @@ import nameFilter from './nameFilter.js';
 import followedAccounts from './followedAccounts.js';
 import passwordReset from './passwordReset.js';
 import savedAccounts from './savedAccounts.js';
-import { drawSelfTerritoryHighlightOnGameMap, getSelfTerritoryHighlightDiagnostics, refreshSelfTerritoryHighlights } from "./selfTerritoryHighlight.js";
+import { drawSelfTerritoryHighlightOnGameMap, getSelfTerritoryHighlightDiagnostics, refreshSelfTerritoryHighlights, updateSelfTerritoryHighlightCell } from "./selfTerritoryHighlight.js";
 import { initializeWorldClock } from "./worldClock.js";
 import { createSidebar } from "./sidebar.js";
 import { createVueSettingsView } from "../components/views/settings/vueSettingsView.js";
@@ -81,6 +81,7 @@ const fxBridge = publishFxBridge(window, {
   savedAccounts,
   refreshSelfTerritoryHighlights,
   drawSelfTerritoryHighlightOnGameMap,
+  updateSelfTerritoryHighlightCell,
   getMapFeatureDiagnostics: () => ({
     settings: Object.fromEntries(["showEstimatedEliminationAttack", "highlightSelfTerritory", "highlightClanSpawns"].map(key => [key, settingsApi.getBoolean(key)])),
     renders: window.__fx?.mapFeatureRenderDiagnostics ?? {},

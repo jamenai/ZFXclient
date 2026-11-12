@@ -10,6 +10,6 @@ export default definePatch(({ replaceOne }) => {
   // Mark the cached contour dirty whenever a map pixel changes owner or type.
   replaceOne(
     /function aMu\(fK\)\{/g,
-    '$&window.__fx&&(window.__fx.selfTerritoryHighlightRevision=(window.__fx.selfTerritoryHighlightRevision||0)+1);',
+    '$&window.__fx?.updateSelfTerritoryHighlightCell?.(fK,ad,bV,aE.fQ);',
   );
 });

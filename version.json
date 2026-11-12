@@ -1,11 +1,20 @@
 {
-    "version": "0.1.46",
-    "lastUpdated": "November 11, 2026",
+    "version": "0.1.47",
+    "lastUpdated": "November 12, 2026",
     "changes": [
-        "Load saved account data without opening the native account screen"
+        "Show native account codes and compact ranks in lobby player cards",
+        "Keep the player-name editor in the viewport and return to the custom lobby after saving",
+        "Improve game HUD leaderboard controls and add network diagnostics"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.46",
+            "lastUpdated": "November 11, 2026",
+            "changes": [
+                "Load saved account data without opening the native account screen"
+            ]
+        },
         {
             "version": "0.1.45",
             "lastUpdated": "November 11, 2026",

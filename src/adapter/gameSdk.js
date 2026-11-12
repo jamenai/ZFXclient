@@ -7,6 +7,18 @@ const EMPTY_LOBBY = Object.freeze({
 });
 
 const ENTRY_FIELDS = ["countdownSeconds", "playerCount", "maxPlayers", "mapIndex", "mapSeed", "modeCode", "isContest", "readyCount", "players", "participation", "joined", "spectating"];
+const ACCOUNT_CODE_ALPHABET = "-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz";
+
+function formatLobbyAccountCode(value) {
+  let id = Number(value);
+  if (!Number.isInteger(id) || id <= 0 || id > 0x3fffffff) return "";
+  let code = "";
+  for (let index = 0; index < 5; index++) {
+    code = ACCOUNT_CODE_ALPHABET[id % 64] + code;
+    id = Math.floor(id / 64);
+  }
+  return `@${code}`;
+}
 
 /** Stable public facade over values decoded by the native game client. */
 export function createGameSdk({ getMapNames = () => null } = {}) {
@@ -165,6 +177,7 @@ export function createGameSdk({ getMapNames = () => null } = {}) {
     if (!Array.isArray(players)) return false;
     const normalizedPlayers = players.map((player, index) => Object.freeze({
       id: Number.isInteger(Number(player?.uu ?? player?.ur ?? player?.ue)) ? Number(player.uu ?? player.ur ?? player.ue) : null,
+      accountCode: formatLobbyAccountCode(player?.uu ?? player?.ur ?? player?.ue),
       name: String(player?.username ?? ""),
       ready: Number(player?.x8 ?? player?.x5 ?? player?.ws) > 0 && Number(player?.xB ?? player?.x8Mode ?? player?.wv) === 0,
       entryId: Number.isInteger(Number(player?.x8 ?? player?.x5 ?? player?.ws)) && Number(player?.x8 ?? player?.x5 ?? player?.ws) > 0

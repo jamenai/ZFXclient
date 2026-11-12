@@ -8,6 +8,7 @@ const FxHomeView = defineComponent({
     const visible = ref(false);
     const leaving = ref(false);
     const nameEditorOpen = ref(false);
+    const nameEditorOpenedFromHome = ref(false);
     const nameDraft = ref("");
     const nameStatus = ref("");
     const nameHistory = ref([]);
@@ -27,24 +28,26 @@ const FxHomeView = defineComponent({
     const updateLanguage = () => { language.value = selectedLanguage(); };
     const labels = computed(() => isGerman.value ? {
       accountId: "Account-ID",
+      switchAccount: "Konto wechseln",
+      identityReconnect: "Lobby wird mit Name und Farbe aktualisiert …",
       eyebrow: "DEIN SPIEL. DEIN CLIENT.", subtitle: "Dein Territorial.io-Spielbereich",
       multiplayer: "Mehrspieler", scenario: "Szenario", scenarioNote: "(nativ)", menuNote: "(nativ)", accountNote: "(WIP)", account: "Konto", menu: "Spielmenü",
       settings: "Einstellungen", discord: "Discord", customLobby: "Custom-Lobby beitreten oder erstellen", customLobbyNote: "Noch nicht vollständig implementiert",
       online: "Startklar", player: "Spielerprofil", changeName: "Namen ändern", nameTitle: "Spielername ändern",
       nameNote: "Bis zu 20 Zeichen. Clan-Tags wie [TAG] kannst du im Namen mit angeben.", save: "Änderungen speichern", cancel: "Zurück",
-      nameReconnect: "Änderungen gespeichert. Lobby wird neu verbunden …",
       nameHistory: "Zuletzt verwendete Namen", nameHistoryHint: "Ein Name in der Liste genügt zum direkten Wechsel.",
       colorTitle: "Spielerfarbe", chooseColor: "Farbe auswählen", colorHint: "Wähle eine Farbe für deinen Spielernamen.",
       recentColors: "Zuletzt verwendete Farben", colorMissing: "Die Spielerfarbe kann gerade nicht gespeichert werden.",
       nameMissing: "Das Namensfeld des Spiels ist gerade nicht verfügbar.", nameEmpty: "Bitte gib einen Namen ein.",
     } : {
       accountId: "Account ID",
+      switchAccount: "Switch account",
+      identityReconnect: "Updating lobby with your name and color …",
       eyebrow: "YOUR GAME. YOUR CLIENT.", subtitle: "Your Territorial.io home",
       multiplayer: "Multiplayer", scenario: "Custom scenario", scenarioNote: "(native)", menuNote: "(native)", accountNote: "(WIP)", account: "My account", menu: "Game menu",
       settings: "Settings", discord: "Discord", customLobby: "Join or create a custom lobby", customLobbyNote: "Not fully implemented",
       online: "Ready to play", player: "Player profile", changeName: "Change name", nameTitle: "Change player name",
       nameNote: "Up to 20 characters. You can include clan tags like [TAG] in your name.", save: "Save changes", cancel: "Back",
-      nameReconnect: "Changes saved. Reconnecting to the lobby …",
       nameHistory: "Recently used names", nameHistoryHint: "Select a name to switch back to it instantly.",
       colorTitle: "Player color", chooseColor: "Choose color", colorHint: "Pick a color for your player name.",
       recentColors: "Recently used colors", colorMissing: "The player color cannot be saved right now.",
@@ -190,6 +193,13 @@ const FxHomeView = defineComponent({
     }
 
     function openNameEditor() {
+      const game = window.__fx;
+      const matchActive = Number(game?.getGameVar?.("gMatchState")) > 0;
+      const nativeMenuState = Number(game?.nativeMenuState);
+      nameEditorOpenedFromHome.value = !matchActive
+        && game?.isCustomLobbyViewRequested?.() !== true
+        && game?.isCustomLobbyViewVisible?.() !== true
+        && (visible.value || nativeMenuState === 5);
       nameDraft.value = window.__fx?.getNativeHomeNameInput?.()?.value || fullPlayerName.value || profileName.value;
       nameStatus.value = "";
       loadNameHistory();
@@ -198,6 +208,11 @@ const FxHomeView = defineComponent({
       initialPlayerColor.value = playerColor.value;
       rememberName(nameDraft.value);
       nameEditorOpen.value = true;
+    }
+
+    function switchAccount() {
+      nameEditorOpen.value = false;
+      window.requestAnimationFrame(() => window.__fx?.openVueMyAccount?.());
     }
 
     const NAME_HISTORY_KEY = "fx_player_name_history_v1";
@@ -248,12 +263,17 @@ const FxHomeView = defineComponent({
       if (nameChanged) rememberName(value);
       if (colorChanged) rememberColor(playerColor.value);
       initialPlayerColor.value = playerColor.value;
+      if (nameEditorOpenedFromHome.value
+        && window.__fx?.nativeStartup?.isCompatible?.() === true) {
+        window.__fx?.requestCustomLobbyView?.();
+      }
+      nameEditorOpenedFromHome.value = false;
       const reconnectNeeded = (nameChanged || colorChanged)
         && !(Number(window.__fx?.getGameVar?.("gMatchState")) > 0)
         && window.__fx?.isMultiplayerConnected?.() === true;
       if (reconnectNeeded && window.__fx?.reconnectMultiplayer?.()) {
-        nameStatus.value = labels.value.nameReconnect;
-        window.setTimeout(() => { nameEditorOpen.value = false; nameStatus.value = ""; }, 900);
+        nameStatus.value = labels.value.identityReconnect;
+        window.setTimeout(() => { nameEditorOpen.value = false; nameStatus.value = ""; }, 1500);
       } else {
         nameEditorOpen.value = false;
         nameStatus.value = "";
@@ -350,7 +370,7 @@ const FxHomeView = defineComponent({
     return {
       visible, leaving, nameEditorOpen, nameDraft, nameStatus, nameHistory, accountId, fullPlayerName, profileName, clan, labels,
       startMultiplayer, openScenario, openAccount, openGameMenu, openSettings, openCustomLobby,
-      openNameEditor, saveName, playerColor, recentColors, setPlayerColor, selectRecentColor, selectHistoryName: name => { nameDraft.value = name; saveName(); },
+      openNameEditor, saveName, switchAccount, playerColor, recentColors, setPlayerColor, selectRecentColor, selectHistoryName: name => { nameDraft.value = name; saveName(); },
       closeNameEditor: () => { nameEditorOpen.value = false; },
     };
   },
@@ -389,10 +409,13 @@ const FxHomeView = defineComponent({
     <main v-if="nameEditorOpen" id="fx-home-view" class="is-name-view" aria-label="Change player name">
       <section class="fx-home-name-card">
         <button type="button" class="fx-home-name-close" :aria-label="labels.cancel" :title="labels.cancel" @click="closeNameEditor">&times;</button>
+        <header class="fx-home-name-header">
         <span class="fx-home-eyebrow">ZFX CLIENT · {{ labels.player.toUpperCase() }}</span>
         <h1>{{ labels.nameTitle }}</h1>
         <p>{{ labels.nameNote }}</p>
-        <small v-if="accountId" class="fx-home-account-id">{{ labels.accountId }}: {{ accountId }}</small>
+        </header>
+        <div class="fx-home-name-content">
+        <div v-if="accountId" class="fx-home-account-card"><div><small>{{ labels.accountId }}</small><strong>{{ accountId }}</strong></div><button type="button" @click="switchAccount">{{ labels.switchAccount }}</button></div>
         <form class="fx-home-name-form" @submit.prevent="saveName">
           <label for="fx-home-name-input">{{ labels.player }}</label>
           <input id="fx-home-name-input" v-model="nameDraft" type="text" maxlength="20" autocomplete="off" spellcheck="false" autofocus>
@@ -409,6 +432,7 @@ const FxHomeView = defineComponent({
             <button v-for="name in nameHistory" :key="name" type="button" :disabled="name === (fullPlayerName || nameDraft)" @click="selectHistoryName(name)">{{ name }}</button>
           </div>
         </section>
+        </div>
       </section>
     </main>`,
 });

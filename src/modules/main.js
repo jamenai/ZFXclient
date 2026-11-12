@@ -36,6 +36,7 @@ import { createVueLeaderboardsView } from "../components/views/leaderboards/lead
 import { createVueLogsView } from "../components/views/logs/logsView.js";
 import { createVueGameLeaderboardHud } from "../components/views/gameHud/gameLeaderboardHud.js";
 import { createVueGameKeybindHud } from "../components/views/gameHud/gameKeybindHud.js";
+import { createVueGameDebugHud } from "../components/views/gameHud/gameDebugHud.js";
 import { createVueMyAccountView, myAccountAdapter } from "../components/views/account/myAccountView.js";
 import { createVueGoldTransferView } from "../components/views/goldTransfer/goldTransferView.js";
 import { createVueLoginView } from "../components/views/login/loginView.js";
@@ -44,6 +45,7 @@ import { getVar, getGameMapNames } from "../adapter/gameInterface.js";
 import { publishFxBridge } from "../adapter/fxBridge.js";
 import { createGameSdk } from "../adapter/gameSdk.js";
 import { createNativeStartup } from "./nativeStartup.js";
+import { networkDebug } from "./networkDebug.js";
 
 const gameSdk = createGameSdk({ getMapNames: getGameMapNames });
 const nativeStartup = createNativeStartup();
@@ -80,6 +82,7 @@ const fxBridge = publishFxBridge(window, {
   getGameVar: getVar,
   getGameMapNames,
   gameSdk,
+  networkDebug,
   nativeStartup,
   startMultiplayer: (...args) => nativeStartup.requestMultiplayer(...args),
   getCustomLobbyDataDiagnostics: () => ({
@@ -119,6 +122,8 @@ try { createVueGameLeaderboardHud(); }
 catch (error) { console.error("[ZFX Client] Game leaderboard HUD failed to initialize:", error); }
 try { createVueGameKeybindHud(); }
 catch (error) { console.error("[ZFX Client] Game keybind HUD failed to initialize:", error); }
+try { createVueGameDebugHud(); }
+catch (error) { console.error("[ZFX Client] Game debug HUD failed to initialize:", error); }
 createVueLogsView();
 createVueMyAccountView();
 createVueGoldTransferView();

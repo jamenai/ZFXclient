@@ -1,10 +1,15 @@
-import { computed, createApp, defineComponent, onBeforeUnmount, onMounted, ref } from "vue/dist/vue.esm-bundler.js";
+import { computed, createApp, defineComponent, nextTick, onBeforeUnmount, onMounted, ref } from "vue/dist/vue.esm-bundler.js";
 import { settingsApi } from "../../../modules/settings/settings.js";
 import { GameLeaderboardWidget } from "./gameLeaderboardWidget.js";
 import { GameStatusWidgets } from "./gameStatusWidgets.js";
 import { GameTeamChartWidget } from "./gameTeamChartWidget.js";
 
 const numberFormat = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
+const LEADERBOARD_ROW_HEIGHT = 31;
+const LEADERBOARD_ROW_GAP = 2;
+const LEADERBOARD_ROW_STRIDE = LEADERBOARD_ROW_HEIGHT + LEADERBOARD_ROW_GAP;
+const LEADERBOARD_OVERSCAN = 8;
+const NATIVE_TEAM_COLOR_NAMES = ["Dunkelgrau", "Rot", "Grün", "Blau", "Oliv", "Violett", "Türkis", "Grau", "Schwarz"];
 
 const GameLeaderboardHud = defineComponent({
   name: "FxGameLeaderboardHud",
@@ -15,7 +20,13 @@ const GameLeaderboardHud = defineComponent({
     const viewport = ref({ width: window.innerWidth, height: window.innerHeight });
     const inMatch = ref(false);
     const collapsed = ref(false);
+    const showEliminated = ref(true);
+    const showBots = ref(true);
+    const activeTab = ref("players");
+    const playerFilter = ref("all");
+    const virtualWindow = ref({ start: 0, end: 32 });
     const rowsContainer = ref(null);
+    let rowsResizeObserver = null;
     const statusSnapshot = ref(null);
     const teamChartSnapshot = ref(null);
     const detailedTeamPercentage = ref(settingsApi.getBoolean("detailedTeamPercentage"));
@@ -30,7 +41,12 @@ const GameLeaderboardHud = defineComponent({
     let resizeDrag = null;
     let ignoreHeaderClick = false;
     let timer;
+    const lastAliveByPlayerId = new Map();
+    const eliminationOrderByPlayerId = new Map();
+    let eliminationSequence = 0;
     const panelPositionStorageKey = "zfx.gameLeaderboardHud.position.v2";
+    const showEliminatedStorageKey = "zfx.gameLeaderboardHud.showEliminated.v1";
+    const showBotsStorageKey = "zfx.gameLeaderboardHud.showBots.v1";
     const legacyPanelPositionStorageKey = "zfx.gameLeaderboardHud.position.v1";
     const sizeStorageKey = "zfx.gameLeaderboardHud.size.v1";
     const statusCardLayoutsStorageKey = "zfx.gameStatusHud.cards.v2";
@@ -143,12 +159,16 @@ const GameLeaderboardHud = defineComponent({
         const largeArc = share > 0.5 ? 1 : 0;
         const labelAngle = angle + (nextAngle - angle) / 2;
         const labelRadius = share > 0.7 ? 27 : 31;
+        const label = `${(share * 100).toFixed(detailedTeamPercentage.value ? 2 : 0)}%`;
+        const labelChord = Math.max(0, 2 * labelRadius * Math.sin(Math.min(Math.PI, share * Math.PI * 2) / 2) - 4);
+        const labelFontSize = Math.max(4.5, Math.min(8, labelChord / (label.length * 0.5)));
         const result = {
           ...team,
           share,
           color: team.color || "#78869a",
           path: `M50 50 L${startX.toFixed(3)} ${startY.toFixed(3)} A45 45 0 ${largeArc} 1 ${endX.toFixed(3)} ${endY.toFixed(3)} Z`,
-          label: `${Math.round(share * 100)}%`,
+          label,
+          labelFontSize,
           labelX: 50 + labelRadius * Math.cos(labelAngle),
           labelY: 50 + labelRadius * Math.sin(labelAngle),
         };
@@ -246,13 +266,28 @@ const GameLeaderboardHud = defineComponent({
       window.removeEventListener("pointermove", resizePanel);
       window.removeEventListener("pointerup", stopPanelResize);
       window.removeEventListener("pointercancel", stopPanelResize);
-      try { window.localStorage.setItem(sizeStorageKey, JSON.stringify(panelSize.value)); } catch { /* Storage may be unavailable. */ }
+      const rect = leaderboardPanel.value?.getBoundingClientRect();
+      if (rect) {
+        const maxX = Math.max(8, viewport.value.width - rect.width - 8);
+        const maxY = Math.max(8, viewport.value.height - rect.height - 8);
+        panelPosition.value = {
+          xRatio: toPositionRatio(clamp(rect.left, 8, maxX), maxX),
+          yRatio: toPositionRatio(clamp(rect.top, 8, maxY), maxY),
+        };
+      }
+      try {
+        window.localStorage.setItem(sizeStorageKey, JSON.stringify(panelSize.value));
+        if (panelPosition.value) window.localStorage.setItem(panelPositionStorageKey, JSON.stringify(panelPosition.value));
+      } catch { /* Storage may be unavailable. */ }
     };
     const startPanelResize = event => {
       if (event.button !== 0) return;
       event.preventDefault();
       event.stopPropagation();
       const rect = event.currentTarget.parentElement.getBoundingClientRect();
+      // Freeze the panel's top-left corner while its size changes. Keeping a
+      // viewport ratio here makes Y drift toward the top as the panel grows.
+      panelPosition.value = { x: rect.left, y: rect.top };
       const size = clampPanelSize(rect.width, rect.height);
       panelSize.value = size;
       resizeDrag = { x: event.clientX, y: event.clientY, ...size };
@@ -297,7 +332,7 @@ const GameLeaderboardHud = defineComponent({
         xRatio: toPositionRatio(rect.left, maxX),
         yRatio: toPositionRatio(rect.top, maxY),
       };
-      panelDrag = { x: rect.left, y: rect.top, width: rect.width, pointerX: event.clientX, pointerY: event.clientY };
+      panelDrag = { x: rect.left, y: rect.top, width: rect.width, height: rect.height, pointerX: event.clientX, pointerY: event.clientY };
       window.addEventListener("pointermove", movePanel);
       window.addEventListener("pointerup", stopPanelMove);
       window.addEventListener("pointercancel", stopPanelMove);
@@ -306,31 +341,94 @@ const GameLeaderboardHud = defineComponent({
       if (ignoreHeaderClick) { ignoreHeaderClick = false; event.preventDefault(); return; }
       toggleCollapsed(event);
     };
+    const observeEliminations = players => {
+      for (const player of players) {
+        const wasAlive = lastAliveByPlayerId.get(player.id);
+        if (player.isAlive) eliminationOrderByPlayerId.delete(player.id);
+        else if (wasAlive === true) eliminationOrderByPlayerId.set(player.id, ++eliminationSequence);
+        else if (wasAlive === undefined && !eliminationOrderByPlayerId.has(player.id)) eliminationOrderByPlayerId.set(player.id, 0);
+        lastAliveByPlayerId.set(player.id, player.isAlive);
+      }
+    };
+    const rankPlayersByPlacement = players => {
+      players.sort((left, right) => {
+        if (left.isAlive !== right.isAlive) return left.isAlive ? -1 : 1;
+        if (left.isAlive) return right.territories - left.territories || left.id - right.id;
+        return (eliminationOrderByPlayerId.get(right.id) ?? 0) - (eliminationOrderByPlayerId.get(left.id) ?? 0) || left.id - right.id;
+      });
+      players.forEach((player, index) => { player.rank = index + 1; });
+      return players;
+    };
     const receive = value => {
       if (!value || !Array.isArray(value.players) || value.players.length === 0) return;
+      const incomingTotal = Number(value.total);
+      const currentTotal = Number(snapshot.value?.total);
+      const incomingIsPartial = Number.isFinite(incomingTotal) && value.players.length < incomingTotal;
+      const currentIsFull = snapshot.value && Number.isFinite(currentTotal) && snapshot.value.players.length >= currentTotal;
+      if (incomingIsPartial && currentIsFull) return;
+      const list = rowsContainer.value;
+      const oldRows = list && lockedPlayerId.value === null ? rows.value : [];
+      const oldAnchorIndex = list ? Math.floor(list.scrollTop / LEADERBOARD_ROW_STRIDE) : 0;
+      const anchorId = oldRows[oldAnchorIndex]?.id;
+      const anchorOffset = list ? list.scrollTop - oldAnchorIndex * LEADERBOARD_ROW_STRIDE : 0;
       const fx = window.__fx;
       const aliveStates = fx?.getGameVar?.("playerAlive");
+      const playerStates = fx?.getGameVar?.("playerStates");
+      const rawPlayerNames = fx?.getGameVar?.("rawPlayerNames");
+      const parseClan = name => {
+        try { return fx?.leaderboardFilter?.parseClanFromPlayerName?.(String(name ?? "")) || null; }
+        catch { return null; }
+      };
+      const ownPlayerId = Number(value.ownPlayerId ?? fx?.getGameVar?.("playerId"));
+      const ownClan = parseClan(rawPlayerNames?.[ownPlayerId] ?? value.ownPlayer?.name);
       const humanCount = Number(value.humanCount ?? fx?.getGameVar?.("gHumans")) || 0;
       const botCount = Number(value.botCount ?? fx?.getGameVar?.("gBots")) || 0;
-      const countAlive = (start, end) => aliveStates
-        ? Array.from({ length: Math.max(0, end - start) }, (_, index) => Number(aliveStates[start + index]) !== 0).filter(Boolean).length
-        : value.players.filter(player => player.id >= start && player.id < end && player.isAlive !== false).length;
+      const isNativeBot = id => id >= humanCount || Number(playerStates?.[id]) === 2;
+      const countAlive = isBot => aliveStates
+        ? Array.from({ length: aliveStates.length }, (_, id) => Number(aliveStates[id]) !== 0 && isNativeBot(id) === isBot).filter(Boolean).length
+        : value.players.filter(player => player.isAlive !== false && Boolean(player.isBot ?? isNativeBot(player.id)) === isBot).length;
+      const normalizedPlayers = value.players.map(player => {
+        const clanTag = parseClan(rawPlayerNames?.[player.id] ?? player.name);
+        return {
+          ...player,
+          isBot: player.isBot ?? isNativeBot(player.id),
+          isAlive: player.isAlive !== false,
+          teamId: player.teamId ?? fx?.getNativePlayerTeamId?.(player.id) ?? null,
+          color: player.color || fx?.gameLeaderboardAdapter?.getPlayerColor?.(player.id) || fx?.getNativePlayerTeamColor?.(player.id) || null,
+          clanTag,
+          isOwn: player.id === ownPlayerId,
+          isClanMate: player.id !== ownPlayerId && ownClan !== null && clanTag === ownClan,
+        };
+      });
+      observeEliminations(normalizedPlayers);
+      if (!incomingIsPartial) rankPlayersByPlacement(normalizedPlayers);
+      const rankedOwnPlayer = normalizedPlayers.find(player => player.id === ownPlayerId);
       snapshot.value = {
         ...value,
+        ownRank: rankedOwnPlayer?.rank ?? value.ownRank,
         humanCount,
         botCount,
         spectatorCount: Number(value.spectatorCount ?? fx?.getGameVar?.("gSpectators")) || 0,
-        aliveHumanCount: countAlive(0, humanCount),
-        aliveBotCount: countAlive(humanCount, humanCount + botCount),
-        players: value.players.map(player => ({
-          ...player,
-          isBot: player.isBot ?? (player.id >= humanCount && player.id < humanCount + botCount),
-          isAlive: player.isAlive !== false,
-        })),
-        ownPlayer: value.ownPlayer ? { ...value.ownPlayer, isAlive: value.ownPlayer.isAlive !== false } : null,
+        aliveHumanCount: countAlive(false),
+        aliveBotCount: countAlive(true),
+        players: normalizedPlayers,
+        ownPlayer: rankedOwnPlayer
+          ? { ...rankedOwnPlayer, isOwn: true, clanTag: ownClan, isClanMate: false }
+          : value.ownPlayer ? { ...value.ownPlayer, color: value.ownPlayer.color || fx?.getNativePlayerTeamColor?.(ownPlayerId) || null, isAlive: value.ownPlayer.isAlive !== false, isOwn: true, clanTag: ownClan, isClanMate: false } : null,
       };
       inMatch.value = true;
       window.__fx.gameLeaderboardHudReady = true;
+      if (list && lockedPlayerId.value === null) {
+        nextTick(() => {
+          if (anchorId == null) {
+            list.scrollTop = Math.min(list.scrollTop, Math.max(0, rows.value.length * LEADERBOARD_ROW_STRIDE - list.clientHeight));
+          } else {
+            const nextIndex = rows.value.findIndex(player => player.id === anchorId);
+            if (nextIndex >= 0) list.scrollTop = nextIndex * LEADERBOARD_ROW_STRIDE + anchorOffset;
+          }
+          updateVirtualWindow();
+        });
+      }
       if (lockedPlayerId.value !== null) {
         const locked = snapshot.value.players.find(player => player.id === lockedPlayerId.value);
         if (locked && locked.rank !== lockedPlayerRank.value) {
@@ -421,6 +519,9 @@ const GameLeaderboardHud = defineComponent({
       const matchState = Number(fx?.getGameVar?.("gMatchState"));
       inMatch.value = matchState === 1 || matchState === 2;
       if (!inMatch.value) {
+        lastAliveByPlayerId.clear();
+        eliminationOrderByPlayerId.clear();
+        eliminationSequence = 0;
         snapshot.value = null;
         statusSnapshot.value = null;
         teamChartSnapshot.value = null;
@@ -434,6 +535,7 @@ const GameLeaderboardHud = defineComponent({
       const names = fx?.getGameVar?.("rawPlayerNames");
       const territories = fx?.getGameVar?.("playerTerritories");
       const aliveStates = fx?.getGameVar?.("playerAlive");
+      const playerStates = fx?.getGameVar?.("playerStates");
       const humanCount = Number(fx?.getGameVar?.("gHumans"));
       const botCount = Number(fx?.getGameVar?.("gBots"));
       const spectatorCount = Number(fx?.getGameVar?.("gSpectators"));
@@ -446,18 +548,20 @@ const GameLeaderboardHud = defineComponent({
         if (!Number.isFinite(territoryValue)) continue;
         const rawName = String(names[id] ?? "").trim();
         if (!rawName && territoryValue <= 0) continue;
+        const isAlive = aliveStates ? Number(aliveStates[id]) !== 0 : territoryValue > 0;
         players.push({
           id,
           name: rawName || `Player ${id + 1}`,
-          isBot: id >= (Number.isFinite(humanCount) ? humanCount : 0) && id < (Number.isFinite(humanCount) ? humanCount : 0) + (Number.isFinite(botCount) ? botCount : 0),
+          isBot: id >= (Number.isFinite(humanCount) ? humanCount : 0) || Number(playerStates?.[id]) === 2,
           territories: territoryValue,
-          isAlive: aliveStates ? Number(aliveStates[id]) !== 0 : territoryValue > 0,
-          color: fx?.gameLeaderboardAdapter?.getPlayerColor?.(id) || null,
+          isAlive,
+          teamId: fx?.getNativePlayerTeamId?.(id) ?? null,
+          color: fx?.gameLeaderboardAdapter?.getPlayerColor?.(id) || fx?.getNativePlayerTeamColor?.(id) || null,
         });
       }
       if (!players.length) return;
-      players.sort((left, right) => right.territories - left.territories || left.id - right.id);
-      players.forEach((player, index) => { player.rank = index + 1; });
+      observeEliminations(players);
+      rankPlayersByPlacement(players);
       const ownPlayer = players.find(player => player.id === ownPlayerId) || null;
       receive({
         updatedAt: Date.now(),
@@ -473,13 +577,127 @@ const GameLeaderboardHud = defineComponent({
     };
     const visible = computed(() => inMatch.value);
     const dataReady = computed(() => !!snapshot.value && now.value - snapshot.value.updatedAt < 1800);
-    const rows = computed(() => {
+    const canFilterClan = computed(() => !!snapshot.value?.players?.some(player => player.isOwn && player.clanTag));
+    const canFilterTeam = computed(() => snapshot.value?.players?.some(player => player.isOwn && player.teamId !== null && player.teamId !== undefined) === true);
+    const playerRows = computed(() => {
       if (!dataReady.value) return [];
       const all = [...snapshot.value.players];
       const own = snapshot.value.ownPlayer;
       if (own && !all.some(player => player.id === own.id)) all.push({ ...own, isOwn: true });
-      return all.map(player => ({ ...player, isOwn: player.id === snapshot.value.ownPlayerId }));
+      return all
+        .filter(player => showEliminated.value || player.isAlive)
+        .filter(player => showBots.value || !player.isBot)
+        .filter(player => {
+          if (playerFilter.value === "clan") return player.isOwn || player.isClanMate;
+          if (playerFilter.value === "team") return player.isOwn || (own?.teamId != null && player.teamId === own.teamId);
+          return true;
+        })
+        .map(player => ({ ...player, isOwn: player.id === snapshot.value.ownPlayerId }));
     });
+    const rivalRows = computed(() => {
+      if (!dataReady.value) return [];
+      const clans = new Map();
+      for (const player of snapshot.value.players) {
+        if (!player.clanTag) continue;
+        const clan = clans.get(player.clanTag) || { id: player.clanTag, name: `[${player.clanTag}]`, territories: 0, memberCount: 0, color: null };
+        clan.territories += Number(player.territories) || 0;
+        clan.memberCount += 1;
+        clans.set(player.clanTag, clan);
+      }
+      return [...clans.values()]
+        .sort((left, right) => right.territories - left.territories || left.name.localeCompare(right.name))
+        .map((clan, index) => ({ ...clan, rank: index + 1 }));
+    });
+    const ownClanRank = computed(() => {
+      const ownClan = snapshot.value?.ownPlayer?.clanTag
+        ?? snapshot.value?.players?.find(player => player.id === snapshot.value?.ownPlayerId)?.clanTag;
+      if (!ownClan) return null;
+      return rivalRows.value.find(clan => clan.id === ownClan)?.rank ?? null;
+    });
+    const tabLabels = computed(() => {
+      now.value;
+      const translate = (key, fallback) => {
+        const label = window.__fx?.translateFX?.(key);
+        return label && label !== key ? label : fallback;
+      };
+      return {
+        players: translate("gameLeaderboardTabPlayers", "Players"),
+        rivals: translate("gameLeaderboardTabRivals", "Rivals"),
+        teams: translate("gameLeaderboardTabTeams", "Teams"),
+      };
+    });
+    const teamRows = computed(() => {
+      if (!dataReady.value) return [];
+      const teams = new Map();
+      for (const player of snapshot.value.players) {
+        if (player.teamId === null || player.teamId === undefined) continue;
+        const key = String(player.teamId);
+        const team = teams.get(key) || {
+          id: key,
+          name: `Team ${NATIVE_TEAM_COLOR_NAMES[Number(player.teamId)] || key}`,
+          territories: 0,
+          memberCount: 0,
+          color: player.color || null,
+        };
+        team.territories += Number(player.territories) || 0;
+        team.memberCount += 1;
+        if (!team.color && player.color) team.color = player.color;
+        teams.set(key, team);
+      }
+      return [...teams.values()]
+        .sort((left, right) => right.territories - left.territories || left.name.localeCompare(right.name))
+        .map((team, index) => ({ ...team, rank: index + 1 }));
+    });
+    const rows = computed(() => activeTab.value === "rivals" ? rivalRows.value : activeTab.value === "teams" ? teamRows.value : playerRows.value);
+    const visibleRows = computed(() => rows.value.slice(virtualWindow.value.start, virtualWindow.value.end));
+    const topSpacerHeight = computed(() => virtualWindow.value.start * LEADERBOARD_ROW_STRIDE);
+    const bottomSpacerHeight = computed(() => Math.max(0, rows.value.length - virtualWindow.value.end) * LEADERBOARD_ROW_STRIDE);
+    const updateVirtualWindow = () => {
+      const list = rowsContainer.value;
+      if (!list) {
+        virtualWindow.value = { start: 0, end: Math.min(32, rows.value.length) };
+        return;
+      }
+      const firstVisible = Math.floor(list.scrollTop / LEADERBOARD_ROW_STRIDE);
+      const lastVisible = Math.ceil((list.scrollTop + list.clientHeight) / LEADERBOARD_ROW_STRIDE);
+      const start = Math.max(0, firstVisible - LEADERBOARD_OVERSCAN);
+      const end = Math.min(rows.value.length, lastVisible + LEADERBOARD_OVERSCAN);
+      if (start !== virtualWindow.value.start || end !== virtualWindow.value.end) virtualWindow.value = { start, end };
+    };
+    const resetListScroll = () => {
+      if (rowsContainer.value) rowsContainer.value.scrollTop = 0;
+      virtualWindow.value = { start: 0, end: Math.min(32, rows.value.length) };
+    };
+    const setPlayerFilter = (filter, event) => {
+      event?.preventDefault();
+      if (filter === "clan" && !canFilterClan.value) return;
+      if (filter === "team" && !canFilterTeam.value) return;
+      playerFilter.value = playerFilter.value === filter ? "all" : filter;
+      resetListScroll();
+      event?.currentTarget?.blur();
+    };
+    const setActiveTab = (tab, event) => {
+      event?.preventDefault();
+      if (!["players", "rivals", "teams"].includes(tab)) return;
+      activeTab.value = tab;
+      if (tab !== "players") unlockPlayer();
+      resetListScroll();
+      event?.currentTarget?.blur();
+    };
+    const toggleEliminatedVisibility = event => {
+      event?.preventDefault();
+      showEliminated.value = !showEliminated.value;
+      resetListScroll();
+      event?.currentTarget?.blur();
+      try { window.localStorage.setItem(showEliminatedStorageKey, JSON.stringify(showEliminated.value)); } catch { /* Storage may be unavailable. */ }
+    };
+    const toggleBotVisibility = event => {
+      event?.preventDefault();
+      showBots.value = !showBots.value;
+      resetListScroll();
+      event?.currentTarget?.blur();
+      try { window.localStorage.setItem(showBotsStorageKey, JSON.stringify(showBots.value)); } catch { /* Storage may be unavailable. */ }
+    };
     const formatted = value => Number.isFinite(Number(value)) ? numberFormat.format(Number(value)) : "—";
     const focusPlayer = (player, event) => {
       window.__fx?.gameLeaderboardAdapter?.focusPlayer?.(player.id);
@@ -489,19 +707,24 @@ const GameLeaderboardHud = defineComponent({
     const aliveBotCount = computed(() => dataReady.value ? snapshot.value.aliveBotCount : null);
     const scrollToPlayer = (id, behavior = "smooth") => {
       const container = rowsContainer.value;
-      const row = container?.querySelector(`[data-player-id="${Number(id)}"]`);
-      if (!container || !row) return;
-      const rowTop = row.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
-      container.scrollTo({ top: Math.max(0, rowTop - (container.clientHeight - row.clientHeight) / 2), behavior });
+      const index = rows.value.findIndex(player => player.id === Number(id));
+      if (!container || index < 0) return;
+      const top = 6 + index * LEADERBOARD_ROW_STRIDE - (container.clientHeight - LEADERBOARD_ROW_HEIGHT) / 2;
+      container.scrollTo({ top: Math.max(0, top), behavior });
+      if (behavior !== "smooth") updateVirtualWindow();
     };
     const unlockPlayer = () => { lockedPlayerId.value = null; lockedPlayerRank.value = null; };
-    const findMe = () => {
+    const toggleOwnPlayerLock = event => {
       const ownPlayerId = snapshot.value?.ownPlayerId;
       if (ownPlayerId === undefined) return;
-      const ownPlayer = snapshot.value.players.find(player => player.id === ownPlayerId) || snapshot.value.ownPlayer;
-      lockedPlayerId.value = ownPlayerId;
-      lockedPlayerRank.value = ownPlayer?.rank ?? snapshot.value.ownRank ?? null;
-      scrollToPlayer(ownPlayerId);
+      if (lockedPlayerId.value === ownPlayerId) unlockPlayer();
+      else {
+        const ownPlayer = snapshot.value.players.find(player => player.id === ownPlayerId) || snapshot.value.ownPlayer;
+        lockedPlayerId.value = ownPlayerId;
+        lockedPlayerRank.value = ownPlayer?.rank ?? snapshot.value.ownRank ?? null;
+        scrollToPlayer(ownPlayerId);
+      }
+      event?.currentTarget?.blur();
     };
     const goTop = () => { unlockPlayer(); rowsContainer.value?.scrollTo({ top: 0, behavior: "smooth" }); };
     const togglePlayerLock = (player, event) => {
@@ -522,7 +745,16 @@ const GameLeaderboardHud = defineComponent({
       event.currentTarget.blur();
     };
     const setLeaderboardPanel = element => { leaderboardPanel.value = element; };
-    const setRowsContainer = element => { rowsContainer.value = element; };
+    const setRowsContainer = element => {
+      if (rowsContainer.value === element) return;
+      rowsResizeObserver?.disconnect();
+      rowsContainer.value = element;
+      if (element && typeof ResizeObserver === "function") {
+        rowsResizeObserver = new ResizeObserver(updateVirtualWindow);
+        rowsResizeObserver.observe(element);
+      }
+      updateVirtualWindow();
+    };
     let gameCanvasMouseDrag = false;
     const isGameHudTarget = target => target instanceof Element && Boolean(target.closest(".fx-game-hud-container,.fx-game-keybind-hud"));
     const forwardCanvasMouseEvent = (type, source, canvas) => {
@@ -569,6 +801,10 @@ const GameLeaderboardHud = defineComponent({
       window.__fx ||= {};
       window.__fx.gameLeaderboardAdapter ||= {};
       try {
+        const savedShowEliminated = JSON.parse(window.localStorage.getItem(showEliminatedStorageKey) || "true");
+        showEliminated.value = savedShowEliminated === true;
+        const savedShowBots = JSON.parse(window.localStorage.getItem(showBotsStorageKey) || "true");
+        showBots.value = savedShowBots === true;
         const savedSize = JSON.parse(window.localStorage.getItem(sizeStorageKey) || "null");
         if (Number.isFinite(savedSize?.width) && Number.isFinite(savedSize?.height)) panelSize.value = clampPanelSize(savedSize.width, savedSize.height);
         const savedPosition = JSON.parse(window.localStorage.getItem(panelPositionStorageKey) || window.localStorage.getItem(legacyPanelPositionStorageKey) || "null");
@@ -618,6 +854,7 @@ const GameLeaderboardHud = defineComponent({
     });
     onBeforeUnmount(() => {
       window.clearInterval(timer);
+      rowsResizeObserver?.disconnect();
       window.removeEventListener("resize", updateViewport);
       window.removeEventListener("orientationchange", updateViewport);
       document.removeEventListener("fullscreenchange", updateViewport);
@@ -644,7 +881,7 @@ const GameLeaderboardHud = defineComponent({
       if (window.__fx) window.__fx.gameTeamChartReady = false;
     });
 
-    return { snapshot, visible, dataReady, rows, collapsed, formatted, focusPlayer, toggleCollapsed, rowsContainer, aliveHumanCount, aliveBotCount, findMe, goTop, panelStyle, startPanelMove, startPanelResize, handlePanelHeaderClick, setLeaderboardPanel, setRowsContainer, statusSnapshot, lockedPlayerId, togglePlayerLock, handleManualScroll, statusCardStyle, startStatusCardMove, leaderboardPanel, teamChartVisible, teamChartStyle, teamChartSegments, detailedTeamPercentage, startTeamChartMove };
+    return { snapshot, visible, dataReady, rows, visibleRows, topSpacerHeight, bottomSpacerHeight, updateVirtualWindow, collapsed, showEliminated, toggleEliminatedVisibility, showBots, toggleBotVisibility, activeTab, setActiveTab, ownClanRank, tabLabels, playerFilter, canFilterClan, canFilterTeam, setPlayerFilter, formatted, focusPlayer, toggleCollapsed, rowsContainer, aliveHumanCount, aliveBotCount, toggleOwnPlayerLock, goTop, panelStyle, startPanelMove, startPanelResize, handlePanelHeaderClick, setLeaderboardPanel, setRowsContainer, statusSnapshot, lockedPlayerId, togglePlayerLock, handleManualScroll, statusCardStyle, startStatusCardMove, leaderboardPanel, teamChartVisible, teamChartStyle, teamChartSegments, detailedTeamPercentage, startTeamChartMove };
   },
   template: `
     <div v-if="visible" class="fx-game-hud-container">
@@ -652,6 +889,17 @@ const GameLeaderboardHud = defineComponent({
         :panel-style="panelStyle"
         :collapsed="collapsed"
         :data-ready="dataReady"
+        :show-eliminated="showEliminated"
+        :show-bots="showBots"
+        :active-tab="activeTab"
+        :own-clan-rank="ownClanRank"
+        :tab-labels="tabLabels"
+        :visible-rows="visibleRows"
+        :top-spacer-height="topSpacerHeight"
+        :bottom-spacer-height="bottomSpacerHeight"
+        :player-filter="playerFilter"
+        :can-filter-clan="canFilterClan"
+        :can-filter-team="canFilterTeam"
         :snapshot="snapshot"
         :rows="rows"
         :formatted="formatted"
@@ -661,8 +909,13 @@ const GameLeaderboardHud = defineComponent({
         @start-move="startPanelMove"
         @header-click="handlePanelHeaderClick"
         @toggle-collapsed="toggleCollapsed"
-        @find-me="findMe"
         @go-top="goTop"
+        @set-active-tab="setActiveTab"
+        @toggle-own-player-lock="toggleOwnPlayerLock"
+        @toggle-eliminated="toggleEliminatedVisibility"
+        @toggle-bots="toggleBotVisibility"
+        @rows-scroll="updateVirtualWindow"
+        @set-player-filter="setPlayerFilter"
         @manual-scroll="handleManualScroll"
         @focus-player="focusPlayer"
         @toggle-player-lock="togglePlayerLock"
@@ -697,30 +950,32 @@ export function createVueGameLeaderboardHud() {
       .fx-game-leaderboard-hud{position:fixed;z-index:60;top:clamp(12px,2vh,24px);left:calc(var(--fx-sidebar-width, 0px) + 14px);width:min(278px,calc(100vw - var(--fx-sidebar-width, 0px) - 28px));max-height:min(90vh,900px);container-type:inline-size;container-name:fx-game-leaderboard;display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden;border:1px solid rgba(160,190,225,.24);border-radius:12px;background:linear-gradient(145deg,rgba(20,30,45,var(--fx-game-hud-panel-alpha,.81)),rgba(9,15,26,var(--fx-game-hud-panel-alpha,.81)));box-shadow:0 12px 36px rgba(0,0,0,.32),inset 0 1px rgba(255,255,255,.06);backdrop-filter:blur(14px);color:#eef4ff;font:13px/1.35 var(--fx-game-native-font-family,Arial,sans-serif);pointer-events:auto}
       .fx-game-leaderboard-hud{position:fixed;z-index:60;top:clamp(12px,2vh,24px);left:calc(var(--fx-sidebar-width, 0px) + 14px);width:min(278px,calc(100vw - var(--fx-sidebar-width, 0px) - 28px));max-height:min(90vh,900px);container-type:inline-size;container-name:fx-game-leaderboard;display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden;border:1px solid rgba(160,190,225,.24);border-radius:12px;background:linear-gradient(145deg,rgba(20,30,45,var(--fx-game-hud-panel-alpha,.81)),rgba(9,15,26,var(--fx-game-hud-panel-alpha,.81)));box-shadow:0 12px 36px rgba(0,0,0,.32),inset 0 1px rgba(255,255,255,.06);backdrop-filter:blur(14px);color:#eef4ff;font:13px/1.35 var(--fx-game-native-font-family,Arial,sans-serif);pointer-events:auto}
       .fx-game-team-chart{position:fixed;z-index:58;display:flex;flex-direction:column;align-items:center;gap:5px;width:168px;box-sizing:border-box;padding:8px;border:1px solid rgba(160,190,225,.24);border-radius:12px;background:linear-gradient(145deg,rgba(20,30,45,var(--fx-game-hud-panel-alpha,.81)),rgba(9,15,26,var(--fx-game-hud-panel-alpha,.81)));box-shadow:0 12px 36px rgba(0,0,0,.32),inset 0 1px rgba(255,255,255,.06);backdrop-filter:blur(14px);color:#eef4ff;font:11px/1.2 var(--fx-game-native-font-family,Arial,sans-serif);pointer-events:none;user-select:none;-webkit-user-select:none}
-      .fx-game-team-chart header{display:flex;align-items:center;gap:7px;width:100%;color:#9fb2cb;font-size:8px;font-weight:750;letter-spacing:.08em;pointer-events:auto;touch-action:none;cursor:move}
+      .fx-game-team-chart header{display:flex;align-items:center;gap:7px;width:100%;color:#9fb2cb;font-size:10px;font-weight:750;letter-spacing:.08em;pointer-events:auto;touch-action:none;cursor:move}
       .fx-game-team-chart header span{display:grid;place-items:center;width:18px;height:18px;border-radius:5px;background:rgba(130,180,240,.13);color:#a8d0ff;font-size:13px}
       .fx-game-team-chart-pie{display:block;width:148px;height:148px;overflow:visible}
-      .fx-game-team-chart-pie text{fill:#fff;font:700 5px/1 var(--fx-game-native-font-family,Arial,sans-serif);paint-order:stroke;stroke:rgba(0,0,0,.42);stroke-width:.75px;stroke-linejoin:round}
+      .fx-game-team-chart-pie text{fill:#fff;font:700 7px/1 var(--fx-game-native-font-family,Arial,sans-serif);paint-order:stroke;stroke:rgba(0,0,0,.42);stroke-width:.75px;stroke-linejoin:round}
       .fx-game-leaderboard-head{display:flex;align-items:center;gap:8px;min-width:0;padding:11px 12px;border-bottom:1px solid rgba(160,190,225,.15);cursor:grab;touch-action:none;user-select:none}
       .fx-game-leaderboard-icon{display:grid;place-items:center;flex:0 0 30px;width:30px;height:30px;box-sizing:border-box;border-radius:9px;background:rgba(99,160,255,.14);color:#9bc4ff;font-size:18px;line-height:1}
       .fx-game-leaderboard-title{display:grid;gap:1px;flex:1 1 auto;min-width:0;overflow:hidden}.fx-game-leaderboard-title small{overflow:hidden;color:#8da2bd;font-size:9px;font-weight:700;letter-spacing:.13em;text-overflow:ellipsis;white-space:nowrap}.fx-game-leaderboard-title strong{overflow:hidden;font-size:14px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
       .fx-game-leaderboard-count{padding:3px 7px;border:1px solid rgba(160,190,225,.17);border-radius:99px;color:#b7c7dc;font-size:10px}
-      .fx-game-leaderboard-counts{display:flex;flex:0 0 auto;gap:5px}.fx-game-leaderboard-count{display:flex;align-items:center;gap:5px;padding:5px 8px;border:1px solid rgba(160,190,225,.2);border-radius:99px;color:#dce8f7;font-size:14px;font-weight:750;line-height:1.2;white-space:nowrap}.fx-game-leaderboard-count span{font-size:16px}
-      .fx-game-leaderboard-tools{display:flex;gap:5px;padding:6px 7px 2px}.fx-game-leaderboard-tools button{flex:1;padding:4px 6px;border:1px solid rgba(160,190,225,.16);border-radius:6px;background:rgba(255,255,255,.045);color:#b9c9dc;font:10px/1.3 system-ui,sans-serif;cursor:pointer}.fx-game-leaderboard-tools button:hover{background:rgba(99,160,255,.14);color:#eef4ff}
-      .fx-game-leaderboard-rows{display:grid;flex:1 1 auto;gap:2px;min-height:0;padding:6px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(155,190,235,.55) rgba(255,255,255,.06)}
-      .fx-game-leaderboard-rows::-webkit-scrollbar{width:8px}.fx-game-leaderboard-rows::-webkit-scrollbar-track{background:rgba(255,255,255,.05);border-radius:8px}.fx-game-leaderboard-rows::-webkit-scrollbar-thumb{background:rgba(155,190,235,.45);border:2px solid rgba(9,15,26,.75);border-radius:8px}
-      .fx-game-leaderboard-loading{padding:16px 12px;color:#aebdd0;text-align:center;font-size:11px}
+      .fx-game-leaderboard-counts{display:flex;flex:0 0 auto;gap:5px}.fx-game-placement-badge{display:flex;align-items:center;gap:4px;padding:5px 7px;border:1px solid rgba(160,190,225,.2);border-radius:99px;background:rgba(255,255,255,.035);color:#dce8f7;font-size:12px;font-weight:750;line-height:1.2;font-variant-numeric:tabular-nums;white-space:nowrap}.fx-game-placement-badge strong{color:#aebdd0;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}.fx-game-placement-badge em{color:inherit;font-style:normal}.fx-game-placement-badge.is-clan-rank{border-color:rgba(190,200,214,.24);color:#d2d9e3}.fx-game-leaderboard-count{display:flex;align-items:center;gap:5px;padding:5px 8px;border:1px solid rgba(160,190,225,.2);border-radius:99px;color:#dce8f7;font-size:14px;font-weight:750;line-height:1.2;white-space:nowrap}.fx-game-leaderboard-count span{font-size:16px}
+      .fx-game-leaderboard-tabs{display:flex;gap:2px;margin:0;padding:0 22px 0 12px;border-top:1px solid rgba(160,190,225,.16)}.fx-game-leaderboard-tabs button{position:relative;flex:1;margin-top:-1px;padding:8px 8px 7px;border:1px solid transparent;border-top-color:transparent;border-radius:0 0 7px 7px;background:transparent;color:#93a5bc;font:11px/1.2 var(--fx-game-native-font-family,Arial,sans-serif);font-weight:750;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:color .15s ease,background .15s ease,border-color .15s ease}.fx-game-leaderboard-tabs button:hover:not(.is-active){background:rgba(255,255,255,.035);color:#d4deeb}.fx-game-leaderboard-tabs button.is-active{border-color:rgba(112,240,208,.28);border-top-color:#63e6d2;background:linear-gradient(0deg,rgba(55,205,180,.12),rgba(55,205,180,.045));color:#b8f2e8;box-shadow:inset 0 -1px rgba(255,255,255,.04)}.fx-game-leaderboard-tools{display:flex;gap:5px;padding:6px 7px 2px}.fx-game-leaderboard-tools button{flex:1;padding:4px 6px;border:1px solid rgba(160,190,225,.16);border-radius:6px;background:rgba(255,255,255,.045);color:#b9c9dc;font:10px/1.3 system-ui,sans-serif;cursor:pointer}.fx-game-leaderboard-tools button:hover{background:rgba(99,160,255,.14);color:#eef4ff}.fx-game-leaderboard-tools button.is-active{border-color:rgba(255,227,110,.44);background:rgba(255,210,82,.13);color:#ffe88d}.fx-game-leaderboard-tools button.fx-game-bots-toggle,.fx-game-leaderboard-tools button.fx-game-eliminated-toggle{position:relative;flex:0 0 34px;height:26px;padding:2px!important;border-color:rgba(160,190,225,.12);background:rgba(255,255,255,.025);color:#b9c9dc;font-size:14px!important;line-height:1;opacity:.8}.fx-game-leaderboard-tools button.fx-game-bots-toggle:hover,.fx-game-leaderboard-tools button.fx-game-eliminated-toggle:hover{background:rgba(99,160,255,.08);color:#dce8f7;opacity:1}.fx-game-leaderboard-tools button.fx-game-bots-toggle.is-active,.fx-game-leaderboard-tools button.fx-game-eliminated-toggle.is-active{border-color:rgba(160,190,225,.2);background:rgba(99,160,255,.08);color:#dce8f7}.fx-game-bots-toggle i,.fx-game-eliminated-toggle i{position:absolute;right:-3px;bottom:-3px;display:grid;place-items:center;width:11px;height:11px;border:1px solid rgba(10,17,28,.9);border-radius:50%;background:#73849a;color:#fff;font:800 8px/1 Arial,sans-serif;font-style:normal}.fx-game-bots-toggle.is-active i,.fx-game-eliminated-toggle.is-active i{background:#76c7a0;color:#10251d}
+      .fx-game-leaderboard-filters{display:flex;gap:4px;padding:3px 7px 2px}.fx-game-leaderboard-filters button{flex:1;padding:3px 5px;border:1px solid rgba(160,190,225,.15);border-radius:5px;background:rgba(255,255,255,.035);color:#aebdd0;font:9px/1.25 var(--fx-game-native-font-family,Arial,sans-serif);cursor:pointer}.fx-game-leaderboard-filters button.is-active{border-color:rgba(112,240,208,.45);background:rgba(55,205,180,.14);color:#a7f2e3}.fx-game-leaderboard-filters button:disabled{opacity:.4;cursor:default}
+      .fx-game-leaderboard-rows{display:block;flex:1 1 auto;min-height:0;padding:6px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(155,190,235,.55) rgba(255,255,255,.06)}.fx-game-leaderboard-spacer{width:1px;pointer-events:none}
+      .fx-game-leaderboard-row-wrap.is-aggregate{grid-template-columns:minmax(0,1fr)}.fx-game-leaderboard-aggregate-row{display:grid;grid-template-columns:23px 4px minmax(0,1fr) auto;align-items:center;gap:8px;width:100%;height:29px;box-sizing:border-box;padding:0 7px;color:#d7e1ef}.fx-game-leaderboard-aggregate-name{display:flex;flex-direction:column;justify-content:center;min-width:0;overflow:hidden;font-weight:650;text-overflow:ellipsis;white-space:nowrap}.fx-game-leaderboard-aggregate-name small{margin-top:1px;color:#91a3ba;font-size:9px;font-weight:500}.fx-game-leaderboard-rows::-webkit-scrollbar{width:8px}.fx-game-leaderboard-rows::-webkit-scrollbar-track{background:rgba(255,255,255,.05);border-radius:8px}.fx-game-leaderboard-rows::-webkit-scrollbar-thumb{background:rgba(155,190,235,.45);border:2px solid rgba(9,15,26,.75);border-radius:8px}
+      .fx-game-leaderboard-loading{padding:16px 12px;color:#aebdd0;text-align:center;font-size:11px}.fx-game-leaderboard-empty{padding:18px 10px;color:#91a3ba;text-align:center;font-size:11px}
       .fx-game-leaderboard-row{display:grid;grid-template-columns:23px 4px minmax(0,1fr) auto;align-items:center;gap:8px;width:100%;min-height:29px;padding:0 7px;border:1px solid color-mix(in srgb,var(--fx-game-player-color,rgba(158,194,229,.2)) 24%,transparent);border-left:4px solid var(--fx-game-player-color,rgba(158,194,229,.22));border-radius:7px;background:linear-gradient(110deg,color-mix(in srgb,var(--fx-game-player-color,#193047) 18%,rgba(15,32,49,var(--fx-game-hud-panel-alpha,.81))),rgba(9,15,26,var(--fx-game-hud-panel-alpha,.81)) 80%);color:#d7e1ef;font:inherit;text-align:left;cursor:pointer;transition:background .16s ease,border-color .16s ease}
       .fx-game-leaderboard-row:hover{background:linear-gradient(110deg,color-mix(in srgb,var(--fx-game-player-color,#224556) 27%,rgba(22,46,63,var(--fx-game-hud-panel-alpha,.81))),rgba(11,27,38,var(--fx-game-hud-panel-alpha,.81)) 80%)}
       .fx-game-leaderboard-row.is-own{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fx-game-player-color,#70f49c) 42%,transparent);color:#fff}
       .fx-game-leaderboard-row.is-eliminated{opacity:.62}.fx-game-leaderboard-row.is-eliminated .fx-game-leaderboard-name{text-decoration:line-through;text-decoration-color:#ff8b8b;text-decoration-thickness:1.5px;color:#9ba8b9}
       .fx-game-leaderboard-rank{color:#8fa2ba;font-size:11px;font-variant-numeric:tabular-nums;text-align:right}.fx-game-leaderboard-player-color{width:4px;height:17px;border-radius:4px;background:#7893b8}
-      .fx-game-leaderboard-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:550}.fx-game-leaderboard-type{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin-right:5px;font-size:12px;line-height:1;vertical-align:-2px}.fx-game-leaderboard-type svg{display:block;width:13px;height:13px;fill:currentColor}.fx-game-leaderboard-type.is-human{color:#cbd5e1}.fx-game-leaderboard-type.is-bot{color:#ffd17a}.fx-game-leaderboard-territory{color:#aebdd0;font-size:11px;font-variant-numeric:tabular-nums}
-      .fx-game-leaderboard-foot{display:flex;justify-content:space-between;padding:9px 14px;border-top:1px solid rgba(160,190,225,.15);color:#9badc4;font-size:11px}.fx-game-leaderboard-foot strong{color:#cfe0f8;font-variant-numeric:tabular-nums}
-      .fx-game-leaderboard-resize{position:absolute;right:2px;bottom:2px;width:17px;height:17px;padding:0;border:0;border-radius:0 0 9px 0;background:linear-gradient(135deg,transparent 45%,rgba(174,199,231,.25) 46%,rgba(174,199,231,.25) 53%,transparent 54%,transparent 65%,rgba(174,199,231,.38) 66%,rgba(174,199,231,.38) 73%,transparent 74%);cursor:nwse-resize;touch-action:none;z-index:2}
+      .fx-game-leaderboard-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:550}.fx-game-leaderboard-type{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin-right:5px;font-size:12px;line-height:1;vertical-align:-2px}.fx-game-leaderboard-type svg{display:block;width:13px;height:13px;fill:currentColor}.fx-game-leaderboard-type.is-human{color:#cbd5e1}.fx-game-leaderboard-type.is-bot{color:#ffd17a}.fx-game-leaderboard-territory{color:#e0e9f5;font-size:13px;font-weight:750;font-variant-numeric:tabular-nums}
+      .fx-game-leaderboard-foot{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-top:1px solid rgba(160,190,225,.15);color:#9badc4;font-size:11px}.fx-game-leaderboard-go-top{padding:4px 8px;border:1px solid rgba(160,190,225,.16);border-radius:6px;background:rgba(255,255,255,.045);color:#b9c9dc;font:11px/1.2 var(--fx-game-native-font-family,Arial,sans-serif);cursor:pointer}.fx-game-leaderboard-go-top:hover:not(:disabled){background:rgba(99,160,255,.12);color:#eef4ff}.fx-game-leaderboard-go-top:disabled{opacity:.4;cursor:default}.fx-game-own-rank-lock{display:flex;align-items:center;justify-content:center;gap:5px}.fx-game-own-rank-lock strong{font:700 11px/1 var(--fx-game-native-font-family,Arial,sans-serif);font-variant-numeric:tabular-nums}.fx-game-own-rank-lock i{font-style:normal}.fx-game-own-rank-lock .fx-game-own-color,.fx-game-placement-badge .fx-game-own-color{display:inline-block;width:10px;height:10px;flex:0 0 10px;box-sizing:border-box;border:1px solid rgba(255,255,255,.75);border-radius:3px;box-shadow:0 0 0 1px rgba(0,0,0,.55)}.fx-game-placement-badge .fx-game-own-color{width:9px;height:9px;flex-basis:9px}
+      .fx-game-leaderboard-resize{position:absolute;right:3px;bottom:3px;width:12px;height:12px;padding:0;border:0;border-radius:0 0 7px 0;background:linear-gradient(135deg,transparent 0 58%,rgba(174,199,231,.3) 59% 65%,transparent 66% 75%,rgba(174,199,231,.42) 76% 82%,transparent 83%);cursor:nwse-resize;touch-action:none;z-index:2;opacity:.35;transition:opacity .15s ease}.fx-game-leaderboard-resize:hover{opacity:.9}
       .fx-game-leaderboard-row-wrap{display:grid;grid-template-columns:minmax(0,1fr) 30px;align-items:stretch;gap:2px;border:1px solid color-mix(in srgb,var(--fx-game-player-color,rgba(158,194,229,.2)) 24%,transparent);border-left:4px solid var(--fx-game-player-color,rgba(158,194,229,.22));border-radius:7px;background:linear-gradient(110deg,color-mix(in srgb,var(--fx-game-player-color,#193047) 18%,rgba(15,32,49,var(--fx-game-hud-panel-alpha,.81))),rgba(9,15,26,var(--fx-game-hud-panel-alpha,.81)) 80%);transition:background .16s ease,border-color .16s ease}
+      .fx-game-leaderboard-row-wrap{height:31px;box-sizing:border-box;margin-bottom:2px}
       .fx-game-leaderboard-row-wrap:hover{background:linear-gradient(110deg,color-mix(in srgb,var(--fx-game-player-color,#224556) 27%,rgba(22,46,63,var(--fx-game-hud-panel-alpha,.81))),rgba(11,27,38,var(--fx-game-hud-panel-alpha,.81)) 80%)}
-      .fx-game-leaderboard-row-wrap.is-own{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fx-game-player-color,#70f49c) 42%,transparent)}
+      .fx-game-leaderboard-row-wrap.is-own{position:relative;z-index:1;border-color:#ffe36e;box-shadow:inset 0 0 0 1px rgba(255,227,110,.8),0 0 12px rgba(255,208,72,.32)}.fx-game-leaderboard-row-wrap.is-own .fx-game-leaderboard-row{background:linear-gradient(90deg,rgba(255,210,82,.24),rgba(255,210,82,.08) 64%,transparent)!important}.fx-game-leaderboard-row-wrap.is-clanmate{outline:1px dashed rgba(205,215,228,.42);outline-offset:-2px;background:transparent}.fx-game-leaderboard-row-wrap.is-clanmate .fx-game-leaderboard-row{background:transparent!important}.fx-game-leaderboard-player-badge{display:inline-flex;align-items:center;vertical-align:1px;margin-right:5px;padding:1px 4px;border-radius:4px;font-size:8px;font-weight:900;letter-spacing:.04em;line-height:1.35}.fx-game-leaderboard-player-badge.is-you{background:#ffe36e;color:#18202a}.fx-game-leaderboard-player-badge.is-clan{background:rgba(190,200,214,.12);color:#d2d9e3;border:1px solid rgba(190,200,214,.24)}
       .fx-game-leaderboard-row-wrap.is-eliminated{opacity:.62}.fx-game-leaderboard-row-wrap.is-eliminated .fx-game-leaderboard-name{text-decoration:line-through;text-decoration-color:#ff8b8b;text-decoration-thickness:1.5px;color:#9ba8b9}
       .fx-game-leaderboard-row-wrap .fx-game-leaderboard-row{border:0;border-radius:6px;background:transparent;min-width:0}.fx-game-leaderboard-row-wrap .fx-game-leaderboard-row:hover{background:transparent}
       .fx-game-leaderboard-lock{align-self:center;justify-self:center;width:25px;height:25px;padding:0;border:1px solid transparent;border-radius:6px;background:transparent;color:#9fb2ca;font:13px/1 system-ui,sans-serif;cursor:pointer}
@@ -758,7 +1013,7 @@ export function createVueGameLeaderboardHud() {
       :root[data-fx-game-status-style="strip"] .fx-game-status-item.is-density{flex:2 1 230px;min-height:110px}
       @media(max-width:600px){.fx-game-leaderboard-hud{top:8px;left:calc(var(--fx-sidebar-width, 0px) + 8px);width:min(230px,calc(100vw - var(--fx-sidebar-width, 0px) - 16px));max-height:65vh;font-size:12px}.fx-game-leaderboard-row{min-height:26px}}
       @media(max-width:600px){.fx-game-status-hud{top:auto;right:8px;bottom:8px;width:min(230px,calc(100vw - 16px));max-height:42vh;grid-template-columns:repeat(auto-fit,minmax(min(100%,108px),1fr));gap:5px;padding:7px 7px 18px}.fx-game-status-item{min-height:58px;padding:7px}.fx-game-status-value{font-size:16px}:root[data-fx-game-status-style="strip"] .fx-game-status-hud{width:min(300px,calc(100vw - 16px))}:root[data-fx-game-status-style="rows"] .fx-game-status-item.is-density{min-height:108px}}
-      @container fx-game-leaderboard (max-width:420px){.fx-game-leaderboard-head{gap:6px;padding:9px}.fx-game-leaderboard-title small{display:none}.fx-game-leaderboard-title strong{font-size:13px}.fx-game-leaderboard-counts{gap:3px}.fx-game-leaderboard-count{gap:3px;padding:4px 5px;font-size:11px}.fx-game-leaderboard-count span{font-size:13px}}
+      @container fx-game-leaderboard (max-width:420px){.fx-game-leaderboard-head{gap:6px;padding:9px}.fx-game-leaderboard-title small{display:none}.fx-game-leaderboard-title strong{font-size:13px}.fx-game-leaderboard-counts{gap:3px;flex-wrap:wrap;min-width:0;justify-content:flex-end}.fx-game-leaderboard-count{gap:3px;padding:4px 5px;font-size:11px}.fx-game-placement-badge{gap:3px;padding:4px 5px;font-size:11px}.fx-game-placement-badge strong{font-size:9px}.fx-game-leaderboard-count span{font-size:13px}}
       @container fx-game-leaderboard (max-width:330px){.fx-game-leaderboard-title{display:none}.fx-game-leaderboard-head{justify-content:space-between}.fx-game-leaderboard-counts{flex:1;justify-content:flex-end}}
       .fx-game-status-card{grid-template-areas:"head" "value"!important;min-height:0!important;padding:10px 12px!important}
       .fx-game-leaderboard-hud *,.fx-game-status-card *{font-family:inherit}

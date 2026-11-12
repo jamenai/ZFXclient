@@ -44,9 +44,9 @@ export const myAccountAdapter = {
     window.dispatchEvent(new Event("fx-my-account-saved-accounts-update"));
   },
   getSavedAccounts() {
-    const data = savedAccountActions?.data;
-    const names = Array.isArray(data?.oS) ? data.oS : Array.isArray(data?.options) ? data.options : Array.isArray(data?.oP) ? data.oP : savedAccountSnapshot.map(entry => entry.name);
-    return names.map((name, index) => ({ name: String(name || "").trim(), index })).filter(entry => entry.index > 0 && entry.name);
+    // Keep the UI snapshot from setSavedAccounts. The native selector's
+    // `oS` array is mutable and can be temporarily reset while it refreshes.
+    return savedAccountSnapshot.map(entry => ({ ...entry }));
   },
   useSavedAccount(index) {
     if (!this.getSavedAccounts().some(item => item.index === index) || !savedAccountActions) return false;

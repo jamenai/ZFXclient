@@ -119,6 +119,9 @@ const eliminationEstimateText = {
 
 const fxText = {
   en: {
+    gameLeaderboardTabPlayers: "Players",
+    gameLeaderboardTabRivals: "Rivals",
+    gameLeaderboardTabTeams: "Teams",
     settingStartingAttack: "Custom starting attack percentage",
     settingStartingAttackNote: "Sets a fixed attack percentage for the troop bar at the start of every game.",
     settingPercentage: "Percentage (%)",
@@ -234,6 +237,9 @@ const fxText = {
     selfTerritoryHighlightNote: "Adds a high-contrast contour around your own territory on the map.",
   },
   de: {
+    gameLeaderboardTabPlayers: "Spieler",
+    gameLeaderboardTabRivals: "Rivalen",
+    gameLeaderboardTabTeams: "Teams",
     settingStartingAttack: "Benutzerdefinierter Start-Angriffsprozentsatz",
     settingStartingAttackNote: "Legt den Angriffsprozentsatz der Truppenleiste zu Beginn jedes Spiels fest.",
     settingPercentage: "Prozentsatz (%)",

@@ -33,6 +33,20 @@ export default (/** @type {ModUtils} */ modUtils) => {
         console.info(`[ZFX Client] Native custom lobby socket route hook ${socketRouteCount ? 'is ambiguous' : 'is absent'} in this game version.`);
     }
 
+    // Count native game WebSocket traffic only while the diagnostics HUD is
+    // open. The socket index is kept so the HUD can distinguish channels.
+    replaceOnce('network packet receive', /b\.onmessage=aZn/g,
+        'b.onmessage=function(fxEvent){window.__fx?.networkDebug?.record(aZh,"in",fxEvent.data);aZn(fxEvent)}');
+    const nativeSocketSend = /this\.send=function\((?<data>\w+)\)\{if\(this\.ei\(\)\)\{b\.send\(\k<data>\);\}\}/g;
+    const nativeSocketSendCount = [...modUtils.script.matchAll(nativeSocketSend)].length;
+    if (nativeSocketSendCount === 1) {
+        const { data } = matchOne(nativeSocketSend).groups;
+        replaceOne(nativeSocketSend,
+            `this.send=function(${data}){this.ei()&&(window.__fx?.networkDebug?.record(aZh,"out",${data}),b.send(${data}))}`);
+    } else {
+        console.info(`[ZFX Client] Native network packet send hook ${nativeSocketSendCount ? 'is ambiguous' : 'is absent'} in this game version.`);
+    }
+
     // Reuse the native socket manager's send path so the custom lobby bridge
     // can send through the socket which was opened above.
     const sendHook = /this\.send=function\((?<socketId>\w+),(?<data>\w+)\)\{if\(\k<socketId>!==0\)\{\w+\(\k<socketId>\);\}(?<sockets>\w+)\[\k<socketId>\]\.send\(\k<data>\);\};/g;

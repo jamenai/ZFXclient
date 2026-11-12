@@ -98,7 +98,7 @@ export default definePatch((modUtils) => {
 			// leaderboard. Forward its native totals and colors to the Vue
 			// replacement, retaining the native canvas until Vue has data.
 			modUtils.replaceOne(/var a6C=null;/g,
-				'var a6C=null;function fxPublishTeamChart(force){var fxAdapter=window.__fx?.gameTeamChartAdapter?.receiveNativeSnapshot;if(!aE.iX||!a6C||!fxAdapter)return;var fxNow=Date.now();if(!force&&fxNow-(window.__fx.gameTeamChartLastSent||0)<180)return;window.__fx.gameTeamChartLastSent=fxNow;var fxTeams=[];for(var fxTeam=0;fxTeam<=aE.a0t;fxTeam++)fxTeams.push({id:fxTeam,pixels:Number(a6C[fxTeam])||0,color:String(bj.aa2[bj.lL[fxTeam]]||"#78869a")});fxAdapter({updatedAt:fxNow,teams:fxTeams});}');
+				'var a6C=null;window.__fx.getNativePlayerTeamId=id=>Number.isInteger(id)&&id>=0&&bj?.fa?.[id]!==undefined?bj?.lL?.[bj.fa[id]]:null;window.__fx.getNativePlayerTeamColor=id=>Number.isInteger(id)&&id>=0&&bj?.fa?.[id]!==undefined?bj?.aa2?.[bj?.lL?.[bj.fa[id]]]||null:null;function fxPublishTeamChart(force){var fxAdapter=window.__fx?.gameTeamChartAdapter?.receiveNativeSnapshot;if(!aE.iX||!a6C||!fxAdapter)return;var fxNow=Date.now();if(!force&&fxNow-(window.__fx.gameTeamChartLastSent||0)<180)return;window.__fx.gameTeamChartLastSent=fxNow;var fxTeams=[];for(var fxTeam=0;fxTeam<=aE.a0t;fxTeam++)fxTeams.push({id:fxTeam,pixels:Number(a6C[fxTeam])||0,color:String(bj.aa2[bj.lL[fxTeam]]||"#78869a")});fxAdapter({updatedAt:fxNow,teams:fxTeams});}');
 			modUtils.replaceOne(/aZp=true;/g, 'aZp=true;fxPublishTeamChart();');
 			modUtils.replaceOne(/aZr\(\);\};this\.lV=/g, 'aZr();fxPublishTeamChart(true);};this.lV=');
 			modUtils.replaceOne(

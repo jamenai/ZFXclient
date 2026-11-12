@@ -1123,7 +1123,7 @@ body:has(#fx-home-view:not(.is-name-view)) :is(a, [role="link"], img):not(#fx-ho
 .fx-home-profile strong { display: block; max-width: min(240px, 32vw); color: #e6f3ff; font-size: .84em; overflow-wrap: anywhere; white-space: normal; }
 .fx-home-clan { padding: 3px 7px; border: 1px solid rgba(88, 226, 157, .24); border-radius: 999px; color: #8fe5b8; font-size: .72em; font-weight: 700; }
 .fx-home-profile-edit { color: #82a1b8; font-size: .92em; }
-.fx-home-account-id { display: block; margin-top: 3px; color: #7f9cb2; font-size: .68em; }
+.fx-home-account-id { display: block; margin-top: 3px; color: #9ab6ca; font-size: .72em; }
 .fx-home-welcome { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin: clamp(30px, 5vw, 48px) 0 20px; }
 .fx-home-eyebrow { color: #75d9ae; font-size: .68em; font-weight: 800; letter-spacing: .14em; }
 .fx-home-welcome h2 { margin: 5px 0 0; color: #f4f8fc; font-size: clamp(1.5em, 3vw, 2em); letter-spacing: -.045em; }
@@ -1158,18 +1158,28 @@ body:has(#fx-home-view:not(.is-name-view)) :is(a, [role="link"], img):not(#fx-ho
 
 .fx-home-name-card {
 	position: relative;
-	width: min(520px, 100%); box-sizing: border-box; padding: clamp(24px, 4vw, 40px);
+	display: flex; flex-direction: column;
+	width: min(520px, 100%); max-height: calc(100dvh - 32px); min-height: 0; box-sizing: border-box; padding: clamp(24px, 4vw, 40px);
+	overflow: hidden;
 	border: 1px solid rgba(144, 195, 231, .22); border-radius: 22px;
 	background: linear-gradient(145deg, rgba(14, 31, 49, .96), rgba(8, 21, 37, .97));
 	box-shadow: 0 28px 90px rgba(0, 0, 0, .48); color: #edf6ff;
 }
-#fx-home-view.is-name-view { position: fixed; inset: 0; z-index: 10002; }
+.fx-home-name-header { position: relative; flex: 0 0 auto; padding: 0 42px 14px 0; border-bottom: 1px solid rgba(144,183,212,.16); }
+.fx-home-name-header h1 { margin: 8px 0; color: #f4f8fc; font-size: clamp(1.6em, 4vw, 2.2em); letter-spacing: -.04em; }
+.fx-home-name-header > p { margin: 0; color: #9bb2c7; font-size: .9em; }
+.fx-home-name-content { flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 16px 4px 2px 0; }
+#fx-home-view.is-name-view { position: fixed; inset: 0; z-index: 10002; overflow: hidden; }
 #fx-home-view:not(.is-name-view) { pointer-events: none; }
 #fx-home-view:not(.is-name-view) .fx-home-shell { pointer-events: auto; }
 .fx-home-name-close { position: absolute; top: 16px; right: 16px; display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid rgba(144,183,212,.2); border-radius: 9px; background: rgba(4,12,23,.55); color: #b7cbd9; font: inherit; font-size: 1.45em; line-height: 1; cursor: pointer; }
 .fx-home-name-close:hover { border-color: rgba(144,183,212,.4); background: rgba(20,39,58,.82); color: #fff; }
-.fx-home-name-card h1 { margin: 8px 0; color: #f4f8fc; font-size: clamp(1.6em, 4vw, 2.2em); letter-spacing: -.04em; }
-.fx-home-name-card > p { margin: 0 0 25px; color: #9bb2c7; font-size: .9em; }
+.fx-home-account-card { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: -8px 0 20px; padding: 11px 13px; border: 1px solid rgba(93, 174, 220, .27); border-radius: 10px; background: rgba(8, 25, 41, .78); }
+.fx-home-account-card > div { display: grid; gap: 3px; min-width: 0; }
+.fx-home-account-card small { color: #91adbf; font-size: .7em; letter-spacing: .06em; text-transform: uppercase; }
+.fx-home-account-card strong { overflow: hidden; color: #d7f0ff; font-size: .98em; font-variant-numeric: tabular-nums; letter-spacing: .04em; text-overflow: ellipsis; }
+.fx-home-account-card button { flex: 0 0 auto; padding: 8px 11px; border: 1px solid rgba(87, 203, 159, .36); border-radius: 8px; background: rgba(24, 111, 82, .3); color: #c7f5e2; font: inherit; font-size: .76em; font-weight: 650; cursor: pointer; }
+.fx-home-account-card button:hover { border-color: rgba(87, 203, 159, .64); background: rgba(24, 111, 82, .48); }
 .fx-home-name-form { position: relative; display: grid; gap: 8px; }
 .fx-home-name-form label { color: #b4cada; font-size: .82em; font-weight: 650; }
 .fx-home-name-form input { box-sizing: border-box; width: 100%; min-height: 50px; padding: 11px 75px 11px 13px; border: 1px solid rgba(119, 178, 219, .35); border-radius: 10px; outline: none; background: rgba(3, 12, 23, .7); color: #f3f8fc; font: inherit; }
@@ -1202,6 +1212,7 @@ body:has(#fx-home-view:not(.is-name-view)) :is(a, [role="link"], img):not(#fx-ho
 
 @media (max-width: 650px) {
 	#fx-home-view { padding: 14px; }
+	.fx-home-name-card { max-height: calc(100dvh - 28px); padding: 22px; }
 	.fx-home-shell { padding: 20px; border-radius: 18px; }
 	.fx-home-header { flex-wrap: wrap; }
 	.fx-home-profile { width: 100%; margin-left: 0; box-sizing: border-box; }
@@ -3563,6 +3574,24 @@ html[data-fx-lobby-tab-labels="hidden"] .fx-custom-lobby-workspace-tabs button:n
 	white-space: nowrap;
 }
 
+.fx-custom-lobby-player-grid-card > header .fx-custom-lobby-player-name {
+	display: grid;
+	flex: 1 1 auto;
+	gap: 2px;
+	margin-left: 0;
+	min-width: 0;
+}
+
+.fx-custom-lobby-player-grid-card > header .fx-custom-lobby-player-account-id {
+	overflow: hidden;
+	color: rgba(169, 189, 208, .58);
+	font-size: .68em;
+	font-weight: 400;
+	line-height: 1.1;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 .fx-custom-lobby-player-grid-card > header span {
 	margin-left: auto;
 	color: #a9bdd0;
@@ -3850,6 +3879,7 @@ html[data-fx-lobby-tab-labels="hidden"] .fx-custom-lobby-workspace-tabs button:n
 .fx-custom-lobby-current-player-icon svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .fx-custom-lobby-current-player-copy { display: grid; flex: 1 1 auto; min-width: 0; gap: 2px; }
 .fx-custom-lobby-current-player-copy > span { color: #a8bdd0; font-size: .68em; letter-spacing: .04em; text-transform: uppercase; }
+.fx-custom-lobby-current-player-id { color: rgba(169, 189, 208, .7); font-size: .68em; font-weight: 500; line-height: 1.1; font-variant-numeric: tabular-nums; letter-spacing: .03em; }
 .fx-custom-lobby-current-player-card strong { overflow: hidden; color: #e7f5ff; font-size: .92em; text-overflow: ellipsis; white-space: nowrap; }
 
 .fx-custom-lobby-current-player-edit-icon {
@@ -5787,7 +5817,7 @@ label.checkbox .checkmark:after {
 	font-weight: 800;
 	line-height: 1.25;
 }
-.fx-custom-lobby-participation-status.is-empty { visibility: hidden; }
+.fx-custom-lobby-participation-status.is-empty { display: none; }
 .fx-custom-lobby-participation-status svg {
 	width: 20px;
 	height: 20px;

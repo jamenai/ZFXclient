@@ -830,9 +830,15 @@ const LobbyView = defineComponent({
       const accountName = window.__fx?.myAccountAdapter?.getSnapshot?.()?.accountName;
       return self?.name || rawPlayerName || nativeIdentity?.username || homeName || accountName || labels.unknownPlayer;
     });
+    const currentPlayerId = computed(() => {
+      const self = getSelfLobbyPlayer(snapshot.value.players);
+      return String(self?.accountCode || window.__fx?.getNativeOwnLobbyPlayerAccountCode?.() || "");
+    });
     const currentPlayerTerritoryColor = computed(() => {
       const self = getSelfLobbyPlayer(snapshot.value.players);
-      return window.__fx?.getNativePlayerColor?.() || self?.color || self?.territoryBorderColor || "";
+      // The native profile color is the preferred color for the name input;
+      // the lobby roster uses the color assigned to this player in the game.
+      return self?.color || self?.territoryBorderColor || window.__fx?.getNativePlayerColor?.() || "";
     });
     const ownClan = computed(() => {
       const ownName = window.__fx?.getGameVar?.("rawPlayerNames")?.[window.__fx?.getGameVar?.("playerId")] ?? "";
@@ -1038,6 +1044,8 @@ const LobbyView = defineComponent({
       const ownId = identity?.id ?? window.__fx?.getGameVar?.("playerId");
       const players = sdkPlayers.map(player => ({
         id: player.id,
+        accountId: player.id,
+        accountCode: player.accountCode || "",
         senderId: player.id,
         name: player.name,
         clan: getPlayerClan(player.name),
@@ -1583,9 +1591,12 @@ const LobbyView = defineComponent({
 
       let token = "";
       try {
-        const accountId = Number(player.senderId
-          ?? window.__fx?.getLobbyChatSenderIdByName?.(player.senderName));
-        if (Number.isInteger(accountId)) token = String(window.__fx?.getLobbyChatMentionToken?.(accountId) ?? "").trim();
+        const rawAccountId = player.senderId
+          ?? window.__fx?.getLobbyChatSenderIdByName?.(player.senderName);
+        const accountId = rawAccountId == null || rawAccountId === "" ? NaN : Number(rawAccountId);
+        if (Number.isInteger(accountId) && accountId > 0) {
+          token = String(window.__fx?.getLobbyChatMentionToken?.(accountId) ?? "").trim();
+        }
       } catch (error) {
         console.warn("[ZFX Client LobbyView] Could not resolve account mention ID:", error);
       }
@@ -2156,7 +2167,7 @@ const LobbyView = defineComponent({
       formatLobbyNotificationTime,
       propagandaDialog, propagandaMessage, closePropagandaMessage,
       previousLobbyNotification, nextLobbyNotification, minimizeLobbyNotifications, restoreLobbyNotifications, closeLobbyNotifications, markLobbyNotificationRead,
-      ownClan, currentPlayerName, currentPlayerTerritoryColor, gameClanCount, clanCount, playerCountLabel, watcherCount, lobbyCount, onlyReadyClans, visibleClanGroups, resolvedChatMessages, chatStatus, nextGameMeta, isTeamMode,
+      ownClan, currentPlayerName, currentPlayerId, currentPlayerTerritoryColor, gameClanCount, clanCount, playerCountLabel, watcherCount, lobbyCount, onlyReadyClans, visibleClanGroups, resolvedChatMessages, chatStatus, nextGameMeta, isTeamMode,
       displayedUpcomingGames, selectedGameEntry, joinedGameEntry, joinCardEntry, joinLinkCopied, selectedEntryReadyCount,
       currentMapEntry,
       selectedGameParticipation,
@@ -2222,7 +2233,7 @@ const LobbyView = defineComponent({
       </Teleport>
       <div class="fx-custom-lobby-pre-game">
         <LobbyProgress :snapshot="{ ...snapshot, nextGameEntryId: selectedGameEntry?.id ?? null, nextGameCountdownSeconds: selectedGameEntry?.countdownSeconds ?? null }" :labels="labels" />
-        <button type="button" class="fx-custom-lobby-current-player-card" :style="{ '--fx-custom-player-color': currentPlayerTerritoryColor || null, '--fx-custom-player-territory-border': currentPlayerTerritoryColor || null }" :title="labels.changeName" :aria-label="labels.changeName + ': ' + currentPlayerName" @click="changePlayerName"><span class="fx-custom-lobby-current-player-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg></span><span class="fx-custom-lobby-current-player-copy"><span>{{ labels.currentPlayer }}</span><strong>{{ currentPlayerName }}</strong></span><span class="fx-custom-lobby-current-player-edit-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.8 5.7 3.5 3.5"/></svg></span></button>
+        <button type="button" class="fx-custom-lobby-current-player-card" :style="{ '--fx-custom-player-color': currentPlayerTerritoryColor || null, '--fx-custom-player-territory-border': currentPlayerTerritoryColor || null }" :title="labels.changeName" :aria-label="labels.changeName + ': ' + currentPlayerName" @click="changePlayerName"><span class="fx-custom-lobby-current-player-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg></span><span class="fx-custom-lobby-current-player-copy"><span>{{ labels.currentPlayer }}</span><strong>{{ currentPlayerName }}</strong><small v-if="currentPlayerId" class="fx-custom-lobby-current-player-id">{{ currentPlayerId }}</small></span><span class="fx-custom-lobby-current-player-edit-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.8 5.7 3.5 3.5"/></svg></span></button>
       </div>
       <MapHeader :map="selectedGameEntry?.mapName || snapshot.currentMap" :map-image="selectedGameEntry?.mapImage || snapshot.currentMapImage" :next-map="joinCardEntry?.mapName || ''" :next-map-image="joinCardEntry?.mapImage || ''" :next-team-count-label="joinCardEntry?.teamCountLabel || ''" :next-game-mode-label="joinCardEntry?.modeLabel || ''" :game-mode-key="selectedGameEntry?.modeKey || snapshot.currentGameModeKey" :next-game-mode-key="joinCardEntry?.modeKey || ''" :next-game-meta="nextGameMeta" :is-contest="selectedGameEntry ? selectedGameEntry.isContest : snapshot.isContest" :next-is-contest="joinCardEntry ? joinCardEntry.isContest : null" :no-fullsend="selectedGameEntry ? Number(selectedGameEntry.modeCode) === 10 : snapshot.noFullsend" :next-no-fullsend="Number(joinCardEntry?.modeCode) === 10" :labels="labels" :entries="displayedUpcomingGames" :current-map-entry-id="snapshot.currentMapEntryId" :selected-game-participation="selectedGameParticipation" :selection-disabled="!joinCardEntry" :entry-title="getEntryTitle" :ready-count="selectedEntryReadyCount" :ready-clans="readyClanSlices" :ready-clan-total="readyClanTotal" :team-count="selectedGameEntry?.teamCountLabel || snapshot.currentTeamCountLabel" :game-mode-label="selectedGameEntry?.modeLabel || snapshot.currentGameModeLabel" :lobby-rating="lobbyRating" :share-entry-id="joinCardEntry?.id ?? null" :link-copied="joinLinkCopied" @select-entry="selectUpcomingGame" @join-selected="toggleSelectedGameJoin" @restore-selection="restoreJoinCardPreview" @share-join-link="copyGameJoinLink" />
       <main class="fx-custom-lobby-content">

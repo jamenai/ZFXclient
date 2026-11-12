@@ -2,12 +2,10 @@ import { getVar } from "../adapter/gameInterface.js";
 
 function parseClanFromPlayerName(username) {
     if (typeof username !== "string") return null;
-    const openingBracket = username.indexOf("[");
-    if (openingBracket < 0) return null;
-    const closingBracket = username.indexOf("]", openingBracket + 1);
-    const bracketDistance = closingBracket - openingBracket;
-    if (closingBracket < 0 || bracketDistance <= 1 || bracketDistance > 8) return null;
-    const clanTag = username.slice(openingBracket + 1, closingBracket).toUpperCase().trim();
+    // Match the lobby's clan parsing rules. Clan tags can be up to 16
+    // characters; the previous six-character limit made longer tags (and
+    // therefore the local player's own clan) invisible to the game HUD.
+    const clanTag = username.match(/\[([^\]]{1,16})\]/)?.[1]?.trim().toLocaleUpperCase();
     return clanTag || null;
 }
 

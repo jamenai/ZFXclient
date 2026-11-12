@@ -17,10 +17,10 @@ export const GameTeamChartWidget = defineComponent({
         <template v-else>
           <path v-for="team in segments.segments" :key="team.id" :d="team.path" :fill="team.color" stroke="rgba(255,255,255,.85)" stroke-width="1.2" />
           <template v-for="team in segments.segments" :key="'label-' + team.id">
-            <text v-if="team.share >= (detailedTeamPercentage ? .16 : .13)" :x="team.labelX" :y="team.labelY" text-anchor="middle" dominant-baseline="middle">{{ team.label }}</text>
+            <text v-if="team.share >= (detailedTeamPercentage ? .16 : .13)" :x="team.labelX" :y="team.labelY" :style="{ fontSize: team.labelFontSize + 'px' }" text-anchor="middle" dominant-baseline="middle">{{ team.label }}</text>
           </template>
         </template>
-        <text v-if="segments.teams.length === 1" x="50" y="51" text-anchor="middle" dominant-baseline="middle">100%</text>
+        <text v-if="segments.teams.length === 1" x="50" y="51" :style="{ fontSize: detailedTeamPercentage ? '8px' : '9px' }" text-anchor="middle" dominant-baseline="middle">{{ detailedTeamPercentage ? '100.00%' : '100%' }}</text>
       </svg>
     </aside>
   `,

@@ -3,7 +3,8 @@ const playerDataProperties = [
     "playerBalances",
     "rawPlayerNames",
     "playerCommitted",
-    "playerAlive"
+    "playerAlive",
+    "playerStates"
 ];
 const gameObjectProperties = [
     "playerId",
@@ -29,6 +30,7 @@ const arrayLikeProperties = new Set([
     "rawPlayerNames",
     "playerCommitted",
     "playerAlive",
+    "playerStates",
     "tickFlags",
     "tickCounts",
 ]);

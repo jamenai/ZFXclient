@@ -1,4 +1,21 @@
 export default (/** @type {import('../modUtils.js').default} */ modUtils) => {
+    if (/function cP\(\)\{var j,fn;var aCq;var canvas;var p4;var iT;var jK;/.test(modUtils.script)) {
+        // 2.17.9 keeps the troop percentage and native attack controls in cP.
+        // Bridge the same setters used by its keyboard controls to the Vue HUD.
+        modUtils.replaceOne(
+            /this\.a6J=function\(oH\)\{if\(aE\.a4E===0\|\|!this\.iT\(\)\)\{return;\}if\(aD3\(oH\)\)\{bi\.dy=true;\}\};/g,
+            '$&window.__fx.keybindFunctions.setRelative=value=>{var factor=Number(value);if(Number.isFinite(factor)&&factor>0)this.a6J(factor);};window.__fx.keybindFunctions.setAbsolute=value=>{var percentage=Number(value);if(Number.isFinite(percentage)&&aE.a4E!==0&&this.iT()){jK=bO.is(percentage,1/1024,1);aCt();bi.dy=true;}};window.__fx.keybindFunctions.repaintAttackPercentageBar=()=>{aCt();bi.dy=true;};'
+        );
+        modUtils.replaceOne(
+            /this\.yr=function\(\)\{if\(!this\.iT\(\)\)\{return;\}ys\.drawImage\(canvas,fn,this\.fp\);\};/g,
+            '$&if(window.__fx.settingsApi.getBoolean("keybindButtons")){var fxKeybindHeight=Math.max(1,Math.floor(this.k/2));window.__fx.mobileKeybinds.setSize(j,fxKeybindHeight,ys);window.__fx.mobileKeybinds.draw(ys,fn,this.fp);}'
+        );
+        modUtils.replaceOne(
+            /function a5y\(e\)\{if\(a61\(\)\)\{return;\}if\(i\.vF>0\)\{return;\}var code=e\.code;if\(!code\|\|!code\.length\)\{return;\}/g,
+            '$&if(window.__fx?.keybindHandler?.(e.key)){e.preventDefault();return;}'
+        );
+        return;
+    }
     if (/function cN\(\)\{var j,fj;var aCI;var canvas;var p0;var iP;var jG;var a7y;var a9V;/.test(modUtils.script)) {
         // Register the native percentage setters in the same attack-bar
         // instance that owns the current percentage and redraw routine.

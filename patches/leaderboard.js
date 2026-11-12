@@ -4,6 +4,17 @@ export default definePatch((modUtils) => {
 	const { safeDictionary: dict, modifyCode, waitForMinification, matchCode, matchRawCode, replaceOne, replace, replaceRawCode } = modUtils;
 	let currentNativeLeaderboardAdapterInstalled = false;
 
+	// The 2.17.9 team chart no longer exposes its territory totals from the
+	// former dR canvas renderer. Aggregate the live per-player tile counts by
+	// the native team map and publish them when the territory map is mutated.
+	if (/function dS\(\)\{/.test(modUtils.script)) {
+		replaceOne(/function dS\(\)\{/g,
+			'function dS(){window.__fx.getNativePlayerTeamId=id=>Number.isInteger(Number(id))&&Number(id)>=0&&Number(id)<aE.fd?bj.lP[bj.fe[Number(id)]]:null;window.__fx.getNativePlayerTeamColor=id=>{var team=window.__fx.getNativePlayerTeamId(Number(id)),rgb=bj.aW6[team];return rgb?"rgb("+rgb[0]+","+rgb[1]+","+rgb[2]+")":null;};window.__fx.publishNativeTeamChart=function(){var adapter=window.__fx?.gameTeamChartAdapter?.receiveNativeSnapshot;if(!aE.ib||aE.a4E===0||!adapter)return;var now=Date.now();if(now-(window.__fx.gameTeamChartLastSent||0)<180)return;window.__fx.gameTeamChartLastSent=now;var teams=[];for(var teamId=0;teamId<bj.aW6.length;teamId++){var pixels=0;for(var player=0;player<aE.fd;player++)if(window.__fx.getNativePlayerTeamId(player)===teamId)pixels+=Number(ah.hU[player])||0;var color=bj.aW6[teamId];teams.push({id:teamId,pixels:pixels,color:"rgb("+color[0]+","+color[1]+","+color[2]+")"});}adapter({updatedAt:now,teams:teams});};');
+		replaceOne(/function aMu\(fK\)\{/g,
+			'function aMu(fK){window.__fx?.publishNativeTeamChart?.();');
+		console.info("[ZFX Client] Installed native team chart and player team-color adapters.");
+	}
+
 	// 2.17.9 uses vY menu commands and formats the response in aX5. Publish
 	// those native rows to the Vue leaderboards/logs views from the formatter,
 	// where the category and interactive player cells are already decoded.

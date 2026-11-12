@@ -1,13 +1,31 @@
 {
-    "version": "0.1.48",
+    "version": "0.1.50",
     "lastUpdated": "November 12, 2026",
     "changes": [
-        "Add quick Game HUD controls for font scale and transparency",
-        "Save and load four Game HUD layout presets",
-        "Keep the native settings panel in its correct layout"
+        "Render the own-territory outline over the live map and refresh it after territory changes",
+        "Highlight clan members during spawn selection with a soft glow",
+        "Keep attack estimates visible in compact map labels",
+        "Add a minimap HUD and independent map settings profiles",
+        "Show the dominant team color for clans in the Rivals leaderboard"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.49",
+            "lastUpdated": "November 12, 2026",
+            "changes": [
+                "Show the dominant team color for clans in the Rivals leaderboard"
+            ]
+        },
+        {
+            "version": "0.1.48",
+            "lastUpdated": "November 12, 2026",
+            "changes": [
+                "Add quick Game HUD controls for font scale and transparency",
+                "Save and load four Game HUD layout presets",
+                "Keep the native settings panel in its correct layout"
+            ]
+        },
         {
             "version": "0.1.47",
             "lastUpdated": "November 12, 2026",

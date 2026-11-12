@@ -6,6 +6,7 @@ import gameSdk from "./gameSdk.js";
 import highlightSpawnpoints from "./highlightSpawnpoints.js";
 import hoveringTooltip from "./hoveringTooltip.js";
 import leaderboard from "./leaderboard.js";
+import gameMinimap from "./gameMinimap.js";
 import lobbyReminders from "./lobbyReminders.js";
 import misc from "./misc.js";
 import mobileKeybinds from "./mobileKeybinds.js";
@@ -31,6 +32,7 @@ export const patchRegistry = [
     ["highlightSpawnpoints.js", highlightSpawnpoints],
     ["hoveringTooltip.js", hoveringTooltip],
     ["leaderboard.js", leaderboard],
+    ["gameMinimap.js", gameMinimap],
     ["pingFilter.js", pingFilter],
     ["lobbyReminders.js", lobbyReminders],
     ["misc.js", misc],

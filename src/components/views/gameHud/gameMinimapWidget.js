@@ -1,0 +1,226 @@
+import { createApp, defineComponent, onBeforeUnmount, onMounted, ref, watch } from "vue/dist/vue.esm-bundler.js";
+
+const STORAGE_KEY = "zfx.gameMinimap.position.v1";
+
+const GameMinimapWidget = defineComponent({
+  name: "FxGameMinimapWidget",
+  setup() {
+    const canvas = ref(null);
+    const frameCanvas = ref(null);
+    const snapshot = ref(null);
+    const mapViewport = ref(null);
+    const visible = ref(false);
+    const dataError = ref("");
+    const mapPanning = ref(false);
+    const sidebarOffset = () => {
+      const width = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--fx-sidebar-width")) || 0;
+      return Math.max(18, width + 14);
+    };
+    const position = ref({ left: sidebarOffset(), bottom: 18 });
+    let pollTimer = 0;
+    let viewportTimer = 0;
+    let drag = null;
+    let mapPanPointerId = null;
+    let lastMapPanAt = 0;
+
+    const loadPosition = () => {
+      try {
+        const saved = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "null");
+        if (Number.isFinite(saved?.left) && Number.isFinite(saved?.bottom)) position.value = { ...saved, left: Math.max(saved.left, sidebarOffset()) };
+      } catch { /* Ignore invalid saved coordinates. */ }
+    };
+    const draw = () => {
+      const map = snapshot.value;
+      const target = canvas.value;
+      if (!map || !target) return;
+      const ctx = target.getContext("2d", { alpha: false });
+      if (!ctx) return;
+      target.width = map.width;
+      target.height = map.height;
+      ctx.fillStyle = "#172333";
+      ctx.fillRect(0, 0, map.width, map.height);
+      for (let y = 0; y < map.height; y++) {
+        for (let x = 0; x < map.width; x++) {
+          ctx.fillStyle = map.pixels[y * map.width + x] || "#172333";
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }
+    };
+    const drawViewportFrame = () => {
+      const map = snapshot.value;
+      const target = frameCanvas.value;
+      const viewport = mapViewport.value;
+      if (!map || !target) return;
+      if (target.width !== map.width || target.height !== map.height) {
+        target.width = map.width;
+        target.height = map.height;
+      }
+      const ctx = target.getContext("2d");
+      if (!ctx) return;
+      ctx.clearRect(0, 0, map.width, map.height);
+      if (!viewport || !viewport.mapWidth || !viewport.mapHeight) return;
+      const x = viewport.left / viewport.mapWidth * map.width;
+      const y = viewport.top / viewport.mapHeight * map.height;
+      const width = viewport.width / viewport.mapWidth * map.width;
+      const height = viewport.height / viewport.mapHeight * map.height;
+      if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) return;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, map.width, map.height);
+      ctx.clip();
+      ctx.fillStyle = "rgba(255,255,255,.09)";
+      ctx.fillRect(x, y, width, height);
+      ctx.lineWidth = 2.6;
+      ctx.strokeStyle = "rgba(4,10,18,.9)";
+      ctx.strokeRect(x, y, width, height);
+      ctx.lineWidth = 1.25;
+      ctx.strokeStyle = "rgba(255,255,255,.98)";
+      ctx.strokeRect(x, y, width, height);
+      ctx.restore();
+    };
+    const refresh = () => {
+      const adapter = window.__fx?.gameMinimapAdapter;
+      visible.value = window.__fx?.gameLeaderboardHudReady === true;
+      if (!visible.value) {
+        snapshot.value = null;
+        mapViewport.value = null;
+        return;
+      }
+      if (!adapter?.getSnapshot) {
+        snapshot.value = null;
+        dataError.value = "Map adapter unavailable";
+        return;
+      }
+      try {
+        snapshot.value = adapter.getSnapshot(96, 72);
+        mapViewport.value = adapter.getViewport?.() || null;
+        dataError.value = "";
+      } catch (error) {
+        snapshot.value = null;
+        mapViewport.value = null;
+        dataError.value = "Map data unavailable";
+        console.warn("[ZFX Client] Minimap data could not be read:", error);
+      }
+    };
+    const refreshViewport = () => {
+      if (!visible.value) return;
+      try { mapViewport.value = window.__fx?.gameMinimapAdapter?.getViewport?.() || null; }
+      catch { mapViewport.value = null; }
+    };
+    const focusFromPointer = event => {
+      const rect = canvas.value?.getBoundingClientRect();
+      if (!rect || !snapshot.value) return;
+      const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+      const y = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
+      window.__fx?.gameMinimapAdapter?.focus?.(x, y, 0.14);
+      lastMapPanAt = performance.now();
+    };
+    const startMapPan = event => {
+      if (event.button !== 0 || !event.isPrimary) return;
+      event.preventDefault();
+      event.stopPropagation();
+      mapPanPointerId = event.pointerId;
+      mapPanning.value = true;
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+      focusFromPointer(event);
+    };
+    const continueMapPan = event => {
+      if (mapPanPointerId !== event.pointerId) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const now = performance.now();
+      if (now - lastMapPanAt < 45) return;
+      focusFromPointer(event);
+    };
+    const endMapPan = event => {
+      if (mapPanPointerId !== event.pointerId) return;
+      mapPanPointerId = null;
+      mapPanning.value = false;
+    };
+    const zoomMainMap = event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? window.innerHeight : 1;
+      window.__fx?.gameMinimapAdapter?.zoom?.(event.deltaY * unit);
+    };
+    const startMove = event => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      drag = { x: event.clientX, y: event.clientY, left: position.value.left, bottom: position.value.bottom, moved: false };
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+    };
+    const move = event => {
+      if (!drag) return;
+      const dx = event.clientX - drag.x;
+      const dy = event.clientY - drag.y;
+      if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
+      position.value = {
+        left: Math.max(0, Math.min(window.innerWidth - 170, drag.left + dx)),
+        bottom: Math.max(0, Math.min(window.innerHeight - 130, drag.bottom - dy)),
+      };
+    };
+    const endMove = () => {
+      if (!drag) return;
+      const moved = drag.moved;
+      drag = null;
+      try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(position.value)); } catch { /* Storage may be unavailable. */ }
+      if (moved) window.setTimeout(() => { drag = null; }, 0);
+    };
+    const style = () => ({ left: `${position.value.left}px`, bottom: `${position.value.bottom}px` });
+    watch(snapshot, draw, { flush: "post" });
+    watch([snapshot, mapViewport], drawViewportFrame, { flush: "post" });
+
+    onMounted(() => {
+      loadPosition();
+      window.__fx ||= {};
+      window.__fx.gameMinimapHud = { reloadPosition: loadPosition };
+      refresh();
+      pollTimer = window.setInterval(refresh, 1100);
+      viewportTimer = window.setInterval(refreshViewport, 60);
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", endMove);
+    });
+    onBeforeUnmount(() => {
+      window.clearInterval(pollTimer);
+      window.clearInterval(viewportTimer);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", endMove);
+      if (window.__fx?.gameMinimapHud?.reloadPosition === loadPosition) delete window.__fx.gameMinimapHud;
+    });
+    return { canvas, frameCanvas, snapshot, visible, dataError, mapPanning, style, startMove, startMapPan, continueMapPan, endMapPan, zoomMainMap };
+  },
+  template: `
+    <aside v-if="visible" class="fx-game-minimap" :style="style()" aria-label="Game minimap">
+      <header @pointerdown="startMove"><span>MAP</span><small>CLICK TO MOVE</small></header>
+      <div v-if="snapshot" class="fx-game-minimap-view" :class="{ 'is-panning': mapPanning }" aria-label="Minimap with current game map view">
+        <canvas ref="canvas" class="fx-game-minimap-map" @pointerdown="startMapPan" @pointermove="continueMapPan" @pointerup="endMapPan" @pointercancel="endMapPan" @lostpointercapture="endMapPan" @wheel="zoomMainMap" aria-label="Hold and drag to move across the game map; use the wheel to zoom the game map"></canvas>
+        <canvas ref="frameCanvas" class="fx-game-minimap-frame" aria-hidden="true"></canvas>
+      </div>
+      <div v-else class="fx-game-minimap-placeholder">{{ dataError || 'Loading map…' }}</div>
+    </aside>
+  `,
+});
+
+export function createVueGameMinimapWidget() {
+  if (document.getElementById("fx-game-minimap-root")) return () => {};
+  if (!document.getElementById("fx-game-minimap-style")) {
+    const style = document.createElement("style");
+    style.id = "fx-game-minimap-style";
+    style.textContent = `
+      .fx-game-minimap{position:fixed;z-index:200;box-sizing:border-box;width:176px;padding:6px;border:1px solid color-mix(in srgb,var(--fx-game-team-accent,#8aa8c9) 42%,rgba(160,184,211,.24));border-radius:9px;background:rgba(8,14,24,var(--fx-game-hud-panel-alpha,.81));box-shadow:0 6px 22px rgba(0,0,0,.3);backdrop-filter:blur(8px);color:#edf4ff;font:11px/1.25 var(--fx-game-native-font-family,Arial,sans-serif);user-select:none;contain:layout paint}
+      .fx-game-minimap header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 3px 6px;color:var(--fx-game-team-accent,#9fc6ff);cursor:grab;touch-action:none;letter-spacing:.08em}.fx-game-minimap header:active{cursor:grabbing}.fx-game-minimap header small{color:#99abc0;font-size:9px;letter-spacing:.04em}
+      .fx-game-minimap-view{position:relative;width:100%;aspect-ratio:4/3;overflow:hidden;border-radius:5px}.fx-game-minimap-view canvas{position:absolute;inset:0;display:block;width:100%;height:100%;border-radius:5px;touch-action:none}.fx-game-minimap-map{cursor:grab;image-rendering:pixelated}.fx-game-minimap-view.is-panning .fx-game-minimap-map{cursor:grabbing}.fx-game-minimap-frame{pointer-events:none}
+      .fx-game-minimap-placeholder{display:grid;place-items:center;min-height:72px;border-radius:5px;background:rgba(20,31,46,.8);color:#a9b8ca;font-size:10px}
+    `.replace(/font-size:\s*([^;}]+)/g, (_match, declaration) => `font-size:${declaration.replace(/(\d+(?:\.\d+)?)px/g, "calc($1px * var(--fx-game-hud-font-scale,1))")}`)
+      .replace(/(font:\s*(?:\d+\s+)?)(\d+(?:\.\d+)?)px(?=\/)/g, "$1calc($2px * var(--fx-game-hud-font-scale,1))");
+    document.head.appendChild(style);
+  }
+  const host = document.createElement("div");
+  host.id = "fx-game-minimap-root";
+  document.body.appendChild(host);
+  const app = createApp(GameMinimapWidget);
+  app.config.errorHandler = (error, _instance, info) => console.error("[ZFX Client GameMinimap] Vue error:", info, error);
+  app.mount(host);
+  return () => { app.unmount(); host.remove(); };
+}

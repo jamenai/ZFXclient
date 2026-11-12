@@ -1,7 +1,7 @@
 import versionData from '../../version.json';
 const { version, lastUpdated, isSignificant } = versionData;
 
-import settingsManager from './settings/settings.js';
+import settingsManager, { settingsApi } from './settings/settings.js';
 import { initializeLobbyEnhancements } from "./lobbyEnhancements.js";
 import { initializeCustomLobbyView } from "../components/views/lobby/customLobbyView.js";
 import { initializeCustomLobbyJoinView } from "../components/views/lobby/customLobbyJoinView.js";
@@ -25,7 +25,7 @@ import nameFilter from './nameFilter.js';
 import followedAccounts from './followedAccounts.js';
 import passwordReset from './passwordReset.js';
 import savedAccounts from './savedAccounts.js';
-import { installSelfTerritoryHighlight } from "./selfTerritoryHighlight.js";
+import { drawSelfTerritoryHighlightOnGameMap, getSelfTerritoryHighlightDiagnostics, refreshSelfTerritoryHighlights } from "./selfTerritoryHighlight.js";
 import { initializeWorldClock } from "./worldClock.js";
 import { createSidebar } from "./sidebar.js";
 import { createVueSettingsView } from "../components/views/settings/vueSettingsView.js";
@@ -37,6 +37,7 @@ import { createVueLogsView } from "../components/views/logs/logsView.js";
 import { createVueGameLeaderboardHud } from "../components/views/gameHud/gameLeaderboardHud.js";
 import { createVueGameKeybindHud } from "../components/views/gameHud/gameKeybindHud.js";
 import { createVueGameDebugHud } from "../components/views/gameHud/gameDebugHud.js";
+import { createVueGameMinimapWidget } from "../components/views/gameHud/gameMinimapWidget.js";
 import { createVueMyAccountView, myAccountAdapter } from "../components/views/account/myAccountView.js";
 import { createVueGoldTransferView } from "../components/views/goldTransfer/goldTransferView.js";
 import { createVueLoginView } from "../components/views/login/loginView.js";
@@ -78,7 +79,13 @@ const fxBridge = publishFxBridge(window, {
   followedAccounts,
   passwordReset,
   savedAccounts,
-  selfTerritoryHighlight: { install: installSelfTerritoryHighlight },
+  refreshSelfTerritoryHighlights,
+  drawSelfTerritoryHighlightOnGameMap,
+  getMapFeatureDiagnostics: () => ({
+    settings: Object.fromEntries(["showEstimatedEliminationAttack", "highlightSelfTerritory", "highlightClanSpawns"].map(key => [key, settingsApi.getBoolean(key)])),
+    renders: window.__fx?.mapFeatureRenderDiagnostics ?? {},
+    ownTerritory: getSelfTerritoryHighlightDiagnostics(),
+  }),
   getGameVar: getVar,
   getGameMapNames,
   gameSdk,
@@ -124,6 +131,8 @@ try { createVueGameKeybindHud(); }
 catch (error) { console.error("[ZFX Client] Game keybind HUD failed to initialize:", error); }
 try { createVueGameDebugHud(); }
 catch (error) { console.error("[ZFX Client] Game debug HUD failed to initialize:", error); }
+try { createVueGameMinimapWidget(); }
+catch (error) { console.error("[ZFX Client] Game minimap HUD failed to initialize:", error); }
 createVueLogsView();
 createVueMyAccountView();
 createVueGoldTransferView();

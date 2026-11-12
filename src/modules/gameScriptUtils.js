@@ -66,11 +66,15 @@ function getEstimatedEliminationAttackColor(playerID, remainingBalance, remainin
     return `hsl(${hue}, 85%, 55%)`;
 }
 function drawEstimatedEliminationAttack(ctx, playerID, text, x, y) {
-    const previousFillStyle = ctx.fillStyle;
+    ctx.save();
     const estimateColor = getEstimatedEliminationAttackColor(playerID);
     if (estimateColor) ctx.fillStyle = estimateColor;
+    ctx.lineWidth = Math.max(1, (Number.parseFloat(ctx.font) || 10) * 0.16);
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "rgba(5, 9, 15, 0.95)";
+    ctx.strokeText(text, x, y);
     ctx.fillText(text, x, y);
-    ctx.fillStyle = previousFillStyle;
+    ctx.restore();
 }
 function isPointInRectangle(x, y, rectangleStartX, rectangleStartY, width, height) {
     return x >= rectangleStartX && x <= rectangleStartX + width && y >= rectangleStartY && y <= rectangleStartY + height;

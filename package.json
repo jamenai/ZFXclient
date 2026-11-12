@@ -27,6 +27,7 @@
     "core-js": "^3.44.0",
     "js-beautify": "^1.14.11",
     "obscenity": "^0.4.6",
+    "socket.io-client": "^4.8.1",
     "terser": "^5.50.0",
     "uglify-js": "^3.19.2",
     "vue": "^3.5.42",

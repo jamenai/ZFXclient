@@ -5,6 +5,7 @@ import { createApp, h } from "vue/dist/vue.esm-bundler.js";
 import { createMemoryHistory, createRouter, RouterView } from "vue-router";
 import { createLobbyDataAdapter } from "../../../adapter/lobbyDataAdapter.js";
 import { calculateLobbyRating } from "../../../modules/lobbyRating.js";
+import { zfxLobbyChat } from "../../../modules/zfxLobbyChat.js";
 import { settingsApi } from "../../../modules/settings/settings.js";
 import { isReadyPlayer } from "../../../modules/lobbyParticipation.js";
 import { getMapName } from "../../../modules/lobbyFilters.js";
@@ -442,6 +443,7 @@ const getLobbyLabels = (language = window.__fx?.getGameLanguage?.() || "en") => 
     chatEmpty: "Noch keine Nachrichten", mention: "Erwähnen", dismiss: "Schließen",
     playersCount: "Spieler", noClan: "Kein eigener Clan erkannt", lobbyUnavailable: "Lobby wird geladen …",
     chatUnavailable: "Lobby-Chat konnte nicht geöffnet werden",
+    zfxChat: "ZFX Chat", zfxChatPlaceholder: "Nachricht im ZFX Chat …", zfxChatConnected: "Mit ZFX Chat verbunden", zfxChatConnecting: "Verbinde mit ZFX Chat …", zfxChatDisconnected: "Verbindung zum ZFX Chat getrennt", zfxChatOffline: "ZFX Chat nicht verbunden", zfxChatUnavailable: "ZFX Chat ist nicht erreichbar",
   } : {
     viewGrid: "Grid", viewTable: "Table", viewList: "List",
     title: "Lobby overview", currentMap: "Current map", nextMap: "Your selection", selectedGame: "Your selection", joinedGame: "Joined game", spectatingGame: "Spectating game", spectateGame: "Watch", spectatingActive: "Spectating", active: "ACTIVE", stopSpectating: "Stop spectating", selectGame: "Select game", noGameSelected: "No game selected", chooseGameHint: "Choose an upcoming game above.", modes: "Game modes", upcomingGames: "Upcoming games", noOtherUpcomingGames: "No other upcoming games", gameEntry: "Game", map: "Map", modeTeamGame: "Team", modeTeams: "Teams", modeBattleRoyale: "Battle Royale", modeDuel: "1v1", modeZombie: "Zombie", modeUnknown: "Game mode", selected: "Selected", joinGame: "Join", leaveGame: "Leave", joinSelected: "Selected · join", copyGameLink: "Copy game link", linkCopied: "Link copied", waitingForGames: "Waiting for upcoming games …", unknownPlayer: "Unknown player", clans: "Clans",
@@ -468,6 +470,7 @@ const getLobbyLabels = (language = window.__fx?.getGameLanguage?.() || "en") => 
     chatEmpty: "No messages yet", mention: "Mention", dismiss: "Close",
     playersCount: "Players", noClan: "No own clan detected", lobbyUnavailable: "Loading lobby …",
     chatUnavailable: "Could not open lobby chat",
+    zfxChat: "ZFX Chat", zfxChatPlaceholder: "Message in ZFX chat …", zfxChatConnected: "Connected to ZFX chat", zfxChatConnecting: "Connecting to ZFX chat …", zfxChatDisconnected: "Disconnected from ZFX chat", zfxChatOffline: "ZFX chat is offline", zfxChatUnavailable: "ZFX chat is unavailable",
   };
 };
 
@@ -631,7 +634,7 @@ const LobbyView = defineComponent({
       try { localStorage.setItem(key, tab); } catch { /* Keep tab selection usable if storage is unavailable. */ }
     };
     const gameTab = ref(readSavedLobbyTab("fx_lobby_game_tab", ["overview", "players", "watchers", "clan", "calls"], "overview"));
-    const lobbyTab = ref(readSavedLobbyTab("fx_lobby_people_tab", ["chat", "lobby", "clan", "clans"], "chat"));
+    const lobbyTab = ref(readSavedLobbyTab("fx_lobby_people_tab", ["chat", "zfx-chat", "lobby", "clan", "clans"], "chat"));
     const currentSelectionOverride = ref(undefined);
     const joinLinkCopied = ref(false);
     let joinLinkCopyTimer = 0;
@@ -1526,9 +1529,10 @@ const LobbyView = defineComponent({
     }
 
     function selectLobbyTab(tab) {
-      if (!["chat", "lobby", "clan", "clans"].includes(tab)) return;
+      if (!["chat", "zfx-chat", "lobby", "clan", "clans"].includes(tab)) return;
       lobbyTab.value = tab;
       saveLobbyTab("fx_lobby_people_tab", tab);
+      if (tab === "zfx-chat") zfxLobbyChat.connect();
     }
 
     function openPlayerContextMenu(player, event) {
@@ -2005,6 +2009,7 @@ const LobbyView = defineComponent({
 
     onMounted(() => {
       console.log("[ZFX Client LobbyView] Vue route mounted; waiting for native lobby data.");
+      if (lobbyTab.value === "zfx-chat") zfxLobbyChat.connect();
       void loadPersistentMapImages().then(() => {
         publishSdkLobbySnapshot();
       });
@@ -2133,6 +2138,7 @@ const LobbyView = defineComponent({
     });
 
     onBeforeUnmount(() => {
+      zfxLobbyChat.disconnect();
       observer?.disconnect();
       clearNotificationAutoMinimizeTimer();
       if (readinessRefreshTimer) window.clearInterval(readinessRefreshTimer);

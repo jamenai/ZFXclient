@@ -1102,6 +1102,15 @@ const settingsManager = new (function () {
     document.documentElement.style.setProperty("--fx-ui-panel-alpha", String(.98 - transparency / 150));
     document.documentElement.style.setProperty("--fx-ui-backdrop-alpha", String(.88 - transparency / 100));
     document.documentElement.style.setProperty("--fx-game-hud-panel-alpha", String(.96 - gameHudTransparency / 100));
+    try {
+      const gameHudQuickSettings = JSON.parse(localStorage.getItem("zfx.gameHud.settings.v1") || "null");
+      if (Number.isFinite(gameHudQuickSettings?.fontScale)) {
+        document.documentElement.style.setProperty("--fx-game-hud-font-scale", String(Math.max(75, Math.min(150, gameHudQuickSettings.fontScale)) / 100));
+      }
+      if (Number.isFinite(gameHudQuickSettings?.transparency)) {
+        document.documentElement.style.setProperty("--fx-game-hud-panel-alpha", String(.96 - Math.max(0, Math.min(70, gameHudQuickSettings.transparency)) / 100));
+      }
+    } catch { /* Ignore invalid or unavailable local storage. */ }
     document.documentElement.dataset.fxGameStatusStyle = ["tiles", "strip", "rows"].includes(settings.gameStatusHudStyle) ? settings.gameStatusHudStyle : "tiles";
     if (settings.customBackgroundUrl !== "") {
       document.body.style.backgroundImage =

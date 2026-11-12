@@ -37,6 +37,13 @@ const GameLeaderboardHud = defineComponent({
     const lockedPlayerRank = ref(null);
     const panelPosition = ref(null);
     const panelSize = ref({ width: null, height: null });
+    const gameHudSettingsOpen = ref(false);
+    const gameHudFontScale = ref(100);
+    const gameHudTransparency = ref(settingsApi.getNumber("gameHudTransparency", 15));
+    const gameHudLayoutSlots = ref([null, null, null, null]);
+    const gameHudLayoutSlot = ref(0);
+    const gameHudSettingsStorageKey = "zfx.gameHud.settings.v1";
+    const gameHudLayoutSlotsStorageKey = "zfx.gameHud.layoutSlots.v1";
     let panelDrag = null;
     let resizeDrag = null;
     let ignoreHeaderClick = false;
@@ -54,6 +61,37 @@ const GameLeaderboardHud = defineComponent({
     const teamChartPositionStorageKey = "zfx.gameTeamChart.position.v1";
     const teamChartWidth = 168;
     const teamChartHeight = 190;
+    const applyGameHudSettings = () => {
+      const scale = clamp(Number(gameHudFontScale.value) || 100, 75, 150);
+      const transparency = clamp(Number(gameHudTransparency.value) || 0, 0, 70);
+      document.documentElement.style.setProperty("--fx-game-hud-font-scale", String(scale / 100));
+      document.documentElement.style.setProperty("--fx-game-hud-panel-alpha", String(.96 - transparency / 100));
+      try { window.localStorage.setItem(gameHudSettingsStorageKey, JSON.stringify({ fontScale: scale, transparency })); } catch { /* Storage may be unavailable. */ }
+    };
+    const getGameHudLayoutSnapshot = () => Object.fromEntries([
+      panelPositionStorageKey, sizeStorageKey, statusCardLayoutsStorageKey, teamChartPositionStorageKey,
+    ].map(key => [key, window.localStorage.getItem(key)]));
+    const saveGameHudLayout = () => {
+      const slots = [...gameHudLayoutSlots.value];
+      slots[gameHudLayoutSlot.value] = { savedAt: Date.now(), layout: getGameHudLayoutSnapshot() };
+      gameHudLayoutSlots.value = slots;
+      try { window.localStorage.setItem(gameHudLayoutSlotsStorageKey, JSON.stringify(slots)); } catch { /* Storage may be unavailable. */ }
+    };
+    const loadGameHudLayout = () => {
+      const slot = gameHudLayoutSlots.value[gameHudLayoutSlot.value];
+      if (!slot?.layout) return;
+      for (const [key, value] of Object.entries(slot.layout)) {
+        if (typeof value === "string") window.localStorage.setItem(key, value);
+        else window.localStorage.removeItem(key);
+      }
+      try {
+        const savedSize = JSON.parse(window.localStorage.getItem(sizeStorageKey) || "null");
+        if (Number.isFinite(savedSize?.width) && Number.isFinite(savedSize?.height)) panelSize.value = clampPanelSize(savedSize.width, savedSize.height);
+        panelPosition.value = JSON.parse(window.localStorage.getItem(panelPositionStorageKey) || "null");
+        teamChartPosition.value = JSON.parse(window.localStorage.getItem(teamChartPositionStorageKey) || "null");
+        statusCardLayouts.value = JSON.parse(window.localStorage.getItem(statusCardLayoutsStorageKey) || "{}");
+      } catch { /* Ignore invalid saved layouts. */ }
+    };
     let teamChartDrag = null;
     let statusCardDrag = null;
     const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -801,6 +839,11 @@ const GameLeaderboardHud = defineComponent({
       window.__fx ||= {};
       window.__fx.gameLeaderboardAdapter ||= {};
       try {
+        const savedHudSettings = JSON.parse(window.localStorage.getItem(gameHudSettingsStorageKey) || "null");
+        if (Number.isFinite(savedHudSettings?.fontScale)) gameHudFontScale.value = clamp(savedHudSettings.fontScale, 75, 150);
+        if (Number.isFinite(savedHudSettings?.transparency)) gameHudTransparency.value = clamp(savedHudSettings.transparency, 0, 70);
+        const slots = JSON.parse(window.localStorage.getItem(gameHudLayoutSlotsStorageKey) || "[]");
+        gameHudLayoutSlots.value = Array.from({ length: 4 }, (_, index) => slots[index] || null);
         const savedShowEliminated = JSON.parse(window.localStorage.getItem(showEliminatedStorageKey) || "true");
         showEliminated.value = savedShowEliminated === true;
         const savedShowBots = JSON.parse(window.localStorage.getItem(showBotsStorageKey) || "true");
@@ -835,6 +878,7 @@ const GameLeaderboardHud = defineComponent({
             }));
         }
       } catch { /* Ignore invalid or unavailable local storage. */ }
+      applyGameHudSettings();
       window.addEventListener("resize", updateViewport);
       window.addEventListener("orientationchange", updateViewport);
       document.addEventListener("fullscreenchange", updateViewport);
@@ -881,10 +925,18 @@ const GameLeaderboardHud = defineComponent({
       if (window.__fx) window.__fx.gameTeamChartReady = false;
     });
 
-    return { snapshot, visible, dataReady, rows, visibleRows, topSpacerHeight, bottomSpacerHeight, updateVirtualWindow, collapsed, showEliminated, toggleEliminatedVisibility, showBots, toggleBotVisibility, activeTab, setActiveTab, ownClanRank, tabLabels, playerFilter, canFilterClan, canFilterTeam, setPlayerFilter, formatted, focusPlayer, toggleCollapsed, rowsContainer, aliveHumanCount, aliveBotCount, toggleOwnPlayerLock, goTop, panelStyle, startPanelMove, startPanelResize, handlePanelHeaderClick, setLeaderboardPanel, setRowsContainer, statusSnapshot, lockedPlayerId, togglePlayerLock, handleManualScroll, statusCardStyle, startStatusCardMove, leaderboardPanel, teamChartVisible, teamChartStyle, teamChartSegments, detailedTeamPercentage, startTeamChartMove };
+    return { snapshot, visible, dataReady, rows, visibleRows, topSpacerHeight, bottomSpacerHeight, updateVirtualWindow, collapsed, showEliminated, toggleEliminatedVisibility, showBots, toggleBotVisibility, activeTab, setActiveTab, ownClanRank, tabLabels, playerFilter, canFilterClan, canFilterTeam, setPlayerFilter, formatted, focusPlayer, toggleCollapsed, rowsContainer, aliveHumanCount, aliveBotCount, toggleOwnPlayerLock, goTop, panelStyle, startPanelMove, startPanelResize, handlePanelHeaderClick, setLeaderboardPanel, setRowsContainer, statusSnapshot, lockedPlayerId, togglePlayerLock, handleManualScroll, statusCardStyle, startStatusCardMove, leaderboardPanel, teamChartVisible, teamChartStyle, teamChartSegments, detailedTeamPercentage, startTeamChartMove, gameHudSettingsOpen, gameHudFontScale, gameHudTransparency, gameHudLayoutSlots, gameHudLayoutSlot, applyGameHudSettings, saveGameHudLayout, loadGameHudLayout };
   },
   template: `
     <div v-if="visible" class="fx-game-hud-container">
+      <button class="fx-game-settings-opener" type="button" aria-label="Game HUD settings" title="Game HUD settings" @pointerdown.stop @click.stop="gameHudSettingsOpen = !gameHudSettingsOpen; $event.currentTarget.blur()">⚙</button>
+      <section v-if="gameHudSettingsOpen" class="fx-hud-settings-panel" @pointerdown.stop>
+        <header><strong>HUD Settings</strong><button type="button" aria-label="Close" @click="gameHudSettingsOpen = false; $event.currentTarget.blur()">×</button></header>
+        <label>Font size <output>{{ gameHudFontScale }}%</output><input v-model.number="gameHudFontScale" type="range" min="75" max="150" step="5" @input="applyGameHudSettings"></label>
+        <label>Transparency <output>{{ gameHudTransparency }}%</output><input v-model.number="gameHudTransparency" type="range" min="0" max="70" step="1" @input="applyGameHudSettings"></label>
+        <label>Layout slot<select v-model.number="gameHudLayoutSlot"><option v-for="(slot, index) in gameHudLayoutSlots" :key="index" :value="index">{{ index + 1 }}{{ slot ? ' · saved' : ' · empty' }}</option></select></label>
+        <div class="fx-game-settings-actions"><button type="button" @click="saveGameHudLayout(); $event.currentTarget.blur()">Save</button><button type="button" :disabled="!gameHudLayoutSlots[gameHudLayoutSlot]" @click="loadGameHudLayout(); $event.currentTarget.blur()">Load</button></div>
+      </section>
       <GameLeaderboardWidget
         :panel-style="panelStyle"
         :collapsed="collapsed"
@@ -1025,7 +1077,13 @@ export function createVueGameLeaderboardHud() {
       .fx-game-status-map-pair .fx-game-status-meter{grid-area:meter}
       .fx-game-status-item.is-time{grid-template-columns:16px minmax(0,1fr)!important;grid-template-areas:"head value"!important;gap:4px!important;padding:5px 8px!important;border-radius:8px!important}.fx-game-status-item.is-time .fx-game-status-icon{flex-basis:14px;font-size:12px}.fx-game-status-item.is-time .fx-game-status-value{font-size:13px!important}
       .fx-game-status-item.is-density{background:radial-gradient(ellipse at 8% 0%,color-mix(in srgb,var(--fx-game-density-color,#78a9ff) 16%,transparent),transparent 58%),linear-gradient(145deg,rgba(20,30,45,var(--fx-game-hud-panel-alpha,.81)),rgba(9,15,26,var(--fx-game-hud-panel-alpha,.81)));border-color:color-mix(in srgb,var(--fx-game-density-color,#78a9ff) 38%,rgba(150,185,225,.17));box-shadow:inset 0 1px rgba(255,255,255,.08),0 8px 20px rgba(0,0,0,.2)}
-    `;
+      .fx-game-settings-opener{position:fixed;right:14px;top:14px;z-index:80;width:34px;height:34px;border:1px solid rgba(160,190,225,.24);border-radius:9px;background:rgba(14,22,34,.88);color:#dce8f7;font:18px/1 Arial,sans-serif;cursor:pointer;pointer-events:auto;backdrop-filter:blur(10px)}
+      .fx-hud-settings-panel{position:fixed;right:14px;top:56px;z-index:80;width:min(260px,calc(100vw - 28px));box-sizing:border-box;padding:12px;border:1px solid rgba(160,190,225,.24);border-radius:12px;background:linear-gradient(145deg,rgba(20,30,45,.96),rgba(9,15,26,.96));box-shadow:0 12px 36px rgba(0,0,0,.4);color:#eef4ff;font:12px/1.4 var(--fx-game-native-font-family,Arial,sans-serif);backdrop-filter:blur(14px);pointer-events:auto}
+      .fx-hud-settings-panel header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.fx-hud-settings-panel header button{border:0;background:transparent;color:#b9c9dc;font-size:19px;cursor:pointer}
+      .fx-hud-settings-panel label{display:grid;grid-template-columns:1fr auto;gap:5px;margin:9px 0;color:#c5d3e5}.fx-hud-settings-panel output{color:#8fdeb9;font-variant-numeric:tabular-nums}.fx-hud-settings-panel input[type=range]{grid-column:1/-1;width:100%;accent-color:#67d9b2}.fx-hud-settings-panel select{grid-column:1/-1;padding:5px;border:1px solid rgba(160,190,225,.2);border-radius:6px;background:#101b2a;color:#eef4ff;font:inherit}
+      .fx-game-settings-actions{display:flex;gap:7px;margin-top:10px}.fx-game-settings-actions button{flex:1;padding:7px;border:1px solid rgba(160,190,225,.2);border-radius:7px;background:rgba(99,160,255,.12);color:#e7f0ff;font:inherit;cursor:pointer}.fx-game-settings-actions button:disabled{opacity:.4;cursor:default}
+    `.replace(/font-size:\s*([^;}]+)/g, (_match, declaration) => `font-size:${declaration.replace(/(\d+(?:\.\d+)?)px/g, "calc($1px * var(--fx-game-hud-font-scale,1))")}`)
+      .replace(/(font:\s*(?:\d+\s+)?)(\d+(?:\.\d+)?)px(?=\/)/g, "$1calc($2px * var(--fx-game-hud-font-scale,1))");
     document.head.appendChild(style);
   }
   const host = document.createElement("div");

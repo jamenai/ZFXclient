@@ -81,10 +81,11 @@ export function createVueGameDebugHud() {
     const style = document.createElement("style");
     style.id = styleId;
     style.textContent = `
-      .fx-game-debug-hud{position:fixed;z-index:100;top:12px;right:12px;width:190px;box-sizing:border-box;padding:8px 10px;border:1px solid rgba(155,190,225,.3);border-radius:8px;background:rgba(8,14,24,.88);box-shadow:0 6px 22px rgba(0,0,0,.3);backdrop-filter:blur(8px);color:#edf4ff;font:12px/1.35 var(--fx-game-native-font-family,Arial,sans-serif);pointer-events:none;user-select:none}
+      .fx-game-debug-hud{position:fixed;z-index:100;top:12px;right:12px;width:190px;box-sizing:border-box;padding:8px 10px;border:1px solid rgba(155,190,225,.3);border-radius:8px;background:rgba(8,14,24,var(--fx-game-hud-panel-alpha,.81));box-shadow:0 6px 22px rgba(0,0,0,.3);backdrop-filter:blur(8px);color:#edf4ff;font:12px/1.35 var(--fx-game-native-font-family,Arial,sans-serif);pointer-events:none;user-select:none}
       .fx-game-debug-hud header{display:flex;align-items:center;gap:8px;margin-bottom:5px;color:#9fc6ff}.fx-game-debug-hud header strong{margin-right:auto;letter-spacing:.09em}.fx-game-debug-hud header button{pointer-events:auto;padding:0 3px;border:0;background:transparent;color:#cbd8e8;font:18px/1 inherit;cursor:pointer}
       .fx-game-debug-hud-line{display:grid;grid-template-columns:28px 1fr auto;gap:5px;align-items:center;padding:2px 0}.fx-game-debug-hud-line>span{color:#8fa6c1}.fx-game-debug-hud-line small,.fx-game-debug-hud-total{color:#b8c5d6}.fx-game-debug-hud-total{display:block;margin:0 0 3px 33px;font-size:10px}.fx-game-debug-hud footer{display:flex;gap:8px;margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,.1);color:#8fa6c1;font-size:10px}
-    `;
+    `.replace(/font-size:\s*([^;}]+)/g, (_match, declaration) => `font-size:${declaration.replace(/(\d+(?:\.\d+)?)px/g, "calc($1px * var(--fx-game-hud-font-scale,1))")}`)
+      .replace(/(font:\s*(?:\d+\s+)?)(\d+(?:\.\d+)?)px(?=\/)/g, "$1calc($2px * var(--fx-game-hud-font-scale,1))");
     document.head.appendChild(style);
   }
   const host = document.createElement("div");

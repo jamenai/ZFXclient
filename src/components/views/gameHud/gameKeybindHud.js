@@ -20,7 +20,7 @@ const GameKeybindHud = defineComponent({
         width: `${current.width}px`,
         height: `${current.height}px`,
         gap: `${current.gap}px`,
-        fontSize: `${current.fontSize}px`,
+        "--fx-keybind-base-font-size": `${current.fontSize}px`,
       };
     });
     const receiveLayout = next => {
@@ -77,8 +77,8 @@ export function createVueGameKeybindHud() {
     const style = document.createElement("style");
     style.id = styleId;
     style.textContent = `
-      .fx-game-keybind-hud{position:fixed;z-index:61;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));box-sizing:border-box;pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;font-family:var(--fx-game-native-font-family,Arial,sans-serif)}
-      .fx-game-keybind-hud button{min-width:0;height:100%;padding:0 3px;border:0;border-right:1px solid rgba(110,180,220,.45);background:rgba(0,0,0,.82);color:#f5f8ff;font:700 1em/1 var(--fx-game-native-font-family,Arial,sans-serif);text-align:center;white-space:nowrap;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none}
+      .fx-game-keybind-hud{position:fixed;z-index:61;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));box-sizing:border-box;pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;font-family:var(--fx-game-native-font-family,Arial,sans-serif);font-size:calc(var(--fx-keybind-base-font-size,12px) * var(--fx-game-hud-font-scale,1))}
+      .fx-game-keybind-hud button{min-width:0;height:100%;padding:0 3px;border:0;border-right:1px solid rgba(110,180,220,.45);background:rgba(0,0,0,var(--fx-game-hud-panel-alpha,.81));color:#f5f8ff;font:700 1em/1 var(--fx-game-native-font-family,Arial,sans-serif);text-align:center;white-space:nowrap;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none}
       .fx-game-keybind-hud button:first-child{border-radius:3px 0 0 3px}
       .fx-game-keybind-hud button:last-child{border-right:0;border-radius:0 3px 3px 0}
       .fx-game-keybind-hud button:focus{outline:none}

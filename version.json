@@ -1,13 +1,22 @@
 {
-    "version": "0.1.47",
+    "version": "0.1.48",
     "lastUpdated": "November 12, 2026",
     "changes": [
-        "Show native account codes and compact ranks in lobby player cards",
-        "Keep the player-name editor in the viewport and return to the custom lobby after saving",
-        "Improve game HUD leaderboard controls and add network diagnostics"
+        "Add quick Game HUD controls for font scale and transparency",
+        "Save and load four Game HUD layout presets",
+        "Keep the native settings panel in its correct layout"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.47",
+            "lastUpdated": "November 12, 2026",
+            "changes": [
+                "Show native account codes and compact ranks in lobby player cards",
+                "Keep the player-name editor in the viewport and return to the custom lobby after saving",
+                "Improve game HUD leaderboard controls and add network diagnostics"
+            ]
+        },
         {
             "version": "0.1.46",
             "lastUpdated": "November 11, 2026",

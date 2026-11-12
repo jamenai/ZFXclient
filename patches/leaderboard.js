@@ -55,13 +55,13 @@ export default definePatch((modUtils) => {
 	// Player names are identified by build.js after patch application. Seed the
 	// current native field names early so this patch can install its hooks.
 	if (!modUtils.dictionary.playerData) modUtils.dictionary.playerData = "ah";
-	if (!modUtils.dictionary.rawPlayerNames) modUtils.dictionary.rawPlayerNames = "a4O";
-	if (!modUtils.dictionary.playerNames) modUtils.dictionary.playerNames = "a2A";
-	if (!modUtils.dictionary.playerTerritories) modUtils.dictionary.playerTerritories = "hQ";
-	if (!modUtils.dictionary.playerBalances) modUtils.dictionary.playerBalances = "he";
-	if (!modUtils.dictionary.playerBalance) modUtils.dictionary.playerBalance = "he";
-	if (!modUtils.dictionary.playerCommitted) modUtils.dictionary.playerCommitted = "a7G";
-	if (!modUtils.dictionary.playerStates) modUtils.dictionary.playerStates = "a77";
+	if (!modUtils.dictionary.rawPlayerNames) modUtils.dictionary.rawPlayerNames = "a4x";
+	if (!modUtils.dictionary.playerNames) modUtils.dictionary.playerNames = "a2j";
+	if (!modUtils.dictionary.playerTerritories) modUtils.dictionary.playerTerritories = "hU";
+	if (!modUtils.dictionary.playerBalances) modUtils.dictionary.playerBalances = "hi";
+	if (!modUtils.dictionary.playerBalance) modUtils.dictionary.playerBalance = "hi";
+	if (!modUtils.dictionary.playerCommitted) modUtils.dictionary.playerCommitted = "a7o";
+	if (!modUtils.dictionary.playerStates) modUtils.dictionary.playerStates = "a7f";
 	// The current HUD leaderboard uses aE5/aEV and no longer matches the
 	// previous topBarHeight/drawFunction template. Add its tabs to that canvas.
 	if (/function aEV\(\)\{/.test(modUtils.script)

@@ -26,6 +26,12 @@ const replay = {
     },
 
     getTotalTicks() {
+        const nativeStats = window.__fx?.getNativeReplayTickStats?.();
+        if (nativeStats && Number.isFinite(nativeStats.totalTicks)) {
+            this.totalTicks = Math.max(0, nativeStats.totalTicks);
+            this.tick = Math.max(0, Math.min(this.totalTicks, Number(nativeStats.currentTick) || 0));
+            return this.totalTicks;
+        }
         const flags = getVar("tickFlags"), counts = getVar("tickCounts");
         if (!counts) return 0;
         if (counts !== this.countedEntries) {
@@ -179,6 +185,13 @@ export function initializeReplayTimebar() {
         frameId = requestAnimationFrame(updateBar);
         const visible = settingsApi.getBoolean("showReplayTimebar") && replay.isWatching() && !getVar("uiHidden");
         bar.classList.toggle("d-none", !visible);
+        const canSeek = Boolean(replay.hooks && replay.controls);
+        track.style.pointerEvents = canSeek ? "auto" : "none";
+        track.style.opacity = canSeek ? "1" : ".65";
+        track.title = canSeek
+            ? ""
+            : (window.__fx?.translateFX?.("replaySeekUnavailable") ?? "Seeking is unavailable for this native replay version.");
+        track.setAttribute("aria-disabled", canSeek ? "false" : "true");
         const replayTimestamp = replayHistory.getActiveReplayTimestamp();
         bookmarkButton.disabled = replayTimestamp === null;
         bookmarkButton.style.opacity = bookmarkButton.disabled ? ".5" : "1";

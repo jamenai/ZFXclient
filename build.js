@@ -136,11 +136,12 @@ async function patchGameCode(buildTimestamp) {
 
 	// Current native game data layout shared by patches and adapters.
 	Object.assign(modUtils.dictionary, {
-		game: "aE", playerId: "fM", playerData: "ah", rawPlayerNames: "a4O", playerNames: "a2A",
-		playerTerritories: "hQ", playerBalances: "he", playerBalance: "he", playerCommitted: "a7G",
-		playerAlive: "na", playerStates: "a77", gHumans: "ky", gBots: "lK", gSpectators: "a3h", gMaxPlayers: "fZ", gameState: "a3c", gMatchState: "a3f",
-		gIsSingleplayer: "lI", gIsReplay: "hl", gGameType: "lG",
-		gLobbyMaxJoin: "fZ", gSelectableSpawn: "i1",
+		game: "aE", playerId: "fQ", playerData: "ah", rawPlayerNames: "a4x", playerNames: "a2j",
+		playerTerritories: "hU", playerBalances: "hi", playerBalance: "hi", playerCommitted: "a7o",
+		playerAlive: "ne", playerStates: "a7f", gHumans: "l2", gBots: "lO",
+		gMaxPlayers: "a1L", gLobbyMaxJoin: "fd", gameState: "a4E", gMatchState: "a4E",
+		gIsSingleplayer: "lM", gIsReplay: "hp", gGameType: "lK",
+		gSelectableSpawn: "i5",
 	});
 
 	const { default: applyPatches } = await import('./patches/main.js');
@@ -148,10 +149,10 @@ async function patchGameCode(buildTimestamp) {
 	applyPatches(modUtils);
 	// Keep the native client's boot callable, but let the already-mounted ZFX
 	// shell decide when the game starts instead of relying on window.onload.
-	const nativeStartupPattern = /setTimeout\(by,10000\);window\.onload=function\(\)\{by\(\);\};/;
+	const nativeStartupPattern = /setTimeout\((\w+),10000\);window\.onload=function\(\)\{\1\(\);\};/;
 	if (nativeStartupPattern.test(modUtils.script)) {
-		modUtils.script = modUtils.script.replace(nativeStartupPattern,
-			"window.__fxStartNativeGame=function(){if(window.__fx.nativeGameStarted)return;window.__fx.nativeGameStarted=true;by();};");
+		modUtils.script = modUtils.script.replace(nativeStartupPattern, (_match, startNativeGame) =>
+			`window.__fxStartNativeGame=function(){if(window.__fx.nativeGameStarted)return;window.__fx.nativeGameStarted=true;${startNativeGame}();};`);
 	} else {
 		throw new Error("Native game startup signature changed; delayed startup cannot be installed safely.");
 	}

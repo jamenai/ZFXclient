@@ -9,8 +9,8 @@ let cachedAt = 0;
 export function drawSelfTerritoryHighlightOnGameMap(context, mapAccess, mapSize, offsetMethod, isPlayerCellMethod, playerId, translateX, translateY, zoom) {
   diagnostics.renderCalls++;
   if (!context || !mapAccess || !settingsApi.getBoolean("highlightSelfTerritory") || !Number.isInteger(playerId)) return;
-  const width = mapSize?.fn;
-  const height = mapSize?.fo;
+  const width = mapSize?.fr ?? mapSize?.fn;
+  const height = mapSize?.fs ?? mapSize?.fo;
   if (!Number.isInteger(width) || !Number.isInteger(height) || width < 3 || height < 3) return;
 
   const revision = window.__fx?.selfTerritoryHighlightRevision ?? 0;

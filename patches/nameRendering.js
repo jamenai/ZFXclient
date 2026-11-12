@@ -5,12 +5,27 @@ import ModUtils, { insert } from "../modUtils.js"
 export default (/** @type {ModUtils} */ modUtils) => {
   const { modifyCode, waitForMinification, matchCode, replaceOne } = modUtils;
 
+  // Territorial.io 2.17.9 renamed the map-label data model and split the
+  // native name/balance drawing into aPk/aPj.
+  if (/function aPk\(aC,fontSize,fn,fp,il\)\{il\.fillText\(ah\.a2j\[aC\],fn,fp\);/.test(modUtils.script)) {
+    replaceOne(/function aPk\(aC,fontSize,fn,fp,il\)\{il\.fillText\(ah\.a2j\[aC\],fn,fp\);/g,
+      'function aPk(aC,fontSize,fn,fp,il){if(aC>=aE.l2&&window.__fx?.settingsApi?.getBoolean("hideBotNames"))return;var fxName=ah.a2j[aC]||"",fxDetails=window.__fx?.followedAccounts?.getLobbyDetails?.(fxName)||{},fxDisplayName=window.__fx?.nameFilter?.filter?.(fxDetails.nickname||fxName)||fxName,fxOldColor=il.fillStyle;if(fxDetails.color)il.fillStyle=fxDetails.color;if(!window.__fx?.settingsApi?.getBoolean("showCountryFlagsOnLand")||!window.__fx?.utils?.drawPlayerNameWithCountryFlags?.(il,fxDisplayName,fn,fp))il.fillText(fxDisplayName,fn,fp);il.fillStyle=fxOldColor;');
+
+    // The native order switch (aPQ) decides which side of the name the
+    // balance occupies. Draw density below the balance only in the normal
+    // order, matching the old client behavior.
+    replaceOne(/il\.fillText\(aPp,aPd,aPe\);\}function aPm\(/g,
+      'il.fillText(aPp,aPd,aPe);if(!aPQ&&window.__fx?.settingsApi?.getBoolean("showPlayerDensity")){var fxOldDensityColor=il.fillStyle;if(window.__fx.settingsApi.getBoolean("coloredDensity"))il.fillStyle=window.__fx.utils.textStyleBasedOnDensity(aC);il.fillText(window.__fx.utils.getDensity(aC),aPd,aPe+fontSize);var fxAttack=window.__fx.settingsApi.getBoolean("showEstimatedEliminationAttack")?window.__fx.utils.getEstimatedEliminationAttack(aC,ah.hi[aC]-ah.a7o[aC]):"";fxAttack&&window.__fx.utils.drawEstimatedEliminationAttack(il,aC,fxAttack,aPd,aPe+2*fontSize);il.fillStyle=fxOldDensityColor;}}function aPm(');
+
+    return;
+  }
+
   // Current name renderer is aP8. Preserve native balance text while adding
   // ZFX name filtering, optional bot hiding, density, and elimination estimate.
   if (/function aP8\(aC,fontSize,fj,fl,ih\)\{ih\.fillText\(ah\.a2A\[aC\],fj,fl\);/.test(modUtils.script)) {
     const nativeFields = {
       game: "aE", playerId: "fM", playerData: "ah", playerNames: "a2A", rawPlayerNames: "a4O",
-      playerTerritories: "hQ", playerBalances: "he", playerBalance: "he", playerCommitted: "a7G",
+      playerTerritories: "hQ", playerBalances: "hi", playerBalance: "hi", playerCommitted: "a7o",
       playerStates: "a77", gHumans: "ky", gameState: "a3c",
     };
     for (const [key, value] of Object.entries(nativeFields)) {
@@ -29,7 +44,7 @@ export default (/** @type {ModUtils} */ modUtils) => {
   if (/function aP5\(aC,fontSize,fj,fl,ih\)\{ih\.fillText\(ah\.a2A\[aC\],fj,fl\);/.test(modUtils.script)) {
     const nativeFields = {
       game: "aE", playerId: "fM", playerData: "ah", playerNames: "a2A", rawPlayerNames: "a4O",
-      playerTerritories: "hQ", playerBalances: "he", playerBalance: "he", playerCommitted: "a7G",
+      playerTerritories: "hQ", playerBalances: "hi", playerBalance: "hi", playerCommitted: "a7o",
       playerStates: "a77", gHumans: "ky", gameState: "a3c",
     };
     for (const [key, value] of Object.entries(nativeFields)) {

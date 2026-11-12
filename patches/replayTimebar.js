@@ -1,26 +1,18 @@
 import { definePatch } from "../modUtils.js";
 
 export default definePatch(({ replaceOne }) => {
-  // The replay engine now advances through agm.agw/agt, with playback speed
-  // held by d7. Expose those current native controls to the ZFX timebar.
+  // In 2.17.9 the replay cursor lives inside ahT. Count completed native
+  // replay intervals from its private group cursor instead of relying on the
+  // removed agp/agt hooks used by older builds.
   replaceOne(
-    /function agp\(\)\{/g,
-    "$&this.fxAdvance=function(){agt();};this.fxFinishTick=function(){nJ();be.render();};",
+    /function ahT\(\)\{var ahU;var ahV;var ahW;var aM1;var ahX;var eP=0;var eg=bi\.eg;this\.ahL=0;/g,
+    "$&this.fxGetReplayCursor=function(){var total=0;var counts=bC.so.abH||[];for(var index=0;index<ahU&&index<counts.length;index++)total+=counts[index]||0;return total+(ahW||0);};",
   );
+
+  // The native speed selector is still the source of truth. Expose a bounded
+  // setter for the custom HUD controls without changing Terri's playback loop.
   replaceOne(
-    /this\.aCc=function\(\)\{return aCa\[aCb\];\};/g,
-    "$&this.fxGetSpeedIndex=function(){return aCb;};this.fxSetSpeedIndex=function(index){aCb=Math.max(0,Math.min(aCa.length-1,index|0));bi.du=true;};",
-  );
-  replaceOne(
-    /if\(aE\.hl\)\{this\.a3p=new agp\(\);this\.a3p\.dm\(\);return;\}/g,
-    "if(aE.hl){this.a3p=new agp();this.a3p.dm();__fx.replay.controls={fxIsPlaying:function(){return !bF.a8d;},fxGetSpeedIndex:function(){return bF.fxGetSpeedIndex();},fxSetSpeedIndex:function(index){bF.fxSetSpeedIndex(index);}};__fx.replay.registerHooks({advance:function(){bi.a3p.fxAdvance();},finishTick:function(){bi.a3p.fxFinishTick();},requestRedraw:function(){bi.du=true;},isEnded:function(){return aE.a3f===2;},getTickInterval:function(){return bi.aFO/bF.aCc();}});return;}",
-  );
-  replaceOne(
-    /this\.aXN=function\(\)\{/g,
-    "this.aXN=function(){__fx.replay.restartReplay=function(){bC.aXN();};",
-  );
-  replaceOne(
-    /this\.a5q=function\(aCf\)\{/g,
-    "this.a5q=function(aCf){__fx.replay.togglePlayPause=function(){bF.a5q(true);};",
+    /this\.aD9=function\(\)\{return aD7\[aD8\];\};/g,
+    "$&this.fxGetSpeedIndex=function(){return aD8;};this.fxSetSpeedIndex=function(index){aD8=Math.max(0,Math.min(aD7.length-1,index|0));bi.dy=true;};",
   );
 });

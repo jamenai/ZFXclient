@@ -80,11 +80,11 @@ export function createGameSdk({ getMapNames = () => null } = {}) {
     try { mapNames = getMapNames(); } catch { /* Keep protocol data available if map metadata is not ready. */ }
     const entries = latestNativeEntries.map((entry, index) => {
       const id = Number(entry?.id);
-      const mapIndex = Number(entry?.fI ?? entry?.fG);
-      const modeCode = Number(entry?.wN ?? entry?.wK ?? entry?.w7);
-      const count = Number(entry?.h5 ?? entry?.h3);
-      const reserved = Number(entry?.aHU ?? entry?.aHR ?? entry?.aHC);
-      const nativeMaxPlayers = entry?.nV ?? entry?.nT;
+      const mapIndex = Number(entry?.fI ?? entry?.fG ?? entry?.fM);
+      const modeCode = Number(entry?.wN ?? entry?.wK ?? entry?.w7 ?? entry?.wy);
+      const count = Number(entry?.h5 ?? entry?.h3 ?? entry?.h9);
+      const reserved = Number(entry?.aHU ?? entry?.aHR ?? entry?.aHC ?? entry?.aI6);
+      const nativeMaxPlayers = entry?.nV ?? entry?.nT ?? entry?.nZ;
       const maxPlayersValue = Number(nativeMaxPlayers) < (modeCode === 9 ? 333 : 512) ? nativeMaxPlayers : null;
       const isSelected = Number.isInteger(id) && id === selectedEntryId;
       return Object.freeze({
@@ -94,7 +94,7 @@ export function createGameSdk({ getMapNames = () => null } = {}) {
         participation: isSelected ? selectedEntryMode : "none",
         joined: isSelected && selectedEntryMode === "joined",
         spectating: isSelected && selectedEntryMode === "spectator",
-        countdownSeconds: Number(entry?.wk ?? entry?.wh ?? entry?.wU),
+        countdownSeconds: Number(entry?.wk ?? entry?.wh ?? entry?.wU ?? entry?.xL),
         playerCount: Number.isFinite(count) && Number.isFinite(reserved) ? Math.max(0, count - reserved) : null,
         maxPlayers: maxPlayersValue != null && Number.isFinite(Number(maxPlayersValue))
           ? Number(maxPlayersValue) : null,
@@ -102,7 +102,7 @@ export function createGameSdk({ getMapNames = () => null } = {}) {
         mapName: Number.isInteger(mapIndex) ? String(mapNames?.[mapIndex] ?? "") : "",
         mapSeed: Number(entry?.mapSeed),
         modeCode,
-        isContest: (entry?.wo ?? entry?.wl ?? entry?.wY) === 1 || (entry?.wo ?? entry?.wl ?? entry?.wY) === true,
+        isContest: (entry?.wo ?? entry?.wl ?? entry?.wY ?? entry?.xP) === 1 || (entry?.wo ?? entry?.wl ?? entry?.wY ?? entry?.xP) === true,
         readyCount: rostersByEntryId.get(id)?.readyCount ?? null,
         players: rostersByEntryId.get(id)?.players ?? null,
       });
@@ -176,14 +176,14 @@ export function createGameSdk({ getMapNames = () => null } = {}) {
   function receiveNativePlayers(players, entries = latestNativeEntries, selectedId = selectedEntryId, sequence = null) {
     if (!Array.isArray(players)) return false;
     const normalizedPlayers = players.map((player, index) => Object.freeze({
-      id: Number.isInteger(Number(player?.uu ?? player?.ur ?? player?.ue)) ? Number(player.uu ?? player.ur ?? player.ue) : null,
-      accountCode: formatLobbyAccountCode(player?.uu ?? player?.ur ?? player?.ue),
+      id: Number.isInteger(Number(player?.uu ?? player?.ur ?? player?.ue ?? player?.pk)) ? Number(player.uu ?? player.ur ?? player.ue ?? player.pk) : null,
+      accountCode: formatLobbyAccountCode(player?.uu ?? player?.ur ?? player?.ue ?? player?.pk),
       name: String(player?.username ?? ""),
-      ready: Number(player?.x8 ?? player?.x5 ?? player?.ws) > 0 && Number(player?.xB ?? player?.x8Mode ?? player?.wv) === 0,
-      entryId: Number.isInteger(Number(player?.x8 ?? player?.x5 ?? player?.ws)) && Number(player?.x8 ?? player?.x5 ?? player?.ws) > 0
-        ? Number(player.x8 ?? player.x5 ?? player.ws) : null,
-      participation: Number(player?.x8 ?? player?.x5 ?? player?.ws) > 0
-        ? (Number(player?.xB ?? player?.x8Mode ?? player?.wv) === 0 ? "joined" : "spectator") : "none",
+      ready: Number(player?.x8 ?? player?.x5 ?? player?.ws ?? player?.xi) > 0 && Number(player?.xB ?? player?.x8Mode ?? player?.wv ?? player?.xl) === 0,
+      entryId: Number.isInteger(Number(player?.x8 ?? player?.x5 ?? player?.ws ?? player?.xi)) && Number(player?.x8 ?? player?.x5 ?? player?.ws ?? player?.xi) > 0
+        ? Number(player.x8 ?? player.x5 ?? player.ws ?? player.xi) : null,
+      participation: Number(player?.x8 ?? player?.x5 ?? player?.ws ?? player?.xi) > 0
+        ? (Number(player?.xB ?? player?.x8Mode ?? player?.wv ?? player?.xl) === 0 ? "joined" : "spectator") : "none",
       rankCode: Number.isFinite(Number(player?.a7W ?? player?.a7T ?? player?.a7G)) && Number(player?.a7W ?? player?.a7T ?? player?.a7G) >= 0
         && Number(player?.a7W ?? player?.a7T ?? player?.a7G) !== 1234566 ? Number(player.a7W ?? player.a7T ?? player.a7G) : null,
       rank: Number.isFinite(Number(player?.a7W ?? player?.a7T ?? player?.a7G)) && Number(player?.a7W ?? player?.a7T ?? player?.a7G) >= 0

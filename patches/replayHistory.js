@@ -1,24 +1,17 @@
 import { definePatch } from "../modUtils.js";
 
 export default definePatch(({ replaceOne }) => {
-  // The current game finalizes replay data when leaving a match. Save that
-  // native replay string into the rolling ZFX history at this point.
+  // The replay serializer/decoder moved under d8 in 2.17.9. Install the Vue
+  // history bridge there, while all native replay APIs are in scope.
   replaceOne(
-    /(this\.a55=function\(eb\)\{if\(!bC\.rq\.a8X\.length\)\{this\.a8K=bC\.a8Y\.a39\(\);\}else\{this\.a8K=bC\.rq\.a8X;\})/g,
-    "$1;__fx.replayHistory.save(this.a8K);",
+    /function d8\(\)\{/g,
+    '$&if(window.__fx){var fxReplayHistory=window.__fx.replayHistory;fxReplayHistory.load=function(saved,timestamp){var encoded=String(saved||"").trim();if(!encoded)return false;u.y();var loaded=bC.aOS.a0Z(bC.aY0(encoded));if(!loaded&&aE.data.mapType!==2)return false;fxReplayHistory.setActiveReplay(timestamp);if(loaded)bC.aY1();return true;};window.__fx.getNativeReplayTickStats=function(){var flags=bC?.so?.abG,counts=bC?.so?.abH,total=0;if(flags&&counts){for(var index=0;index<counts.length;index++)total+=counts[index]||0;}var cursor=bi?.a4O?.fxGetReplayCursor;return{flags:flags||null,counts:counts||null,totalTicks:total,currentTick:typeof cursor===\"function\"?cursor():0};};}',
   );
 
-  // Expose the current native parser and replay start routine to the Vue
-  // history view so saved entries can launch through the game's own loader.
+  // On match exit the game has the complete native replay string available
+  // as a8s. Store that exact string in the rolling local history.
   replaceOne(
-    /this\.aXN=function\(\)\{/g,
-    "$&window.__fx.replayHistory.load=function(saved,timestamp){saved=bC.aXM(String(saved||\"\"));if(!bC.aNq.a00(saved))return false;window.__fx.replayHistory.setActiveReplay(timestamp);bC.aXN();return true;};",
-  );
-
-  // Pasted or otherwise native-loaded replays are not entries from our saved
-  // history, so clear the active history marker before playback starts.
-  replaceOne(
-    /if\(!bC\.aNq\.a00\(sA\)\)\{return;\}bC\.aXN\(\);/g,
-    "if(!bC.aNq.a00(sA)){return;}__fx.replayHistory.setActiveReplay(null);bC.aXN();",
+    /this\.a5d=function\(ef\)\{if\(!bC\.so\.a95\.length\)\{this\.a8s=bC\.a96\.a3i\(\);\}else\{this\.a8s=bC\.so\.a95;\}/g,
+    '$&window.__fx?.replayHistory?.save?.(this.a8s);',
   );
 });

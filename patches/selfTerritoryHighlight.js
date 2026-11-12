@@ -1,16 +1,15 @@
 import { definePatch } from "../modUtils.js";
 
 export default definePatch(({ replaceOne }) => {
-  // Render the outline over the live territory layer on every map frame. The
-  // static base map canvas is drawn underneath this layer and loses overlays.
+  // 2.17.9 composites the current territory image in dV.render. Draw the
+  // cached own-territory contour after each dirty map region is restored.
   replaceOne(
-    /yJ\.drawImage\(a1p,aT\.a1m\(\),aT\.a1n\(\)\);/g,
-    '$&__fx.drawSelfTerritoryHighlightOnGameMap(yJ,{fxOffset:function(x,y){return bP.jK(x,y);},fxIsPlayer:function(player,offset){return ad.a1g(player,offset);}},bV,"fxOffset","fxIsPlayer",aE.fM,aT.a1m(),aT.a1n(),ir);',
+    /a92\.putImageData\(a93,0,0,o5,o6,oI-o5\+1,oJ-o6\+1\);\}\};/g,
+    'a92.putImageData(a93,0,0,o5,o6,oI-o5+1,oJ-o6+1);}if(window.__fx?.drawSelfTerritoryHighlightOnGameMap){window.__fx.drawSelfTerritoryHighlightOnGameMap(a92,{fxCell:function(x,y){return ad.a1t(x,y);},fxIsPlayer:function(player,cell){return ad.hG(cell)&&ad.fY(cell)===player;}},bV,"fxCell","fxIsPlayer",aE.fQ,0,0,1);}};',
   );
-  // The renderer can cache its owner-boundary path until one of Terri's
-  // territory pixels changes. Mark the path dirty at that native mutation.
+  // Mark the cached contour dirty whenever a map pixel changes owner or type.
   replaceOne(
-    /function aMI\(fG\)\{/g,
-    '$&window.__fx.selfTerritoryHighlightRevision=(window.__fx.selfTerritoryHighlightRevision||0)+1;',
+    /function aMu\(fK\)\{/g,
+    '$&window.__fx&&(window.__fx.selfTerritoryHighlightRevision=(window.__fx.selfTerritoryHighlightRevision||0)+1);',
   );
 });

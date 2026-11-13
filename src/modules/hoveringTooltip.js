@@ -22,7 +22,7 @@ const hoveringTooltip = new (function() {
           .fx-territory-card-kind{flex:0 0 auto;padding:3px 5px;border:1px solid rgba(160,190,225,.17);border-radius:5px;background:rgba(255,255,255,.045);color:#aebed1;font-size:8px;font-weight:800;letter-spacing:.08em}
           .fx-territory-card-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}.fx-territory-card-metric{display:flex;flex-direction:column;justify-content:space-between;gap:5px;min-width:0;min-height:55px;box-sizing:border-box;padding:7px 8px;border:1px solid rgba(150,185,225,.14);border-radius:8px;background:linear-gradient(145deg,rgba(20,30,45,.82),rgba(9,15,26,.82))}.fx-territory-card-metric.is-density{border-color:color-mix(in srgb,var(--fx-density-color,#78a9ff) 35%,rgba(150,185,225,.14));background:radial-gradient(ellipse at 0 0,color-mix(in srgb,var(--fx-density-color,#78a9ff) 18%,transparent),transparent 75%),linear-gradient(145deg,rgba(20,30,45,.85),rgba(9,15,26,.88))}
           .fx-territory-card-label{display:flex;align-items:center;gap:5px;color:#93a8c1;font-size:9px;font-weight:750;letter-spacing:.08em;text-transform:uppercase}.fx-territory-card-icon{display:grid;place-items:center;width:14px;height:14px;border-radius:4px;background:rgba(255,255,255,.055);color:#bbcade;font-size:10px;line-height:1}
-          .fx-territory-card-value{overflow:hidden;color:#f0f5ff;font-size:20px;font-weight:750;line-height:1.05;text-overflow:ellipsis;white-space:nowrap;font-variant-numeric:tabular-nums}.fx-territory-card-metric.is-density .fx-territory-card-value{color:var(--fx-density-color,#b8d7ff);font-size:22px}.fx-territory-card-metric.is-secondary{min-height:43px}.fx-territory-card-metric.is-secondary .fx-territory-card-value{font-size:14px}
+          .fx-territory-card-value{overflow:hidden;color:#f0f5ff;font-size:20px;font-weight:750;line-height:1.05;text-overflow:ellipsis;white-space:nowrap;font-variant-numeric:tabular-nums}.fx-territory-card-metric.is-density .fx-territory-card-value{color:var(--fx-density-color,#b8d7ff);font-size:22px}.fx-territory-card-metric.is-secondary{min-height:43px}.fx-territory-card-metric.is-secondary .fx-territory-card-value{font-size:14px}.fx-territory-card-metric.is-ally .fx-territory-card-value{color:#79efa1}.fx-territory-card-metric.is-not-ally .fx-territory-card-value{color:#ffbd88}.fx-territory-card-metric.is-ally-requested .fx-territory-card-value{color:#ffd479}.fx-territory-card-metric.is-ally-untracked .fx-territory-card-value{color:#aebed1}
           .fx-territory-card-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:7px;padding:6px 2px 0;border-top:1px solid rgba(150,185,225,.12);color:#8195ae;font-size:9px;font-variant-numeric:tabular-nums}.fx-territory-card-footer span{display:flex;align-items:center;gap:4px}
           @media(max-width:360px){.fx-territory-hover-tooltip{width:min(250px,calc(100vw - 16px))}.fx-territory-card-value{font-size:18px}}
         `;
@@ -79,6 +79,24 @@ const hoveringTooltip = new (function() {
         const playerColor = window.__fx?.gameMinimapAdapter?.getPlayerColor?.(playerId) || "#9bc4ff";
         const humanCount = Number(getVar("gHumans"));
         const isBot = Number.isFinite(humanCount) && humanCount > 0 && playerId >= humanCount;
+        const ownPlayerId = Number(getVar("playerId"));
+        const teamGame = window.__fx?.isTeamGame?.() === true;
+        const ownTeamId = window.__fx?.getNativePlayerTeamId?.(ownPlayerId);
+        const playerTeamId = window.__fx?.getNativePlayerTeamId?.(playerId);
+        const hasNativeAllyStatus = typeof window.__fx?.getNativePlayerAllyStatus === "function";
+        const nativeAllyStatus = hasNativeAllyStatus
+            ? window.__fx.getNativePlayerAllyStatus(playerId)
+            : null;
+        const allyStatus = playerId === ownPlayerId ? true
+            : teamGame && ownTeamId != null && playerTeamId != null
+                ? Number(ownTeamId) === Number(playerTeamId)
+                : nativeAllyStatus === "allied" ? true
+                    : nativeAllyStatus === "requested" ? "requested"
+                        : hasNativeAllyStatus ? false : null;
+        const translate = (key, fallback) => {
+            const label = window.__fx?.translateFX?.(key);
+            return label && label !== key ? label : fallback;
+        };
 
         const element = ensureTooltip();
         element.replaceChildren();
@@ -112,6 +130,17 @@ const hoveringTooltip = new (function() {
         metrics.append(createMetric("Troops", formatNumber(availableTroops), "⚔"));
         metrics.append(createMetric("Density", density || "—", "◉", "is-density"));
         metrics.append(createMetric("Territory size", formatNumber(territories), "▦", "is-secondary"));
+        const allyStatusLabel = allyStatus === true
+            ? translate("tooltipAlly", "Ally")
+            : allyStatus === false
+                ? translate("tooltipNotAlly", "Not allied")
+                : allyStatus === "requested"
+                    ? translate("tooltipAllyRequested", "Request pending")
+                    : translate("tooltipAllyUntracked", "Not tracked");
+        const allyMetricClass = allyStatus === true ? "is-secondary is-ally"
+            : allyStatus === false ? "is-secondary is-not-ally"
+                : allyStatus === "requested" ? "is-secondary is-ally-requested" : "is-secondary is-ally-untracked";
+        metrics.append(createMetric(translate("tooltipAllyStatus", "Ally status"), allyStatusLabel, "🤝", allyMetricClass));
         if (attack) metrics.append(createMetric("Attack estimate", attack, "↗", "is-secondary"));
         element.appendChild(metrics);
 

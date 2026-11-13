@@ -19,7 +19,7 @@ const exposeGameActionQueueDiagnostics = () => {
   window.getGameActionQueueDiagnostics = getGameActionQueueDiagnostics;
 };
 exposeGameActionQueueDiagnostics();
-const createEmptySlot = index => ({ slotKey: `slot-${index}`, groupType: index < ATTACK_SLOT_COUNT ? "attack" : "boat", actionKey: null, active: false, type: "empty", target: null, units: 0, name: "", path: [], color: null, missingSince: 0 });
+const createEmptySlot = index => ({ slotKey: `slot-${index}`, groupType: index < ATTACK_SLOT_COUNT ? "attack" : "boat", actionKey: null, active: false, type: "empty", target: null, units: 0, initialUnits: 0, name: "", path: [], color: null, missingSince: 0 });
 const createEmptySlots = () => Array.from({ length: SLOT_COUNT }, (_, index) => createEmptySlot(index));
 
 const GameActionQueueWidget = defineComponent({
@@ -29,7 +29,7 @@ const GameActionQueueWidget = defineComponent({
     const boatRoutes = ref([]);
     const nativeLayout = ref(null);
     const savedPosition = ref(null);
-    const frameSize = ref({ width: 310, height: 460 });
+    const frameSize = ref({ width: 350, height: 520 });
     const viewportSize = ref({ width: window.innerWidth, height: window.innerHeight });
     const inMatch = ref(false);
     const finished = ref(false);
@@ -83,8 +83,13 @@ const GameActionQueueWidget = defineComponent({
         emptySnapshotSince = 0;
         return;
       }
+      const ownPlayerId = Number(fx?.getGameVar?.("playerId"));
+      const ownTerritories = Number(fx?.getGameVar?.("playerTerritories")?.[ownPlayerId]);
+      const ownAliveState = fx?.getGameVar?.("playerAlive")?.[ownPlayerId];
+      const localPlayerEliminated = Number.isInteger(ownPlayerId) && ownPlayerId >= 0
+        && (ownAliveState != null && Number(ownAliveState) === 0 || Number.isFinite(ownTerritories) && ownTerritories <= 0);
       const next = fx.gameActionQueueAdapter?.getSnapshot?.();
-      const candidates = Array.isArray(next) ? next
+      const candidates = !localPlayerEliminated && Array.isArray(next) ? next
         .map((action, sourceIndex) => action && Number.isFinite(Number(action.target)) && Number.isFinite(Number(action.units)) && Number(action.units) > 0
           ? { ...action, sourceIndex: Number.isFinite(action.sourceIndex) ? action.sourceIndex : sourceIndex, key: action.key || `${action.type || "action"}:${action.target}` }
           : null)
@@ -102,7 +107,10 @@ const GameActionQueueWidget = defineComponent({
       pending.value = new Set([...pending.value].filter(key => observedKeys.has(key)));
       const incoming = observedActions.filter(action => !pending.value.has(action.key));
       let pinnedSingleAttack = false;
-      if (incoming.length === 0) {
+      if (localPlayerEliminated) {
+        actions.value = createEmptySlots();
+        emptySnapshotSince = 0;
+      } else if (incoming.length === 0) {
         if (!actions.value.some(action => action.active)) {
           actions.value = createEmptySlots();
           emptySnapshotSince = 0;
@@ -176,7 +184,12 @@ const GameActionQueueWidget = defineComponent({
         actions.value = slots.map((slot, index) => {
           const updated = assigned.get(index);
           if (updated) {
-            return { ...updated, slotKey: `slot-${index}`, groupType: slot.groupType, actionKey: updated.key, active: true, missingSince: 0 };
+            const previousUnits = Number(slot.units) || 0;
+            const currentUnits = Number(updated.units) || 0;
+            const initialUnits = slot.active && slot.groupType === "attack" && updated.type === "attack"
+              ? (Number(slot.initialUnits) || previousUnits || currentUnits) + Math.max(0, currentUnits - previousUnits)
+              : currentUnits;
+            return { ...updated, slotKey: `slot-${index}`, groupType: slot.groupType, actionKey: updated.key, active: true, initialUnits, missingSince: 0 };
           }
           if (!slot.actionKey) return createEmptySlot(index);
           const missingSince = slot.missingSince || now;
@@ -186,7 +199,7 @@ const GameActionQueueWidget = defineComponent({
         for (const action of unmatched) {
           const emptyIndex = actions.value.findIndex(slot => !slot.actionKey && slot.groupType === action.type);
           if (emptyIndex < 0) break;
-          actions.value[emptyIndex] = { ...action, slotKey: `slot-${emptyIndex}`, groupType: action.type, actionKey: action.key, active: true, missingSince: 0 };
+          actions.value[emptyIndex] = { ...action, slotKey: `slot-${emptyIndex}`, groupType: action.type, actionKey: action.key, active: true, initialUnits: Number(action.units) || 0, missingSince: 0 };
         }
       }
       const ownBoatRoutes = actions.value.filter(action => action.active && action.type === "boat" && Array.isArray(action.path) && action.path.length > 1);
@@ -201,6 +214,7 @@ const GameActionQueueWidget = defineComponent({
       boatRoutes.value = [...routesByKey.values()];
       diagnosticsHistory.push({
         at: Date.now(),
+        localPlayerEliminated,
         pinnedSingleAttack,
         native: candidates.map(({ key, type, target, playerId, name, units, sourceIndex }) => ({ key, type, target, playerId, name, units, sourceIndex })),
         grouped: incoming.map(({ key, type, target, playerId, name, units, sourceIndex }) => ({ key, type, target, playerId, name, units, sourceIndex })),
@@ -317,10 +331,10 @@ const GameActionQueueWidget = defineComponent({
         const saved = JSON.parse(window.localStorage.getItem(POSITION_KEY) || "null");
         if (Number.isFinite(saved?.xRatio) && Number.isFinite(saved?.yRatio)) savedPosition.value = saved;
         if (Number.isFinite(saved?.width) && Number.isFinite(saved?.height)) {
-          const wasDefaultSize = saved.width === 286 && saved.height === 374;
+          const wasDefaultSize = (saved.width === 286 && saved.height === 374) || (saved.width === 310 && saved.height === 460);
           frameSize.value = {
-            width: Math.max(220, wasDefaultSize ? 310 : saved.width),
-            height: Math.max(260, wasDefaultSize ? 460 : saved.height),
+            width: Math.max(220, wasDefaultSize ? 350 : saved.width),
+            height: Math.max(260, wasDefaultSize ? 520 : saved.height),
           };
         }
       } catch { /* Ignore invalid stored positions. */ }
@@ -342,7 +356,11 @@ const GameActionQueueWidget = defineComponent({
       stopResize();
     });
 
-    return { actions, boatRoutes, visible, queueVisible, routesVisible, frameVisible: computed(() => hudVisibility.value.actionQueueFrame !== false), queueSettings, panelStyle, pending, viewportSize, routePoints, startDrag, startResize, stopAction, reinforceAction };
+    const remainingTroopPercent = action => {
+      const initialUnits = Number(action?.initialUnits) || Number(action?.units) || 0;
+      return initialUnits > 0 ? Math.max(0, Math.min(100, (Number(action?.units) || 0) / initialUnits * 100)) : 100;
+    };
+    return { actions, boatRoutes, visible, queueVisible, routesVisible, frameVisible: computed(() => !queueSettings.value.showSlotsOnly && hudVisibility.value.actionQueueFrame !== false), queueSettings, panelStyle, pending, viewportSize, routePoints, remainingTroopPercent, startDrag, startResize, stopAction, reinforceAction };
   },
   template: `
     <div v-if="visible" class="fx-game-action-layer" aria-label="Running attacks and boats">
@@ -355,18 +373,19 @@ const GameActionQueueWidget = defineComponent({
           </template>
         </g>
       </svg>
-      <div v-if="queueVisible" class="fx-game-action-queue" :class="{ 'is-frame-hidden': !frameVisible }" :style="panelStyle">
+      <div v-if="queueVisible" class="fx-game-action-queue" :class="{ 'is-frame-hidden': !frameVisible, 'is-slots-only': queueSettings.showSlotsOnly }" :style="panelStyle">
         <button class="fx-game-action-frame-grip" type="button" tabindex="-1" aria-label="Move attack and boat list" title="Drag list" @pointerdown="startDrag" @click.stop><span aria-hidden="true">⠿</span><span>ORDERS</span></button>
         <div class="fx-game-action-slots">
         <template v-for="(action,index) in actions" :key="action.slotKey">
         <div v-if="index === 0" class="fx-game-action-section-label">ATTACKS</div>
         <div v-if="index === 6" class="fx-game-action-section-label is-boats">BOATS</div>
-        <article class="fx-game-action-row" :class="['is-' + action.type, 'stop-' + queueSettings.stopButtonPosition, { 'is-inactive': !action.active, 'is-empty': !action.active }]" :style="action.color ? { '--fx-action-color': action.color } : null">
+        <article class="fx-game-action-row" :class="['is-' + action.type, 'stop-' + queueSettings.stopButtonPosition, { 'is-inactive': !action.active, 'is-empty': !action.active }]" :style="{ ...(action.color ? { '--fx-action-color': action.color } : {}), ...(action.active && action.type === 'attack' ? { '--fx-attack-progress': remainingTroopPercent(action) + '%' } : {}) }">
         <button v-if="action.active" class="fx-game-action-grip" type="button" tabindex="-1" aria-label="Action type" @click.stop>
           <span class="fx-game-action-type" aria-hidden="true">{{ action.type === 'boat' ? '⛵' : '⚔' }}</span>
         </button>
         <span class="fx-game-action-name" :title="action.active ? action.name : ''">{{ action.active ? action.name : '' }}</span>
         <strong class="fx-game-action-units">{{ action.active ? Number(action.units).toLocaleString() : '' }}</strong>
+        <div v-if="action.active && action.type === 'attack'" class="fx-game-action-progress" aria-hidden="true"></div>
         <button v-if="action.active && action.type === 'attack'" class="fx-game-action-reinforce" type="button" tabindex="-1" :aria-label="'Reinforce attack on ' + action.name" title="Reinforce attack" @pointerdown.prevent.stop @click="reinforceAction($event,action)">+</button>
         <button v-if="action.active" class="fx-game-action-stop" type="button" tabindex="-1" :disabled="pending.has(action.key)" :aria-label="action.type === 'boat' ? 'Stop boat to ' + action.name : 'Stop attack on ' + action.name" :title="action.type === 'boat' ? 'Stop boat' : 'Stop attack'" @pointerdown.prevent.stop @click="stopAction($event,action)">×</button>
       </article>
@@ -386,18 +405,20 @@ export function createVueGameActionQueueWidget() {
     style.id = styleId;
     style.textContent = `
       .fx-game-action-layer{position:fixed;inset:0;z-index:67;pointer-events:none}.fx-game-action-routes{position:absolute;inset:0;width:100vw;height:100vh;overflow:visible;pointer-events:none}.fx-game-action-route-glow,.fx-game-action-route{fill:none;stroke:var(--fx-action-color,#9db0c8);stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.fx-game-action-route-glow{stroke-width:7px;opacity:.19;filter:blur(2px)}.fx-game-action-route{stroke-width:2.4px;stroke-dasharray:8 6;opacity:.88}.fx-game-action-route-destination{fill:var(--fx-action-color,#9db0c8);stroke:#101923;stroke-width:1.5px;vector-effect:non-scaling-stroke}
-      .fx-game-action-queue{position:fixed;z-index:68;display:grid;grid-template-rows:22px minmax(0,1fr);gap:3px;box-sizing:border-box;min-width:220px;min-height:260px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow:hidden;padding:4px;border:1px solid rgba(176,198,224,.28);border-radius:7px;background:rgba(8,15,24,var(--fx-game-hud-panel-alpha,.81));box-shadow:0 6px 18px rgba(0,0,0,.3),inset 0 1px rgba(255,255,255,.04);pointer-events:none;font-family:var(--fx-game-native-font-family,Arial,sans-serif);font-size:calc(12.5px * var(--fx-game-hud-font-scale,1));user-select:none;-webkit-user-select:none}.fx-game-action-queue.is-frame-hidden{border-color:transparent;background:transparent;box-shadow:none;padding:0}
-      .fx-game-action-frame-grip{display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;padding:0 5px;border:0;border-radius:4px;background:rgba(160,185,214,.07);color:rgba(210,222,238,.65);font:600 9px/1 var(--fx-game-native-font-family,Arial,sans-serif);letter-spacing:.12em;cursor:move;touch-action:none;pointer-events:auto}.fx-game-action-frame-grip span:first-child{font-size:13px;line-height:1}.fx-game-action-queue.is-frame-hidden .fx-game-action-frame-grip{background:transparent;color:rgba(210,222,238,.2)}.fx-game-action-frame-grip:active{background:rgba(190,210,238,.15)}
+      .fx-game-action-queue{position:fixed;z-index:68;display:grid;grid-template-rows:26px minmax(0,1fr);gap:4px;box-sizing:border-box;min-width:220px;min-height:260px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow:hidden;padding:5px;border:1px solid rgba(176,198,224,.28);border-radius:8px;background:rgba(8,15,24,var(--fx-game-hud-panel-alpha,.81));box-shadow:0 6px 18px rgba(0,0,0,.3),inset 0 1px rgba(255,255,255,.04);pointer-events:none;font-family:var(--fx-game-native-font-family,Arial,sans-serif);font-size:calc(14px * var(--fx-game-hud-font-scale,1));user-select:none;-webkit-user-select:none}.fx-game-action-queue.is-frame-hidden{border-color:transparent;background:transparent;box-shadow:none;padding:0}
+      .fx-game-action-queue.is-slots-only{grid-template-rows:minmax(0,1fr);gap:0;overflow:visible;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}.fx-game-action-queue.is-slots-only .fx-game-action-frame-grip,.fx-game-action-queue.is-slots-only .fx-game-action-resize,.fx-game-action-queue.is-slots-only .fx-game-action-section-label{display:none}.fx-game-action-queue.is-slots-only .fx-game-action-slots{grid-template-rows:repeat(6,minmax(0,1fr)) repeat(8,minmax(0,1fr));gap:2px}.fx-game-action-queue.is-slots-only .fx-game-action-row.is-empty{display:none}
+      .fx-game-action-frame-grip{display:flex;align-items:center;justify-content:center;gap:7px;min-width:0;padding:0 6px;border:0;border-radius:5px;background:rgba(160,185,214,.07);color:rgba(210,222,238,.65);font:650 10px/1 var(--fx-game-native-font-family,Arial,sans-serif);letter-spacing:.12em;cursor:move;touch-action:none;pointer-events:auto}.fx-game-action-frame-grip span:first-child{font-size:15px;line-height:1}.fx-game-action-queue.is-frame-hidden .fx-game-action-frame-grip{background:transparent;color:rgba(210,222,238,.2)}.fx-game-action-frame-grip:active{background:rgba(190,210,238,.15)}
       .fx-game-action-resize{position:absolute;right:1px;bottom:1px;z-index:2;width:14px;height:14px;padding:0;border:0;border-right:2px solid rgba(190,210,238,.38);border-bottom:2px solid rgba(190,210,238,.38);border-radius:0 0 4px 0;background:transparent;cursor:nwse-resize;touch-action:none;pointer-events:auto}.fx-game-action-queue.is-frame-hidden .fx-game-action-resize{border-color:rgba(190,210,238,.16)}
       .fx-game-action-slots{display:grid;grid-template-rows:12px repeat(6,minmax(0,1fr)) 15px repeat(8,minmax(0,1fr));gap:2px;min-width:0;min-height:0;pointer-events:none}.fx-game-action-section-label{display:flex;align-items:center;padding:0 4px;border-bottom:1px solid rgba(170,195,225,.11);color:rgba(205,220,240,.48);font:600 9px/1 var(--fx-game-native-font-family,Arial,sans-serif);letter-spacing:.13em}.fx-game-action-section-label.is-boats{border-top:1px solid rgba(170,195,225,.2);border-bottom:1px solid rgba(170,195,225,.11);padding-top:2px}
-      .fx-game-action-row{display:flex;align-items:center;gap:8px;box-sizing:border-box;min-width:0;min-height:0;padding:0 6px;border:1px solid color-mix(in srgb,var(--fx-action-color,#8ba2bd) 46%,rgba(160,190,225,.2));border-radius:4px;background:linear-gradient(110deg,color-mix(in srgb,var(--fx-action-color,#8ba2bd) 20%,rgba(10,17,27,var(--fx-game-hud-panel-alpha,.81))),rgba(10,17,27,var(--fx-game-hud-panel-alpha,.81)) 44%);box-shadow:0 3px 8px rgba(0,0,0,.22),inset 0 1px rgba(255,255,255,.04);color:#eef4ff;pointer-events:auto}.fx-game-action-row.stop-left .fx-game-action-stop{order:-1}.fx-game-action-row.is-inactive{visibility:hidden;pointer-events:none}.fx-game-action-row.is-empty{visibility:visible;border-color:transparent;background:transparent;box-shadow:none;pointer-events:none}.fx-game-action-queue.is-frame-hidden .fx-game-action-row.is-empty{border-color:rgba(190,210,238,.13)}.fx-game-action-row.is-empty .fx-game-action-grip{visibility:hidden}.fx-game-action-row.is-attack .fx-game-action-grip{display:none}.fx-game-action-row.is-inactive .fx-game-action-stop,.fx-game-action-row.is-inactive .fx-game-action-reinforce{display:none}
-      .fx-game-action-type{display:grid;place-items:center;flex:0 0 22px;width:22px;height:22px;border-radius:4px;background:color-mix(in srgb,var(--fx-action-color,#8ba2bd) 22%,rgba(130,180,240,.12));color:var(--fx-action-color,#b6c7da);font-size:14px;line-height:1}
-      .fx-game-action-name{flex:1;min-width:0;overflow:hidden;color:#f3f6fb;font-weight:650;text-overflow:ellipsis;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.7)}
-      .fx-game-action-units{flex:0 0 auto;color:#dbe8f8;font-size:.92em;font-variant-numeric:tabular-nums;text-shadow:0 1px 2px rgba(0,0,0,.65)}
-      .fx-game-action-grip,.fx-game-action-reinforce,.fx-game-action-stop{display:grid;place-items:center;flex:0 0 26px;width:26px;height:26px;padding:0;border:0;border-radius:4px;background:transparent;color:#dce6f2;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none}
+      .fx-game-action-row{position:relative;overflow:hidden;display:flex;align-items:center;gap:0;box-sizing:border-box;min-width:0;min-height:0;padding:0;border:1px solid color-mix(in srgb,var(--fx-action-color,#8ba2bd) 46%,rgba(160,190,225,.2));border-radius:4px;background:linear-gradient(110deg,color-mix(in srgb,var(--fx-action-color,#8ba2bd) 20%,rgba(10,17,27,var(--fx-game-hud-panel-alpha,.81))),rgba(10,17,27,var(--fx-game-hud-panel-alpha,.81)) 44%);box-shadow:0 3px 8px rgba(0,0,0,.22),inset 0 1px rgba(255,255,255,.04);color:#eef4ff;pointer-events:auto}.fx-game-action-row.stop-left .fx-game-action-stop{order:-1;border-radius:3px 0 0 3px}.fx-game-action-row.is-inactive{visibility:hidden;pointer-events:none}.fx-game-action-row.is-empty{visibility:visible;border-color:transparent;background:transparent;box-shadow:none;pointer-events:none}.fx-game-action-queue.is-frame-hidden .fx-game-action-row.is-empty{border-color:rgba(190,210,238,.13)}.fx-game-action-row.is-empty .fx-game-action-grip{visibility:hidden}.fx-game-action-row.is-attack .fx-game-action-grip{display:none}.fx-game-action-row.is-inactive .fx-game-action-stop,.fx-game-action-row.is-inactive .fx-game-action-reinforce{display:none}.fx-game-action-progress{position:absolute;z-index:0;left:0;right:68px;bottom:0;height:6px;border-radius:0;background:linear-gradient(90deg,var(--fx-action-color,#8ba2bd) 0,var(--fx-action-color,#8ba2bd) var(--fx-attack-progress,100%),rgba(145,165,190,.22) var(--fx-attack-progress,100%),rgba(145,165,190,.22) 100%);box-shadow:0 0 8px color-mix(in srgb,var(--fx-action-color,#8ba2bd) 55%,transparent);pointer-events:none;transition:background .2s linear}.fx-game-action-row.stop-left .fx-game-action-progress{left:34px;right:34px}
+      .fx-game-action-type{display:grid;place-items:center;flex:0 0 26px;width:26px;height:26px;border-radius:5px;background:color-mix(in srgb,var(--fx-action-color,#8ba2bd) 22%,rgba(130,180,240,.12));color:var(--fx-action-color,#b6c7da);font-size:16px;line-height:1}
+      .fx-game-action-name{position:relative;z-index:1;flex:1;min-width:0;overflow:hidden;padding:0 8px;color:#f3f6fb;font-weight:650;text-overflow:ellipsis;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.7)}
+      .fx-game-action-units{position:relative;z-index:1;flex:0 0 auto;padding:0 8px;color:#f0f6ff;font-size:1em;font-weight:750;font-variant-numeric:tabular-nums;text-shadow:0 1px 2px rgba(0,0,0,.65)}
+      .fx-game-action-grip,.fx-game-action-reinforce,.fx-game-action-stop{display:grid;place-items:center;flex:0 0 30px;width:30px;height:30px;padding:0;border:0;border-radius:5px;background:transparent;color:#dce6f2;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none}
       .fx-game-action-grip{cursor:default}
-      .fx-game-action-reinforce{border:1px solid rgba(108,210,145,.36);background:rgba(38,145,82,.2);color:#a9efc0;font-size:17px;line-height:1}.fx-game-action-reinforce:hover{border-color:rgba(128,235,166,.82);background:rgba(43,174,93,.48);color:#fff}
-      .fx-game-action-stop{border:1px solid rgba(255,112,112,.34);background:rgba(174,38,48,.22);color:#ffbcbc;font-size:18px;line-height:1}.fx-game-action-stop:hover:not(:disabled){border-color:rgba(255,133,133,.8);background:rgba(211,42,52,.55);color:#fff}.fx-game-action-stop:disabled{opacity:.42;cursor:default}
+      .fx-game-action-reinforce{flex-basis:34px;width:34px;height:100%;align-self:stretch;border:0;border-radius:0;background:rgba(38,145,82,.2);color:#a9efc0;font-size:18px;line-height:1}.fx-game-action-reinforce:hover{background:rgba(43,174,93,.48);color:#fff}
+      .fx-game-action-stop{flex-basis:34px;width:34px;height:100%;align-self:stretch;border:0;border-radius:0 3px 3px 0;background:rgba(174,38,48,.22);color:#ffbcbc;font-size:19px;line-height:1}.fx-game-action-stop:hover:not(:disabled){background:rgba(211,42,52,.55);color:#fff}.fx-game-action-stop:disabled{opacity:.42;cursor:default}
+      .fx-game-action-queue.is-slots-only .fx-game-action-reinforce{background:rgba(25,116,61,.92)}.fx-game-action-queue.is-slots-only .fx-game-action-stop{background:rgba(145,31,40,.94)}.fx-game-action-queue.is-slots-only .fx-game-action-reinforce:hover{background:rgba(35,155,78,.98)}.fx-game-action-queue.is-slots-only .fx-game-action-stop:hover:not(:disabled){background:rgba(195,38,50,.98)}
       .fx-game-action-reinforce:focus,.fx-game-action-stop:focus,.fx-game-action-grip:focus{outline:none}
     `;
     document.head.appendChild(style);

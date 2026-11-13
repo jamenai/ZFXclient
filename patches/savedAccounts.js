@@ -23,8 +23,8 @@ export default definePatch(({ replaceOne, replace }) => {
   // The current saved-account selector is built by aT8.
   replace(/(function aT8\(\)[\s\S]*?)(function aTB\()/g, (match, accountBlock, nextFunction) => {
     accountBlock = accountBlock.replace(
-      "bm.z.zE();",
-      `bm.z.zE();window.__fx.refreshSavedAccounts=function(){if(!bm||!bm.z||typeof bm.z.zE!=="function")return false;bm.z.zE();var data=bm.buffer.data[117];if(!data)return false;window.__fx.myAccountAdapter?.setSavedAccounts?.(data,function(index){data.value=index;},function(){var credentials=bm.z.zJ(data.value);if(!credentials)return false;bm.r0.r1(105,credentials.uu);bm.r0.r1(106,credentials.password);u.v(8,u.a4v().a4w,new ux(18));return true;},function(index){index=Number(index)||0;if(index<1)return;bm.z.zH(index);bm.z.zE();window.__fx.refreshSavedAccounts();});return true;};window.__fx.refreshSavedAccounts();`,
+      "bm.z.zn();",
+      `bm.z.zn();window.__fx.refreshSavedAccounts=function(){if(!bm||!bm.z||typeof bm.z.zn!=="function")return false;bm.z.zn();var data=bm.buffer.data[117];if(!data)return false;window.__fx.myAccountAdapter?.setSavedAccounts?.(data,function(index){data.value=index;},function(){var credentials=bm.z.zs(data.value);if(!credentials)return false;bm.rz.q5(105,credentials.pk);bm.rz.q5(106,credentials.password);u.v(8,u.a5T().a5U,new vY(18));return true;},function(index){index=Number(index)||0;if(index<1)return;bm.z.zq(index);bm.z.zn();window.__fx.refreshSavedAccounts();});return true;};window.__fx.refreshSavedAccounts();`,
     );
     accountBlock = accountBlock.replace(
       /sZ=new xz\(bm\.buffer\.data\[117\],\w+\);\w+\(0\);/,

@@ -1,4 +1,5 @@
 import { computed, createApp, defineComponent, onBeforeUnmount, onMounted, ref } from "vue/dist/vue.esm-bundler.js";
+import { loginAdapter } from "../../../modules/loginAdapter.js";
 
 const LoginView = defineComponent({
   name: "FxLoginView",
@@ -20,7 +21,7 @@ const LoginView = defineComponent({
       phishingWarning: "Gib deine Zugangsdaten nur auf der offiziellen Website ein.",
       trustedApps: "Die offiziellen Android- und iOS-Apps sind ebenfalls sicher.",
       back: "Zurück", login: "Anmelden", signingIn: "Anmeldung wird gestartet…",
-      required: "Bitte Kontoname und Passwort eingeben.", unavailable: "Der native Login ist noch nicht bereit. Bitte erneut öffnen.",
+      required: "Bitte Kontoname und Passwort eingeben.", unavailable: "Der Login kann gerade nicht gestartet werden. Bitte versuche es erneut.",
     } : {
       title: "Login", subtitle: "Sign in with your existing Territorial.io account.",
       accountName: "Login Account Name (max 5 characters)", accountNameHint: "Use the account login name, not your in-game player name.",
@@ -29,7 +30,7 @@ const LoginView = defineComponent({
       phishingWarning: "Only enter your credentials on the official website.",
       trustedApps: "The official Android and iOS apps are also safe.",
       back: "Back", login: "Login", signingIn: "Starting login…",
-      required: "Enter your account name and password.", unavailable: "Native login is not ready yet. Please reopen this view.",
+      required: "Enter your account name and password.", unavailable: "Login could not be started. Please try again.",
     });
 
     function refreshLanguage() {
@@ -44,6 +45,7 @@ const LoginView = defineComponent({
       error.value = "";
       submitting.value = false;
       visible.value = true;
+      void loginAdapter.prepare();
       requestAnimationFrame(() => document.querySelector("#fx-login-view-account-name")?.focus());
     }
     function close() {
@@ -52,7 +54,7 @@ const LoginView = defineComponent({
       submitting.value = false;
     }
     function back() {
-      window.__fx?.nativeLoginAdapter?.cancel?.();
+      void loginAdapter.cancel();
       close();
       requestAnimationFrame(() => window.__fx?.openVueMyAccount?.());
     }
@@ -64,31 +66,14 @@ const LoginView = defineComponent({
         return;
       }
       submitting.value = true;
-      let started = false;
+      let result;
       try {
-        let adapter = window.__fx?.nativeLoginAdapter;
-        if (typeof adapter?.login !== "function") {
-          window.__fx?.setNativeMenuState?.(6);
-          await new Promise(resolve => requestAnimationFrame(resolve));
-          adapter = window.__fx?.nativeLoginAdapter;
-        }
-        if (typeof adapter?.login === "function") started = await adapter.login(name, password.value);
-        if (!started && typeof window.__fx?.setNativeMenuState === "function") {
-          // Recreate the native login screen once in case it was not ready when the view opened.
-          window.__fx.setNativeMenuState(6);
-          await new Promise(resolve => requestAnimationFrame(resolve));
-          adapter = window.__fx?.nativeLoginAdapter;
-          if (typeof adapter?.login === "function") started = await adapter.login(name, password.value);
-        }
+        result = await loginAdapter.login(name, password.value);
       } catch (loginError) {
-        console.error("[ZFX Client LoginView] Native login failed to start", loginError);
+        console.error("[ZFX Client LoginView] Login adapter failed", loginError);
       }
-      if (!started) {
-        console.warn("[ZFX Client LoginView] Native login adapter is not ready", {
-          adapterAvailable: typeof window.__fx?.nativeLoginAdapter?.login === "function",
-          menuStateAvailable: typeof window.__fx?.setNativeMenuState === "function",
-          nativeMenuState: window.__fx?.nativeMenuState,
-        });
+      if (!result?.ok) {
+        if (result?.error) console.error("[ZFX Client LoginView] Login adapter could not start login", result.error);
         submitting.value = false;
         error.value = labels.value.unavailable;
         return;

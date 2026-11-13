@@ -13,9 +13,44 @@ const GameAttackSelectorWidget = defineComponent({
     const ready = ref(false);
     const inMatch = ref(false);
     const matchFinished = ref(false);
+    const ownPlayerEliminated = ref(false);
     const hudVisibility = ref(loadGameHudVisibility());
     let drag = null;
     let stopDragging;
+    let cAttackSettings = { cAttackEnabled: false, cAttackPercent: 10 };
+    const syncControlSettings = event => {
+      try { cAttackSettings = { ...cAttackSettings, ...(event?.detail || JSON.parse(window.localStorage.getItem("zfx.gameHud.controlSettings.v1") || "{}")) }; } catch { /* Keep last valid settings. */ }
+      cAttackSettings.cAttackEnabled = cAttackSettings.cAttackEnabled === true;
+      cAttackSettings.cAttackPercent = Math.max(1, Math.min(100, Number(cAttackSettings.cAttackPercent) || 10));
+    };
+    const getSpaceShortcut = () => {
+      const shortcut = String(window.__fx?.gameSettingsAdapter?.getSnapshot?.()?.shortcuts?.[0] || "Space");
+      if (shortcut === "Space") return { key: " ", code: "Space" };
+      const code = shortcut.startsWith("Key") || shortcut.startsWith("Arrow") || shortcut.startsWith("Numpad") ? shortcut : "";
+      const key = code.startsWith("Key") ? code.slice(3).toLowerCase() : code.startsWith("Arrow") ? code.slice(5) : shortcut;
+      return { key, code };
+    };
+    const handleCAttack = event => {
+      if (!cAttackSettings.cAttackEnabled || !inMatch.value || matchFinished.value || ownPlayerEliminated.value || event.repeat || event.ctrlKey || event.altKey || event.metaKey || String(event.key).toLowerCase() !== "c") return;
+      const target = event.target;
+      if (target instanceof Element && (target.isContentEditable || target.closest("input,textarea,select,[contenteditable='true']"))) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const previous = Number(window.__fx?.gameAttackSelectorState?.percentage);
+      if (!Number.isFinite(previous)) return;
+      const bridge = window.__fx?.keybindFunctions;
+      if (typeof bridge?.setAbsolute !== "function") return;
+      bridge.setAbsolute(cAttackSettings.cAttackPercent / 100);
+      bridge.repaintAttackPercentageBar?.();
+      const shortcut = getSpaceShortcut();
+      try {
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: shortcut.key, code: shortcut.code, bubbles: true, cancelable: true }));
+        document.dispatchEvent(new KeyboardEvent("keyup", { key: shortcut.key, code: shortcut.code, bubbles: true, cancelable: true }));
+      } finally {
+        bridge.setAbsolute(previous);
+        bridge.repaintAttackPercentageBar?.();
+      }
+    };
 
     const getViewportPosition = layout => {
       const saved = position.value;
@@ -50,6 +85,9 @@ const GameAttackSelectorWidget = defineComponent({
     const receiveState = next => {
       if (!next || !Number.isFinite(next.percentage)) return;
       state.value = next;
+      window.__fx ||= {};
+      window.__fx.gameAttackSelectorPercentage = next.percentage;
+      window.dispatchEvent(new CustomEvent("fx-game-attack-selector-percentage", { detail: next.percentage }));
     };
     const readPosition = () => {
       try {
@@ -152,6 +190,7 @@ const GameAttackSelectorWidget = defineComponent({
       if (rawMatchState === undefined || rawMatchState === null) return;
       matchFinished.value = window.__fx?.nativeGameFinished === true;
       inMatch.value = Number(rawMatchState) > 0;
+      ownPlayerEliminated.value = window.__fx?.gameHudOwnPlayerEliminated === true;
       if (!inMatch.value) clearNativeSnapshot();
     };
     const syncLayoutSettings = () => { hudVisibility.value = loadGameHudVisibility(); };
@@ -172,6 +211,9 @@ const GameAttackSelectorWidget = defineComponent({
       receiveState(window.__fx.gameAttackSelectorState);
       window.addEventListener("fx-game-hud-layout-loaded", syncLayoutSettings);
       window.addEventListener("fx-game-hud-visibility-changed", syncVisibility);
+      syncControlSettings();
+      window.addEventListener("fx-game-hud-control-settings-changed", syncControlSettings);
+      window.addEventListener("keydown", handleCAttack, true);
       stopDragging = window.setInterval(syncMatchState, 200);
       readPosition();
       window.addEventListener("fx-game-hud-layout-loaded", onLayoutLoaded);
@@ -184,6 +226,8 @@ const GameAttackSelectorWidget = defineComponent({
       window.clearInterval(stopDragging);
       window.removeEventListener("fx-game-hud-layout-loaded", syncLayoutSettings);
       window.removeEventListener("fx-game-hud-visibility-changed", syncVisibility);
+      window.removeEventListener("fx-game-hud-control-settings-changed", syncControlSettings);
+      window.removeEventListener("keydown", handleCAttack, true);
       window.removeEventListener("fx-game-hud-layout-loaded", onLayoutLoaded);
       window.removeEventListener("resize", readPosition);
       window.removeEventListener("orientationchange", readPosition);
@@ -194,7 +238,7 @@ const GameAttackSelectorWidget = defineComponent({
     return { style, state, inMatch, matchFinished, hudVisibility, startDrag, onSliderPointerDown, onSliderPointerMove, activateAdjust, adjustWithWheel, stopNativeInput };
   },
   template: `
-    <div v-if="inMatch && !matchFinished && hudVisibility.attackSelector && state.unitsLabel !== ''" class="fx-game-attack-selector" :style="style" aria-label="Attack percentage selector" @pointerdown="stopNativeInput" @mousedown="stopNativeInput" @wheel.capture="adjustWithWheel">
+    <div v-if="inMatch && !matchFinished && !ownPlayerEliminated && hudVisibility.attackSelector && state.unitsLabel !== ''" class="fx-game-attack-selector" :style="style" aria-label="Attack percentage selector" @pointerdown="stopNativeInput" @mousedown="stopNativeInput" @wheel.capture="adjustWithWheel">
       <button class="fx-game-attack-adjust" type="button" aria-label="Decrease attack percentage" tabindex="-1" @pointerdown="stopNativeInput" @pointerup="activateAdjust($event, 11 / 12)">−</button>
       <div class="fx-game-attack-track" role="slider" aria-label="Attack percentage" :aria-valuenow="Math.round(state.percentage * 100)" aria-valuemin="0" aria-valuemax="100" tabindex="-1" @pointerdown="onSliderPointerDown" @pointermove="onSliderPointerMove">
         <div class="fx-game-attack-track-fill"></div>
@@ -220,7 +264,7 @@ export function createVueGameAttackSelectorWidget() {
       .fx-game-attack-adjust:focus{outline:none}
       .fx-game-attack-track{position:relative;display:flex;align-items:center;justify-content:center;min-width:0;overflow:hidden;background:transparent;touch-action:none;cursor:crosshair}
       .fx-game-attack-track-fill{position:absolute;inset:0 auto 0 0;width:var(--fx-attack-fill);background:linear-gradient(145deg,color-mix(in srgb,var(--fx-attack-fill-color) 86%,var(--fx-game-team-accent,#9bc4ff)),var(--fx-attack-fill-color));opacity:.82;pointer-events:none}
-      .fx-game-attack-value{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:.45em;width:100%;padding:0 .3em;font-size:clamp(13px,calc(1.65em * var(--fx-game-hud-font-scale,1)),26px);font-weight:700;line-height:1;text-align:center;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.65);pointer-events:none}
+      .fx-game-attack-value{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:.45em;width:100%;padding:0 .3em;font-size:clamp(13px,calc(1.65em * var(--fx-game-hud-font-scale,1)),26px);font-weight:700;line-height:1;text-align:center;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.65);pointer-events:none;transform:translateY(2px)}
       .fx-game-attack-value strong{overflow:hidden;text-overflow:ellipsis}
       .fx-game-attack-drag{position:absolute;z-index:3;top:2px;left:50%;width:32px;height:5px;transform:translateX(-50%);padding:0;border:0;border-radius:4px;background:color-mix(in srgb,var(--fx-game-team-accent,#9bc4ff) 64%,rgba(245,249,255,.32));cursor:move;touch-action:none;opacity:.48}
       .fx-game-attack-drag:hover{opacity:.95}

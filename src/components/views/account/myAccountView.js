@@ -61,7 +61,7 @@ export const myAccountAdapter = {
   },
   getSnapshot() { return nativeProfileSnapshot ? { ...nativeProfileSnapshot } : null; },
   setSavedAccounts(data, select, login, remove) {
-    const names = Array.isArray(data?.oS) ? data.oS : Array.isArray(data?.options) ? data.options : Array.isArray(data?.oP) ? data.oP : [];
+    const names = Array.isArray(data?.oW) ? data.oW : Array.isArray(data?.oS) ? data.oS : Array.isArray(data?.options) ? data.options : Array.isArray(data?.oP) ? data.oP : [];
     savedAccountSnapshot = names.map((name, index) => ({ name: String(name || "").trim(), index }))
       .filter(entry => entry.index > 0 && entry.name);
     savedAccountActions = { data, select, login, remove };
@@ -249,9 +249,7 @@ const MyAccountView = defineComponent({
       handedOffToNative.value = true;
       close();
       window.requestAnimationFrame(() => {
-        // Build the native login screen behind the Vue form so its parent
-        // return context is available when the credentials are submitted.
-        window.__fx?.setNativeMenuState?.(6);
+        // Login routing and native screen preparation are owned by loginAdapter.
         window.__fx?.openVueLoginView?.();
       });
       return true;

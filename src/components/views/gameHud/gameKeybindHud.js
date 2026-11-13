@@ -12,11 +12,15 @@ const GameKeybindHud = defineComponent({
     const enabled = ref(settingsApi.getBoolean("keybindButtons"));
     const inMatch = ref(false);
     const matchFinished = ref(false);
+    const ownPlayerEliminated = ref(false);
     const hudVisibility = ref(loadGameHudVisibility());
+    const attackSelectorPercentage = ref(Number(window.__fx?.gameAttackSelectorPercentage));
+    const cycleShortcutsEnabled = ref(window.localStorage.getItem("zfx.gameKeybindHud.cycleQe.v1") !== "false");
+    const activeButtonIndex = ref(null);
     const position = ref(null);
     let settingsTimer;
     let drag = null;
-    const visible = computed(() => enabled.value && hudVisibility.value.keybindButtons && inMatch.value && !matchFinished.value && layout.value?.buttons?.length > 0);
+    const visible = computed(() => enabled.value && hudVisibility.value.keybindButtons && inMatch.value && !matchFinished.value && !ownPlayerEliminated.value && layout.value?.buttons?.length > 0);
     const getViewportPosition = current => {
       if (!position.value) return { left: current.left, top: current.top };
       return {
@@ -57,6 +61,51 @@ const GameKeybindHud = defineComponent({
       event.stopPropagation();
       mobileKeybinds.activate(index);
       event.currentTarget.blur();
+    };
+    const isCurrentAttackPercent = button => {
+      if (activeButtonIndex.value === button.index) return true;
+      const keybind = settingsApi.getArray("attackPercentageKeybinds")[button.index];
+      const current = Number(attackSelectorPercentage.value);
+      return keybind?.type === "absolute" && Number.isFinite(current)
+        && Math.round(Number(keybind.value) * 100) === Math.round(current * 100);
+    };
+    const syncAttackSelectorPercentage = event => {
+      const value = Number(event?.detail ?? window.__fx?.gameAttackSelectorPercentage);
+      attackSelectorPercentage.value = Number.isFinite(value) ? value : null;
+      if (!Number.isFinite(value)) return;
+      const match = settingsApi.getArray("attackPercentageKeybinds").findIndex(keybind => keybind?.type === "absolute" && Math.round(Number(keybind.value) * 100) === Math.round(value * 100));
+      if (match >= 0) activeButtonIndex.value = match;
+    };
+    const syncCycleSetting = event => {
+      cycleShortcutsEnabled.value = typeof event?.detail === "boolean"
+        ? event.detail
+        : window.localStorage.getItem("zfx.gameKeybindHud.cycleQe.v1") !== "false";
+    };
+    const cycleWithQe = event => {
+      if (!cycleShortcutsEnabled.value || !visible.value || event.ctrlKey || event.altKey || event.metaKey || event.repeat) return;
+      const key = String(event.key || "").toLowerCase();
+      if (key !== "q" && key !== "e" && key !== "r" && key !== "f") return;
+      const target = event.target;
+      if (target instanceof Element && (target.isContentEditable || target.closest("input,textarea,select,[contenteditable='true']"))) return;
+      const buttons = layout.value?.buttons || [];
+      if (!buttons.length) return;
+      const currentPosition = buttons.findIndex(button => button.index === activeButtonIndex.value);
+      let nextPosition = 0;
+      if ((key === "f" || key === "r") && currentPosition >= 0) {
+        const columns = 6;
+        const rows = Math.max(1, Number(layout.value?.rows) || Math.ceil(buttons.length / columns));
+        if (rows < 2) return;
+        const targetRow = (Math.floor(currentPosition / columns) + (key === "f" ? 1 : -1) + rows) % rows;
+        const column = currentPosition % columns;
+        const sameColumn = buttons.findIndex((_button, position) => Math.floor(position / columns) === targetRow && position % columns === column);
+        const anyInRow = buttons.findIndex((_button, position) => Math.floor(position / columns) === targetRow);
+        nextPosition = sameColumn >= 0 ? sameColumn : anyInRow >= 0 ? anyInRow : 0;
+      } else if ((key === "f" || key === "r") && (Number(layout.value?.rows) || Math.ceil(buttons.length / 6)) < 2) return;
+      else if (currentPosition >= 0) nextPosition = (currentPosition + (key === "e" ? 1 : -1) + buttons.length) % buttons.length;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      activeButtonIndex.value = buttons[nextPosition].index;
+      mobileKeybinds.activate(buttons[nextPosition].index);
     };
     const stopGameInput = event => {
       event.preventDefault();
@@ -122,6 +171,11 @@ const GameKeybindHud = defineComponent({
     });
     onMounted(() => {
       window.__fx ||= {};
+      window.addEventListener("fx-game-attack-selector-percentage", syncAttackSelectorPercentage);
+      window.addEventListener("fx-game-keybind-cycle-changed", syncCycleSetting);
+      window.addEventListener("keydown", cycleWithQe, true);
+      syncAttackSelectorPercentage();
+      syncCycleSetting();
       window.__fx.gameKeybindHudAdapter ||= {};
       window.__fx.gameKeybindHudAdapter.receiveLayout = receiveLayout;
       window.__fx.getGameKeybindHudDiagnostics = getDiagnostics;
@@ -138,6 +192,7 @@ const GameKeybindHud = defineComponent({
         const rawMatchState = window.__fx?.getGameVar?.("gMatchState");
         if (rawMatchState === undefined || rawMatchState === null) return;
         matchFinished.value = window.__fx?.nativeGameFinished === true;
+        ownPlayerEliminated.value = window.__fx?.gameHudOwnPlayerEliminated === true;
         const nextInMatch = Number(rawMatchState) > 0;
         inMatch.value = nextInMatch;
         if (!nextInMatch) {
@@ -145,11 +200,15 @@ const GameKeybindHud = defineComponent({
           if (window.__fx?.gameKeybindHudLayout) window.__fx.gameKeybindHudLayout = null;
         }
       }, 200);
+      ownPlayerEliminated.value = window.__fx?.gameHudOwnPlayerEliminated === true;
     });
     onBeforeUnmount(() => {
       window.clearInterval(settingsTimer);
       stopDrag();
       window.removeEventListener("fx-game-hud-layout-loaded", onLayoutLoaded);
+      window.removeEventListener("fx-game-attack-selector-percentage", syncAttackSelectorPercentage);
+      window.removeEventListener("fx-game-keybind-cycle-changed", syncCycleSetting);
+      window.removeEventListener("keydown", cycleWithQe, true);
       window.removeEventListener("fx-game-hud-visibility-changed", syncVisibility);
       window.removeEventListener("resize", readPosition);
       window.removeEventListener("orientationchange", readPosition);
@@ -161,11 +220,11 @@ const GameKeybindHud = defineComponent({
         delete window.__fx.getGameKeybindHudDiagnostics;
       }
     });
-    return { layout, visible, style, activate, startDrag, stopGameInput };
+    return { layout, visible, style, activate, startDrag, stopGameInput, isCurrentAttackPercent };
   },
   template: `
     <div v-if="visible" class="fx-game-keybind-hud" :style="style" aria-label="Attack percentage shortcuts">
-      <button v-for="button in layout.buttons" :key="button.index" type="button" tabindex="-1" @pointerdown="stopGameInput" @pointerup="activate($event, button.index)" @pointercancel.stop @mousedown="stopGameInput" @click="stopGameInput">{{ button.label }}</button>
+      <button v-for="button in layout.buttons" :key="button.index" type="button" :class="{ 'is-current-attack-percent': isCurrentAttackPercent(button) }" tabindex="-1" @pointerdown="stopGameInput" @pointerup="activate($event, button.index)" @pointercancel.stop @mousedown="stopGameInput" @click="stopGameInput">{{ button.label }}</button>
       <button class="fx-game-keybind-hud-grip" type="button" tabindex="-1" aria-label="Move keybind buttons" title="Drag to move" @pointerdown="startDrag" @click="stopGameInput"><span></span></button>
     </div>
   `,
@@ -184,6 +243,7 @@ export function createVueGameKeybindHud() {
       .fx-game-keybind-hud button:last-child{border-right:0;border-radius:0 5px 5px 0}
       .fx-game-keybind-hud button:focus{outline:none}
       .fx-game-keybind-hud button:hover,.fx-game-keybind-hud button:active{background:color-mix(in srgb,var(--fx-game-team-accent,#9bc4ff) 16%,rgba(28,43,58,.86))}
+      .fx-game-keybind-hud button.is-current-attack-percent{background:color-mix(in srgb,var(--fx-game-team-accent,#63e6d2) 29%,rgba(20,38,48,.9));color:#d9fff5;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fx-game-team-accent,#63e6d2) 76%,white);text-shadow:0 0 8px color-mix(in srgb,var(--fx-game-team-accent,#63e6d2) 55%,transparent)}
       .fx-game-keybind-hud .fx-game-keybind-hud-grip{position:absolute;z-index:2;top:0;left:50%;display:grid;place-items:center;width:42px;height:12px;transform:translateX(-50%);padding:0;border:0;border-radius:99px;background:transparent;opacity:.55;cursor:move;touch-action:none}
       .fx-game-keybind-hud .fx-game-keybind-hud-grip span{width:28px;height:4px;border-radius:99px;background:color-mix(in srgb,var(--fx-game-team-accent,#9bc4ff) 65%,rgba(245,249,255,.42));box-shadow:0 1px 4px rgba(0,0,0,.3)}
       .fx-game-keybind-hud .fx-game-keybind-hud-grip:hover{opacity:1}

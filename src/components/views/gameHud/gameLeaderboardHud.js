@@ -13,7 +13,8 @@ const LEADERBOARD_ROW_HEIGHT = 31;
 const LEADERBOARD_ROW_GAP = 2;
 const LEADERBOARD_ROW_STRIDE = LEADERBOARD_ROW_HEIGHT + LEADERBOARD_ROW_GAP;
 const LEADERBOARD_OVERSCAN = 8;
-const NATIVE_TEAM_COLOR_NAMES = ["Dunkelgrau", "Rot", "Grün", "Blau", "Oliv", "Violett", "Türkis", "Grau", "Schwarz"];
+const TEAM_COLOR_TRANSLATION_KEYS = ["teamColorDarkGray", "teamColorRed", "teamColorGreen", "teamColorBlue", "teamColorOlive", "teamColorPurple", "teamColorTeal", "teamColorGray", "teamColorBlack"];
+const TEAM_COLOR_ENGLISH_NAMES = ["Dark Gray", "Red", "Green", "Blue", "Olive", "Purple", "Teal", "Gray", "Black"];
 
 const GameLeaderboardHud = defineComponent({
   name: "FxGameLeaderboardHud",
@@ -39,8 +40,11 @@ const GameLeaderboardHud = defineComponent({
     let donationHighlightUntil = 0;
     let lastNativeDisplayTick = null;
     let nativeDisplayCycles = 0;
+    const isTeamGame = (fx = window.__fx) => typeof fx?.isTeamGame === "function"
+      ? fx.isTeamGame()
+      : teamChartSnapshot.value?.teams?.length > 0;
     const resolveTeamColor = (playerId, teamId, fx = window.__fx) => {
-      if (teamId === null || teamId === undefined) return null;
+      if (!isTeamGame(fx) || teamId === null || teamId === undefined) return null;
       const nativeColor = fx?.getNativePlayerTeamColor?.(playerId);
       if (nativeColor) return String(nativeColor);
       const chartColor = teamChartSnapshot.value?.teams?.find(team => team.id === Number(teamId))?.color;
@@ -54,27 +58,75 @@ const GameLeaderboardHud = defineComponent({
     const statusCardsCollapsed = ref({});
     const lockedPlayerId = ref(null);
     const lockedPlayerRank = ref(null);
+    let finishedLeaderboardDefaultsApplied = false;
     const panelPosition = ref(null);
     const panelSize = ref({ width: null, height: null });
     const gameHudSettingsOpen = ref(false);
+    const teamChartWithoutFrame = ref(false);
     const gameHudFontScale = ref(100);
     const gameHudTransparency = ref(settingsApi.getNumber("gameHudTransparency", 15));
     const gameAttackSelectorWheelStep = ref(2);
     const tickCounterSide = ref("left");
     const keybindButtonHeight = ref(100);
     const gameHudVisibility = ref(loadGameHudVisibility());
+    const cycleKeybindShortcuts = ref(window.localStorage.getItem("zfx.gameKeybindHud.cycleQe.v1") !== "false");
+    const setCycleKeybindShortcuts = value => {
+      cycleKeybindShortcuts.value = Boolean(value);
+      try { window.localStorage.setItem("zfx.gameKeybindHud.cycleQe.v1", String(cycleKeybindShortcuts.value)); } catch { /* Storage may be unavailable. */ }
+      window.dispatchEvent(new CustomEvent("fx-game-keybind-cycle-changed", { detail: cycleKeybindShortcuts.value }));
+    };
     const gameActionQueueSettings = ref(loadGameActionQueueSettings());
     const teamChartCollapsed = ref(false);
     const gameHudVisibilityItems = GAME_HUD_VISIBILITY_OPTIONS;
     const gameHudLayoutSlots = ref([null, null, null, null]);
     const gameHudLayoutSlot = ref(0);
     const gameHudSettingsTab = ref("layout");
+    const gameHudSettingsSearch = ref("");
+    const profileImportInput = ref(null);
+    const profileAction = ref("");
+    const profileActionMenuOpen = ref(false);
+    const profileSavedFeedback = ref(false);
+    let profileSavedFeedbackTimer = 0;
+    const showProfileSavedFeedback = () => {
+      profileSavedFeedback.value = true;
+      window.clearTimeout(profileSavedFeedbackTimer);
+      profileSavedFeedbackTimer = window.setTimeout(() => { profileSavedFeedback.value = false; }, 1600);
+    };
+    const normalizeHudSearchText = text => String(text || "").toLocaleLowerCase();
+    const matchesHudSettings = text => !gameHudSettingsSearch.value.trim() || normalizeHudSearchText(text).includes(normalizeHudSearchText(gameHudSettingsSearch.value.trim()));
+    const gameHudSettingsContent = ref(null);
+    const updateHudSettingsSearch = () => {
+      nextTick(() => {
+        const root = gameHudSettingsContent.value;
+        if (!root) return;
+        const query = gameHudSettingsSearch.value.trim();
+        const normalize = normalizeHudSearchText;
+        root.querySelectorAll(".fx-game-settings-accordion").forEach(section => {
+          const titleMatches = normalize(section.querySelector("summary")?.textContent || "").includes(normalize(query));
+          const labels = [...section.querySelectorAll(":scope > label")];
+          labels.forEach(label => {
+            const matches = !query || titleMatches || normalize(label.textContent || "").includes(normalize(query));
+            label.hidden = !matches;
+            label.classList.toggle("is-search-match", Boolean(query && matches && !titleMatches));
+          });
+          section.hidden = Boolean(query) && !titleMatches && !labels.some(label => !label.hidden);
+          section.classList.toggle("is-search-match", Boolean(query && titleMatches));
+        });
+      });
+    };
+    watch(gameHudSettingsSearch, updateHudSettingsSearch);
+    watch(gameHudSettingsTab, updateHudSettingsSearch);
     const gameMapProfileSettings = ref({});
     const gameMapSettingsSlots = ref([null, null, null, null]);
     const gameMapSettingsSlot = ref(0);
+    const gameHudControlSettings = ref({ cAttackEnabled: false, cAttackPercent: 10 });
+    const gameControlSettingsSlots = ref([null, null, null, null]);
+    const gameControlSettingsSlot = ref(0);
     const gameHudSettingsStorageKey = "zfx.gameHud.settings.v1";
     const gameHudLayoutSlotsStorageKey = "zfx.gameHud.layoutSlots.v1";
     const gameMapSettingsSlotsStorageKey = "zfx.gameMap.settingsProfiles.v1";
+    const gameControlSettingsStorageKey = "zfx.gameHud.controlSettings.v1";
+    const gameControlProfilesStorageKey = "zfx.gameHud.controlProfiles.v1";
     const gameMapSettingKeys = ["showPlayerDensity", "playerDensityFontScale", "coloredDensity", "densityDisplayStyle", "displayTickNumber", "showEstimatedEliminationAttack", "estimatedAttackFontScale", "estimatedAttackTroopMultiplier", "estimatedAttackGreenThreshold", "territoryOwnerTooltip", "highlightSelfTerritory", "selfTerritoryOutlineWidth", "selfTerritoryGlow", "highlightClanSpawns", "showCountryFlagsOnLand", "hideBotNames"];
     const getGameMapProfileSettings = () => Object.fromEntries(gameMapSettingKeys.map(key => {
       if (["densityDisplayStyle"].includes(key)) return [key, settingsApi.getString(key, "absoluteQuotient")];
@@ -118,7 +170,7 @@ const GameLeaderboardHud = defineComponent({
       document.documentElement.style.setProperty("--fx-game-hud-panel-alpha", String(.96 - transparency / 100));
       document.documentElement.style.setProperty("--fx-game-attack-wheel-step", String(wheelStep));
       mobileKeybinds.setButtonHeightScale(buttonHeight);
-      try { window.localStorage.setItem(gameHudSettingsStorageKey, JSON.stringify({ fontScale: scale, transparency, attackSelectorWheelStep: wheelStep, tickCounterSide: tickSide, keybindButtonHeight: buttonHeight })); } catch { /* Storage may be unavailable. */ }
+      try { window.localStorage.setItem(gameHudSettingsStorageKey, JSON.stringify({ fontScale: scale, transparency, attackSelectorWheelStep: wheelStep, tickCounterSide: tickSide, keybindButtonHeight: buttonHeight, teamChartWithoutFrame: teamChartWithoutFrame.value })); } catch { /* Storage may be unavailable. */ }
     };
     const applyGameMapSettings = () => {
       const rejected = [];
@@ -147,7 +199,7 @@ const GameLeaderboardHud = defineComponent({
       const slots = [...gameMapSettingsSlots.value];
       slots[gameMapSettingsSlot.value] = { savedAt: Date.now(), settings: getGameMapProfileSettings() };
       gameMapSettingsSlots.value = slots;
-      try { window.localStorage.setItem(gameMapSettingsSlotsStorageKey, JSON.stringify(slots)); } catch { /* Storage may be unavailable. */ }
+      try { window.localStorage.setItem(gameMapSettingsSlotsStorageKey, JSON.stringify(slots)); showProfileSavedFeedback(); } catch { /* Storage may be unavailable. */ }
     };
     const deleteGameMapSettings = () => {
       const slots = [...gameMapSettingsSlots.value];
@@ -161,6 +213,29 @@ const GameLeaderboardHud = defineComponent({
       gameMapProfileSettings.value = { ...getGameMapProfileSettings(), ...settings };
       applyGameMapSettings();
     };
+    const applyGameHudControlSettings = () => {
+      gameHudControlSettings.value.cAttackPercent = clamp(Number(gameHudControlSettings.value.cAttackPercent) || 10, 1, 100);
+      try { window.localStorage.setItem(gameControlSettingsStorageKey, JSON.stringify(gameHudControlSettings.value)); } catch { /* Storage may be unavailable. */ }
+      window.dispatchEvent(new CustomEvent("fx-game-hud-control-settings-changed", { detail: { ...gameHudControlSettings.value } }));
+    };
+    const saveGameControlProfile = () => {
+      const slots = [...gameControlSettingsSlots.value];
+      slots[gameControlSettingsSlot.value] = { savedAt: Date.now(), settings: { ...gameHudControlSettings.value } };
+      gameControlSettingsSlots.value = slots;
+      try { window.localStorage.setItem(gameControlProfilesStorageKey, JSON.stringify(slots)); showProfileSavedFeedback(); } catch { /* Storage may be unavailable. */ }
+    };
+    const deleteGameControlProfile = () => {
+      const slots = [...gameControlSettingsSlots.value];
+      slots[gameControlSettingsSlot.value] = null;
+      gameControlSettingsSlots.value = slots;
+      try { window.localStorage.setItem(gameControlProfilesStorageKey, JSON.stringify(slots)); } catch { /* Storage may be unavailable. */ }
+    };
+    const loadGameControlProfile = () => {
+      const settings = gameControlSettingsSlots.value[gameControlSettingsSlot.value]?.settings;
+      if (!settings) return;
+      gameHudControlSettings.value = { cAttackEnabled: settings.cAttackEnabled === true, cAttackPercent: clamp(Number(settings.cAttackPercent) || 10, 1, 100) };
+      applyGameHudControlSettings();
+    };
     const getGameHudLayoutSnapshot = () => Object.fromEntries([
       panelPositionStorageKey, sizeStorageKey, leaderboardCollapsedStorageKey, statusCardLayoutsStorageKey, statusCardsCollapsedStorageKey, teamChartPositionStorageKey, teamChartCollapsedStorageKey, tickHudPositionStorageKey, attackSelectorPositionStorageKey, "zfx.gameKeybindHud.position.v1", "zfx.gameActionQueue.position.v1", gameHudSettingsStorageKey, GAME_HUD_VISIBILITY_STORAGE_KEY, "zfx.gameMinimap.position.v1", "zfx.gameMinimap.size.v1", minimapCollapsedStorageKey,
     ].map(key => [key, window.localStorage.getItem(key)]));
@@ -168,7 +243,7 @@ const GameLeaderboardHud = defineComponent({
       const slots = [...gameHudLayoutSlots.value];
       slots[gameHudLayoutSlot.value] = { savedAt: Date.now(), layout: getGameHudLayoutSnapshot() };
       gameHudLayoutSlots.value = slots;
-      try { window.localStorage.setItem(gameHudLayoutSlotsStorageKey, JSON.stringify(slots)); } catch { /* Storage may be unavailable. */ }
+      try { window.localStorage.setItem(gameHudLayoutSlotsStorageKey, JSON.stringify(slots)); showProfileSavedFeedback(); } catch { /* Storage may be unavailable. */ }
     };
     const deleteGameHudLayout = () => {
       const slots = [...gameHudLayoutSlots.value];
@@ -190,6 +265,7 @@ const GameLeaderboardHud = defineComponent({
         gameAttackSelectorWheelStep.value = clamp(savedHudSettings?.attackSelectorWheelStep ?? 2, 1, 10);
         tickCounterSide.value = savedHudSettings?.tickCounterSide === "right" ? "right" : "left";
         keybindButtonHeight.value = clamp(savedHudSettings?.keybindButtonHeight ?? 100, 100, 200);
+        teamChartWithoutFrame.value = savedHudSettings?.teamChartWithoutFrame === true;
         applyGameHudSettings();
       } catch { /* Ignore invalid saved HUD settings. */ }
       try { collapsed.value = JSON.parse(window.localStorage.getItem(leaderboardCollapsedStorageKey) || "false") === true; } catch { collapsed.value = false; }
@@ -205,6 +281,62 @@ const GameLeaderboardHud = defineComponent({
       } catch { /* Ignore invalid saved layouts. */ }
       window.__fx?.gameMinimapHud?.reloadPosition?.();
       window.dispatchEvent(new Event("fx-game-hud-layout-loaded"));
+    };
+    const exportHudProfile = () => {
+      const isLayout = gameHudSettingsTab.value === "layout";
+      const isMap = gameHudSettingsTab.value === "map";
+      const type = isLayout ? "layout" : isMap ? "map" : "control";
+      const slot = isLayout ? gameHudLayoutSlots.value[gameHudLayoutSlot.value] : isMap ? gameMapSettingsSlots.value[gameMapSettingsSlot.value] : gameControlSettingsSlots.value[gameControlSettingsSlot.value];
+      const profile = isLayout ? (slot?.layout || getGameHudLayoutSnapshot()) : isMap ? (slot?.settings || getGameMapProfileSettings()) : (slot?.settings || { ...gameHudControlSettings.value });
+      const payload = { format: "zfx-game-hud-profile", version: 1, type, profile };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `zfx-${type}-profile-${(isLayout ? gameHudLayoutSlot.value : isMap ? gameMapSettingsSlot.value : gameControlSettingsSlot.value) + 1}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    };
+    const importHudProfile = async event => {
+      const file = event.target.files?.[0];
+      event.target.value = "";
+      if (!file) return;
+      try {
+        const payload = JSON.parse(await file.text());
+        const isLayout = gameHudSettingsTab.value === "layout";
+        const isMap = gameHudSettingsTab.value === "map";
+        const type = isLayout ? "layout" : isMap ? "map" : "control";
+        if (payload?.format !== "zfx-game-hud-profile" || payload.version !== 1 || payload.type !== type || !payload.profile || typeof payload.profile !== "object") throw new Error("This file is not a compatible profile for the selected tab.");
+        if (isLayout && !Object.keys(payload.profile).some(key => key.startsWith("zfx."))) throw new Error("The layout profile contains no HUD settings.");
+        if (isMap && !gameMapSettingKeys.some(key => Object.hasOwn(payload.profile, key))) throw new Error("The map profile contains no supported settings.");
+        if (type === "control" && !Object.hasOwn(payload.profile, "cAttackEnabled")) throw new Error("The control profile contains no supported settings.");
+        if (isLayout) {
+          const slots = [...gameHudLayoutSlots.value];
+          slots[gameHudLayoutSlot.value] = { savedAt: Date.now(), layout: payload.profile };
+          gameHudLayoutSlots.value = slots;
+          window.localStorage.setItem(gameHudLayoutSlotsStorageKey, JSON.stringify(slots));
+        } else if (isMap) {
+          const slots = [...gameMapSettingsSlots.value];
+          slots[gameMapSettingsSlot.value] = { savedAt: Date.now(), settings: payload.profile };
+          gameMapSettingsSlots.value = slots;
+          window.localStorage.setItem(gameMapSettingsSlotsStorageKey, JSON.stringify(slots));
+        } else {
+          const slots = [...gameControlSettingsSlots.value];
+          slots[gameControlSettingsSlot.value] = { savedAt: Date.now(), settings: payload.profile };
+          gameControlSettingsSlots.value = slots;
+          window.localStorage.setItem(gameControlProfilesStorageKey, JSON.stringify(slots));
+        }
+      } catch (error) { window.alert(error?.message || "Could not import profile."); }
+    };
+    const runProfileAction = () => {
+      const tab = gameHudSettingsTab.value;
+      const action = profileAction.value;
+      profileAction.value = "";
+      if (action === "save") return tab === "layout" ? saveGameHudLayout() : tab === "map" ? saveGameMapSettings() : saveGameControlProfile();
+      if (action === "load") return tab === "layout" ? loadGameHudLayout() : tab === "map" ? loadGameMapSettings() : loadGameControlProfile();
+      if (action === "delete") return tab === "layout" ? deleteGameHudLayout() : tab === "map" ? deleteGameMapSettings() : deleteGameControlProfile();
+      if (action === "import") return profileImportInput.value?.click();
+      if (action === "export") return exportHudProfile();
     };
     const setGameHudVisibility = (key, value) => {
       gameHudVisibility.value = saveGameHudVisibility({ ...gameHudVisibility.value, [key]: Boolean(value) });
@@ -401,7 +533,7 @@ const GameLeaderboardHud = defineComponent({
       });
       return { teams, total, segments };
     });
-    const teamChartVisible = computed(() => inMatch.value && !matchFinished.value && !choosingSpawn.value && gameHudVisibility.value.teamChart && teamChartSegments.value.total > 0);
+    const teamChartVisible = computed(() => gameHudVisibility.value.teamChart === true && isTeamGame());
     const visibleStatusRows = computed(() => (statusSnapshot.value?.rows || []).filter(row => {
       // Once the native match has ended, keep only the clock beside the
       // leaderboard. The rest of the status cards are match-only HUD data.
@@ -414,14 +546,15 @@ const GameLeaderboardHud = defineComponent({
       const ownPlayer = snapshot.value?.ownPlayer
         ?? snapshot.value?.players?.find(player => player.id === snapshot.value?.ownPlayerId);
       if (!ownPlayer) return null;
-      if (ownPlayer.teamId !== null && ownPlayer.teamId !== undefined) {
+      if (isTeamGame() && ownPlayer.teamId !== null && ownPlayer.teamId !== undefined) {
         const nativeTeamColor = window.__fx?.getNativePlayerTeamColor?.(ownPlayer.id);
         if (nativeTeamColor) return String(nativeTeamColor);
         const teamId = Number(ownPlayer.teamId);
         const chartColor = teamChartSnapshot.value?.teams?.find(team => team.id === teamId)?.color;
         if (chartColor) return chartColor;
       }
-      return ownPlayer.color ? String(ownPlayer.color) : null;
+      const playerColor = ownPlayer.color || window.__fx?.getNativePlayerColor?.(ownPlayer.id);
+      return playerColor ? String(playerColor) : null;
     });
     const gameHudAccentStyle = computed(() => ownTeamColor.value ? { "--fx-game-team-accent": ownTeamColor.value } : {});
     watch(ownTeamColor, color => {
@@ -690,6 +823,11 @@ const GameLeaderboardHud = defineComponent({
       };
       const ownPlayerId = Number(value.ownPlayerId ?? fx?.getGameVar?.("playerId"));
       const ownClan = parseClan(rawPlayerNames?.[ownPlayerId] ?? value.ownPlayer?.name);
+      const translateAllyStatus = (status, fallback) => {
+        const key = status === "allied" ? "tooltipAlly" : "tooltipAllyRequested";
+        const label = fx?.translateFX?.(key);
+        return label && label !== key ? label : fallback;
+      };
       const humanCount = Number(value.humanCount ?? fx?.getGameVar?.("gHumans")) || 0;
       const botCount = Number(value.botCount ?? fx?.getGameVar?.("gBots")) || 0;
       const isNativeBot = id => id >= humanCount || Number(playerStates?.[id]) === 2;
@@ -698,19 +836,30 @@ const GameLeaderboardHud = defineComponent({
         : value.players.filter(player => player.isAlive !== false && Boolean(player.isBot ?? isNativeBot(player.id)) === isBot).length;
       const normalizedPlayers = value.players.map(player => {
         const clanTag = parseClan(rawPlayerNames?.[player.id] ?? player.name);
-        const teamId = player.teamId ?? fx?.getNativePlayerTeamId?.(player.id) ?? null;
+        const nativeTeamId = fx?.getNativePlayerTeamId?.(player.id) ?? null;
+        const teamId = player.teamId ?? nativeTeamId;
         const teamColor = resolveTeamColor(player.id, teamId, fx);
+        const individualColor = fx?.gameMinimapAdapter?.getPlayerColor?.(player.id) || player.color || fx?.gameLeaderboardAdapter?.getPlayerColor?.(player.id) || fx?.getNativePlayerColor?.(player.id) || null;
+        const isOwn = player.id === ownPlayerId;
+        const ownTeamId = fx?.getNativePlayerTeamId?.(ownPlayerId) ?? value.ownPlayer?.teamId ?? null;
+        const allyStatus = isOwn ? null
+          : isTeamGame(fx) && ownTeamId != null && teamId != null
+            ? Number(ownTeamId) === Number(teamId) ? "allied" : null
+            : ["allied", "requested"].includes(fx?.getNativePlayerAllyStatus?.(player.id))
+              ? fx.getNativePlayerAllyStatus(player.id)
+              : null;
         return {
           ...player,
           isBot: player.isBot ?? isNativeBot(player.id),
           isAlive: player.isAlive !== false,
           teamId,
-          // In team modes the native per-player color can be a stale territory
-          // color. Use the authoritative team palette for rows and aggregates.
-          color: teamColor || player.color || fx?.gameLeaderboardAdapter?.getPlayerColor?.(player.id) || fx?.getNativePlayerColor?.(player.id) || null,
+          // Team mode uses the shared team palette; solo mode uses each player's own color.
+          color: isTeamGame(fx) ? (teamColor || individualColor) : individualColor,
+          allyStatus,
+          allyStatusLabel: allyStatus ? translateAllyStatus(allyStatus, allyStatus === "allied" ? "Ally" : "Request pending") : "",
           clanTag,
-          isOwn: player.id === ownPlayerId,
-          isClanMate: player.id !== ownPlayerId && ownClan !== null && clanTag === ownClan,
+          isOwn,
+          isClanMate: !isOwn && ownClan !== null && clanTag === ownClan,
         };
       });
       observeEliminations(normalizedPlayers);
@@ -844,6 +993,7 @@ const GameLeaderboardHud = defineComponent({
       inMatch.value = matchState === 1 || matchState === 2 || matchFinished.value;
       choosingSpawn.value = matchState === 1;
       if (!inMatch.value) {
+        if (fx) fx.gameHudOwnPlayerEliminated = false;
         choosingSpawn.value = false;
         lastAliveByPlayerId.clear();
         eliminationOrderByPlayerId.clear();
@@ -891,6 +1041,12 @@ const GameLeaderboardHud = defineComponent({
       const botCount = Number(fx?.getGameVar?.("gBots"));
       const spectatorCount = Number(fx?.getGameVar?.("gSpectators"));
       const ownPlayerId = Number(fx?.getGameVar?.("playerId"));
+      if (fx && matchState === 2 && Number.isInteger(ownPlayerId) && territories) {
+        const ownAliveState = aliveStates?.[ownPlayerId];
+        fx.gameHudOwnPlayerEliminated = ownAliveState !== undefined && ownAliveState !== null
+          ? Number(ownAliveState) === 0
+          : Number(territories[ownPlayerId]) <= 0;
+      } else if (fx && matchState !== 2) fx.gameHudOwnPlayerEliminated = false;
       if (!names || !territories || !Number.isInteger(ownPlayerId)) return;
       const players = [];
       const count = Math.min(names.length, territories.length);
@@ -907,7 +1063,7 @@ const GameLeaderboardHud = defineComponent({
           territories: territoryValue,
           isAlive,
           teamId: fx?.getNativePlayerTeamId?.(id) ?? null,
-          color: resolveTeamColor(id, fx?.getNativePlayerTeamId?.(id), fx) || fx?.gameLeaderboardAdapter?.getPlayerColor?.(id) || fx?.getNativePlayerColor?.(id) || null,
+          color: resolveTeamColor(id, fx?.getNativePlayerTeamId?.(id), fx) || fx?.gameMinimapAdapter?.getPlayerColor?.(id) || fx?.gameLeaderboardAdapter?.getPlayerColor?.(id) || fx?.getNativePlayerColor?.(id) || null,
         });
       }
       if (!players.length) return;
@@ -992,9 +1148,12 @@ const GameLeaderboardHud = defineComponent({
       for (const player of snapshot.value.players) {
         if (player.teamId === null || player.teamId === undefined) continue;
         const key = String(player.teamId);
+        const colorIndex = Number(player.teamId);
+        const colorTranslationKey = TEAM_COLOR_TRANSLATION_KEYS[colorIndex];
+        const translatedColorName = colorTranslationKey ? window.__fx?.translateFX?.(colorTranslationKey) : null;
         const team = teams.get(key) || {
           id: key,
-          name: `Team ${NATIVE_TEAM_COLOR_NAMES[Number(player.teamId)] || key}`,
+          name: `Team ${translatedColorName && translatedColorName !== colorTranslationKey ? translatedColorName : TEAM_COLOR_ENGLISH_NAMES[colorIndex] || key}`,
           territories: 0,
           memberCount: 0,
           color: player.color || null,
@@ -1096,6 +1255,24 @@ const GameLeaderboardHud = defineComponent({
       }
       event.currentTarget.blur();
     };
+    const applyFinishedLeaderboardDefaults = () => {
+      if (!matchFinished.value) {
+        finishedLeaderboardDefaultsApplied = false;
+        return;
+      }
+      if (finishedLeaderboardDefaultsApplied) return;
+      activeTab.value = "players";
+      playerFilter.value = "all";
+      const ownPlayerId = snapshot.value?.ownPlayerId;
+      const ownPlayer = snapshot.value?.players?.find(player => player.id === ownPlayerId) || snapshot.value?.ownPlayer;
+      if (ownPlayerId == null || !ownPlayer) return;
+      lockedPlayerId.value = ownPlayerId;
+      lockedPlayerRank.value = ownPlayer.rank ?? snapshot.value?.ownRank ?? null;
+      finishedLeaderboardDefaultsApplied = true;
+      nextTick(() => scrollToPlayer(ownPlayerId));
+    };
+    watch(matchFinished, applyFinishedLeaderboardDefaults);
+    watch(snapshot, () => { if (matchFinished.value) applyFinishedLeaderboardDefaults(); });
     const handleManualScroll = event => {
       if (event.type === "pointerdown" && event.target !== event.currentTarget) return;
       unlockPlayer();
@@ -1172,11 +1349,16 @@ const GameLeaderboardHud = defineComponent({
         if (Number.isFinite(savedHudSettings?.attackSelectorWheelStep)) gameAttackSelectorWheelStep.value = clamp(savedHudSettings.attackSelectorWheelStep, 1, 10);
         tickCounterSide.value = savedHudSettings?.tickCounterSide === "right" ? "right" : "left";
         if (Number.isFinite(savedHudSettings?.keybindButtonHeight)) keybindButtonHeight.value = clamp(savedHudSettings.keybindButtonHeight, 100, 200);
+        teamChartWithoutFrame.value = savedHudSettings?.teamChartWithoutFrame === true;
         applyGameHudSettings();
         const slots = JSON.parse(window.localStorage.getItem(gameHudLayoutSlotsStorageKey) || "[]");
         gameHudLayoutSlots.value = Array.from({ length: 4 }, (_, index) => slots[index] || null);
         const mapSlots = JSON.parse(window.localStorage.getItem(gameMapSettingsSlotsStorageKey) || "[]");
         gameMapSettingsSlots.value = Array.from({ length: 4 }, (_, index) => mapSlots[index] || null);
+        const controlSlots = JSON.parse(window.localStorage.getItem(gameControlProfilesStorageKey) || "[]");
+        gameControlSettingsSlots.value = Array.from({ length: 4 }, (_, index) => controlSlots[index] || null);
+        const controlSettings = JSON.parse(window.localStorage.getItem(gameControlSettingsStorageKey) || "null");
+        if (controlSettings && typeof controlSettings === "object") gameHudControlSettings.value = { cAttackEnabled: controlSettings.cAttackEnabled === true, cAttackPercent: clamp(Number(controlSettings.cAttackPercent) || 10, 1, 100) };
         gameMapProfileSettings.value = getGameMapProfileSettings();
         collapsed.value = JSON.parse(window.localStorage.getItem(leaderboardCollapsedStorageKey) || "false") === true;
         const savedShowEliminated = JSON.parse(window.localStorage.getItem(showEliminatedStorageKey) || "true");
@@ -1284,7 +1466,7 @@ const GameLeaderboardHud = defineComponent({
       if (window.__fx) window.__fx.gameTeamChartReady = false;
     });
 
-    return { snapshot, visible, choosingSpawn, matchFinished, dataReady, rows, visibleRows, topSpacerHeight, bottomSpacerHeight, updateVirtualWindow, collapsed, showEliminated, toggleEliminatedVisibility, showBots, toggleBotVisibility, activeTab, setActiveTab, ownClanRank, tabLabels, playerFilter, canFilterClan, canFilterTeam, setPlayerFilter, formatted, focusPlayer, toggleCollapsed, rowsContainer, aliveHumanCount, aliveBotCount, toggleOwnPlayerLock, goTop, panelStyle, startPanelMove, startPanelResize, handlePanelHeaderClick, setLeaderboardPanel, setRowsContainer, statusSnapshot, visibleStatusRows, gameHudVisibility, gameHudVisibilityItems, setGameHudVisibility, gameActionQueueSettings, setGameActionQueueSetting, lockedPlayerId, togglePlayerLock, handleManualScroll, statusCardStyle, statusCardsCollapsed, toggleStatusCardCollapsed, startStatusCardMove, leaderboardPanel, teamChartVisible, teamChartCollapsed, toggleTeamChartCollapsed, teamChartStyle, teamChartSegments, detailedTeamPercentage, startTeamChartMove, tickHudSnapshot, tickHudStyle, startTickHudMove, gameHudSettingsOpen, gameHudSettingsTab, gameHudFontScale, gameHudTransparency, gameAttackSelectorWheelStep, tickCounterSide, keybindButtonHeight, gameMapProfileSettings, gameMapSettingsSlots, gameMapSettingsSlot, applyGameMapSettings, adjustRangeWithWheel, saveGameMapSettings, deleteGameMapSettings, loadGameMapSettings, gameHudLayoutSlots, gameHudLayoutSlot, applyGameHudSettings, saveGameHudLayout, deleteGameHudLayout, loadGameHudLayout, gameHudAccentStyle };
+    return { snapshot, visible, choosingSpawn, matchFinished, dataReady, rows, visibleRows, topSpacerHeight, bottomSpacerHeight, updateVirtualWindow, collapsed, showEliminated, toggleEliminatedVisibility, showBots, toggleBotVisibility, activeTab, setActiveTab, ownClanRank, tabLabels, playerFilter, canFilterClan, canFilterTeam, setPlayerFilter, formatted, toggleCollapsed, rowsContainer, aliveHumanCount, aliveBotCount, toggleOwnPlayerLock, goTop, panelStyle, startPanelMove, startPanelResize, handlePanelHeaderClick, setLeaderboardPanel, setRowsContainer, statusSnapshot, visibleStatusRows, gameHudVisibility, gameHudVisibilityItems, setGameHudVisibility, cycleKeybindShortcuts, setCycleKeybindShortcuts, gameActionQueueSettings, setGameActionQueueSetting, lockedPlayerId, togglePlayerLock, handleManualScroll, statusCardStyle, statusCardsCollapsed, toggleStatusCardCollapsed, startStatusCardMove, leaderboardPanel, teamChartVisible, teamChartCollapsed, toggleTeamChartCollapsed, teamChartStyle, teamChartSegments, detailedTeamPercentage, startTeamChartMove, tickHudSnapshot, tickHudStyle, startTickHudMove, gameHudSettingsOpen, teamChartWithoutFrame, gameHudSettingsTab, gameHudSettingsSearch, profileImportInput, profileAction, profileActionMenuOpen, profileSavedFeedback, runProfileAction, matchesHudSettings, gameHudSettingsContent, gameHudFontScale, gameHudTransparency, gameAttackSelectorWheelStep, tickCounterSide, keybindButtonHeight, gameMapProfileSettings, gameMapSettingsSlots, gameMapSettingsSlot, gameControlSettingsSlots, gameControlSettingsSlot, gameHudControlSettings, applyGameHudControlSettings, applyGameMapSettings, adjustRangeWithWheel, saveGameMapSettings, deleteGameMapSettings, loadGameMapSettings, saveGameControlProfile, deleteGameControlProfile, loadGameControlProfile, gameHudLayoutSlots, gameHudLayoutSlot, applyGameHudSettings, saveGameHudLayout, deleteGameHudLayout, loadGameHudLayout, exportHudProfile, importHudProfile, gameHudAccentStyle };
   },
   template: `
     <div v-if="visible" class="fx-game-hud-container" :style="gameHudAccentStyle">
@@ -1305,56 +1487,78 @@ const GameLeaderboardHud = defineComponent({
       <nav v-if="!gameHudSettingsOpen && gameMapSettingsSlots.some(slot => slot !== null)" class="fx-game-map-quick-buttons" :style="{ top: (56 + (gameHudLayoutSlots.filter(slot => slot !== null).length * 35) + 6) + 'px' }" aria-label="Load saved game map settings">
         <template v-for="(slot, index) in gameMapSettingsSlots" :key="index"><button v-if="slot" type="button" :aria-label="'Load game map settings ' + (index + 1)" :title="'Load map settings M' + (index + 1)" @pointerdown.prevent.stop @click.stop="gameMapSettingsSlot = index; loadGameMapSettings(); $event.currentTarget.blur()">M{{ index + 1 }}</button></template>
       </nav>
+      <nav v-if="!gameHudSettingsOpen && gameControlSettingsSlots.some(slot => slot !== null)" class="fx-game-control-quick-buttons" :style="{ top: (56 + (gameHudLayoutSlots.filter(slot => slot !== null).length * 35) + (gameMapSettingsSlots.filter(slot => slot !== null).length * 35) + 12) + 'px' }" aria-label="Load saved control profiles">
+        <template v-for="(slot, index) in gameControlSettingsSlots" :key="index"><button v-if="slot" type="button" :aria-label="'Load control profile ' + (index + 1)" :title="'Load control profile C' + (index + 1)" @pointerdown.prevent.stop @click.stop="gameControlSettingsSlot = index; loadGameControlProfile(); $event.currentTarget.blur()">C{{ index + 1 }}</button></template>
+      </nav>
       <section v-if="gameHudSettingsOpen" class="fx-hud-settings-panel" @pointerdown.stop>
         <header><strong>HUD Settings</strong><button type="button" aria-label="Close" @click="gameHudSettingsOpen = false; $event.currentTarget.blur()">×</button></header>
-        <nav class="fx-game-settings-tabs" aria-label="HUD settings sections"><button type="button" :class="{ 'is-active': gameHudSettingsTab === 'layout' }" @click="gameHudSettingsTab = 'layout'; $event.currentTarget.blur()">LAYOUT</button><button type="button" :class="{ 'is-active': gameHudSettingsTab === 'map' }" @click="gameHudSettingsTab = 'map'; $event.currentTarget.blur()">MAP</button></nav>
-        <div v-if="gameHudSettingsTab === 'layout'">
+        <label class="fx-game-settings-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg><input v-model="gameHudSettingsSearch" type="search" placeholder="Search settings…" aria-label="Search settings" @keydown.stop @keyup.stop @keypress.stop></label>
+        <nav class="fx-game-settings-tabs" aria-label="HUD settings sections"><button type="button" :class="{ 'is-active': gameHudSettingsTab === 'layout' }" @click="gameHudSettingsTab = 'layout'; $event.currentTarget.blur()">LAYOUT</button><button type="button" :class="{ 'is-active': gameHudSettingsTab === 'map' }" @click="gameHudSettingsTab = 'map'; $event.currentTarget.blur()">MAP</button><button type="button" :class="{ 'is-active': gameHudSettingsTab === 'control' }" @click="gameHudSettingsTab = 'control'; $event.currentTarget.blur()">CONTROL</button></nav>
+        <div ref="gameHudSettingsContent" class="fx-game-settings-content">
+        <div v-if="gameHudSettingsTab === 'layout'" class="fx-game-settings-tab-content">
+          <details v-show="matchesHudSettings('Appearance Font size Transparency Attack wheel step Tick counter position Keybind button height')" class="fx-game-settings-accordion" open><summary>Appearance</summary>
           <label>Font size <output>{{ gameHudFontScale }}%</output><input v-model.number="gameHudFontScale" type="range" min="75" max="150" step="5" @wheel.prevent.stop="adjustRangeWithWheel" @input="applyGameHudSettings"></label>
           <label>Transparency <output>{{ gameHudTransparency }}%</output><input v-model.number="gameHudTransparency" type="range" min="0" max="70" step="1" @wheel.prevent.stop="adjustRangeWithWheel" @input="applyGameHudSettings"></label>
           <label>Attack wheel step <output>{{ gameAttackSelectorWheelStep }}%</output><input v-model.number="gameAttackSelectorWheelStep" type="range" min="1" max="10" step="1" @wheel.prevent.stop="adjustRangeWithWheel" @input="applyGameHudSettings"></label>
           <label>Tick counter position<select v-model="tickCounterSide" @change="applyGameHudSettings"><option value="left">Left of balance</option><option value="right">Right of balance</option></select></label>
           <label>Keybind button height <output>{{ keybindButtonHeight }}%</output><input v-model.number="keybindButtonHeight" type="range" min="100" max="200" step="10" @wheel.prevent.stop="adjustRangeWithWheel" @input="applyGameHudSettings"></label>
-          <strong class="fx-game-layout-section-title">HUD widgets</strong>
+          </details>
+          <details v-show="matchesHudSettings('HUD widgets Chart without frame ' + gameHudVisibilityItems.map(item => item.label).join(' '))" class="fx-game-settings-accordion" open><summary>HUD widgets</summary>
           <label v-for="item in gameHudVisibilityItems" :key="item.key" class="fx-game-settings-check"><span>{{ item.label }}</span><input type="checkbox" :checked="gameHudVisibility[item.key]" @change="setGameHudVisibility(item.key,$event.target.checked)"></label>
-          <strong class="fx-game-layout-section-title">Action list</strong>
+          <label class="fx-game-settings-check"><span>Chart without frame</span><input v-model="teamChartWithoutFrame" type="checkbox" @change="applyGameHudSettings"></label>
+          </details>
+          <details v-show="matchesHudSettings('Action list Stop button position Keep frame visible when empty Show slots only')" class="fx-game-settings-accordion" open><summary>Action list</summary>
           <label>Stop button position<select :value="gameActionQueueSettings.stopButtonPosition" @change="setGameActionQueueSetting('stopButtonPosition',$event.target.value)"><option value="left">Left</option><option value="right">Right</option></select></label>
           <label class="fx-game-settings-check"><span>Keep frame visible when empty</span><input type="checkbox" :checked="gameActionQueueSettings.showWhenEmpty" @change="setGameActionQueueSetting('showWhenEmpty',$event.target.checked)"></label>
-          <label>Layout slot<select v-model.number="gameHudLayoutSlot"><option v-for="(slot, index) in gameHudLayoutSlots" :key="index" :value="index">{{ index + 1 }}{{ slot ? ' · saved' : ' · empty' }}</option></select></label>
-          <div class="fx-game-settings-actions"><button type="button" @click="saveGameHudLayout(); $event.currentTarget.blur()">Save</button><button type="button" :disabled="!gameHudLayoutSlots[gameHudLayoutSlot]" @click="loadGameHudLayout(); $event.currentTarget.blur()">Load</button><button type="button" class="is-danger" :disabled="!gameHudLayoutSlots[gameHudLayoutSlot]" @click="deleteGameHudLayout(); $event.currentTarget.blur()">Delete</button></div>
+          <label class="fx-game-settings-check"><span>Show slots only</span><input type="checkbox" :checked="gameActionQueueSettings.showSlotsOnly" @change="setGameActionQueueSetting('showSlotsOnly',$event.target.checked)"></label>
+          </details>
         </div>
-        <div v-else>
-          <strong class="fx-game-layout-section-title">Game info and map labels</strong>
-          <strong class="fx-game-layout-section-title">Map overlays</strong>
+        <div v-else-if="gameHudSettingsTab === 'map'" class="fx-game-settings-tab-content">
+          <details v-show="matchesHudSettings('Map overlays Show boat routes Show tick number Show country flags Hide bot names')" class="fx-game-settings-accordion" open><summary>Map overlays</summary>
           <label class="fx-game-settings-check"><span>Show boat routes (own and other players)</span><input type="checkbox" :checked="gameHudVisibility.boatRoutes" @change="setGameHudVisibility('boatRoutes',$event.target.checked)"></label>
           <label class="fx-game-settings-check"><span>Show tick number</span><input v-model="gameMapProfileSettings.displayTickNumber" type="checkbox" @change="applyGameMapSettings"></label>
           <label class="fx-game-settings-check"><span>Show country flags</span><input v-model="gameMapProfileSettings.showCountryFlagsOnLand" type="checkbox" @change="applyGameMapSettings"></label>
           <label class="fx-game-settings-check"><span>Hide bot names</span><input v-model="gameMapProfileSettings.hideBotNames" type="checkbox" @change="applyGameMapSettings"></label>
-
-          <strong class="fx-game-layout-section-title">Density</strong>
+          </details>
+          <details v-show="matchesHudSettings('Density Show player density Density font size Color density Density display Value Percentage')" class="fx-game-settings-accordion" open><summary>Density</summary>
           <label class="fx-game-settings-check"><span>Show player density</span><input v-model="gameMapProfileSettings.showPlayerDensity" type="checkbox" @change="applyGameMapSettings"></label>
           <label>Density font size <output>{{ gameMapProfileSettings.playerDensityFontScale }}%</output><input v-model.number="gameMapProfileSettings.playerDensityFontScale" type="range" min="50" max="200" step="5" @wheel.prevent.stop="adjustRangeWithWheel" @input="applyGameMapSettings"></label>
           <label class="fx-game-settings-check"><span>Color density</span><input v-model="gameMapProfileSettings.coloredDensity" type="checkbox" @change="applyGameMapSettings"></label>
           <label>Density display<select v-model="gameMapProfileSettings.densityDisplayStyle" @change="applyGameMapSettings"><option value="absoluteQuotient">Value</option><option value="percentage">Percentage</option></select></label>
-
-          <strong class="fx-game-layout-section-title">Attack estimate</strong>
+          </details>
+          <details v-show="matchesHudSettings('Attack estimate Estimate font size Enemy troop multiplier Estimate turns green at')" class="fx-game-settings-accordion" open><summary>Attack estimate</summary>
           <label class="fx-game-settings-check"><span>Attack estimate</span><input v-model="gameMapProfileSettings.showEstimatedEliminationAttack" type="checkbox" @change="applyGameMapSettings"></label>
           <label>Estimate font size <output>{{ gameMapProfileSettings.estimatedAttackFontScale }}%</output><input v-model.number="gameMapProfileSettings.estimatedAttackFontScale" type="range" min="50" max="200" step="5" @wheel.prevent.stop="adjustRangeWithWheel" @input="applyGameMapSettings"></label>
           <label>Enemy troop multiplier <output>{{ Number(gameMapProfileSettings.estimatedAttackTroopMultiplier).toFixed(1) }}×</output><input v-model.number="gameMapProfileSettings.estimatedAttackTroopMultiplier" type="range" min="1" max="4" step="0.1" @wheel.prevent.stop="adjustRangeWithWheel" @input="applyGameMapSettings"></label>
           <label>Estimate turns green at <output>{{ gameMapProfileSettings.estimatedAttackGreenThreshold }}%</output><input v-model.number="gameMapProfileSettings.estimatedAttackGreenThreshold" type="range" min="5" max="75" step="1" @wheel.prevent.stop="adjustRangeWithWheel" @input="applyGameMapSettings"></label>
-
-          <strong class="fx-game-layout-section-title">Territory details</strong>
+          </details>
+          <details v-show="matchesHudSettings('Territory details Right-click territory details')" class="fx-game-settings-accordion" open><summary>Territory details</summary>
           <label class="fx-game-settings-check"><span>Right-click territory details</span><input v-model="gameMapProfileSettings.territoryOwnerTooltip" type="checkbox" @change="applyGameMapSettings"></label>
-
-          <strong class="fx-game-layout-section-title">Highlights</strong>
+          </details>
+          <details v-show="matchesHudSettings('Highlights Highlight own territory Territory outline Territory glow Highlight clan spawnpoints')" class="fx-game-settings-accordion" open><summary>Highlights</summary>
           <label class="fx-game-settings-check"><span>Highlight own territory</span><input v-model="gameMapProfileSettings.highlightSelfTerritory" type="checkbox" @change="applyGameMapSettings"></label>
           <label>Territory outline <output>{{ gameMapProfileSettings.selfTerritoryOutlineWidth }} px</output><input v-model.number="gameMapProfileSettings.selfTerritoryOutlineWidth" type="range" min="1" max="6" step="0.5" @wheel.prevent.stop="adjustRangeWithWheel" @input="applyGameMapSettings"></label>
           <label>Territory glow <output>{{ gameMapProfileSettings.selfTerritoryGlow }} px</output><input v-model.number="gameMapProfileSettings.selfTerritoryGlow" type="range" min="0" max="12" step="1" @wheel.prevent.stop="adjustRangeWithWheel" @input="applyGameMapSettings"></label>
           <label class="fx-game-settings-check"><span>Highlight clan spawnpoints</span><input v-model="gameMapProfileSettings.highlightClanSpawns" type="checkbox" @change="applyGameMapSettings"></label>
-
-          <strong class="fx-game-layout-section-title">Map profile</strong>
-          <label>Map settings slot<select v-model.number="gameMapSettingsSlot"><option v-for="(slot, index) in gameMapSettingsSlots" :key="index" :value="index">{{ index + 1 }}{{ slot ? ' · saved' : ' · empty' }}</option></select></label>
-          <div class="fx-game-settings-actions"><button type="button" @click="saveGameMapSettings(); $event.currentTarget.blur()">Save</button><button type="button" :disabled="!gameMapSettingsSlots[gameMapSettingsSlot]" @click="loadGameMapSettings(); $event.currentTarget.blur()">Load</button><button type="button" class="is-danger" :disabled="!gameMapSettingsSlots[gameMapSettingsSlot]" @click="deleteGameMapSettings(); $event.currentTarget.blur()">Delete</button></div>
+          </details>
         </div>
+        <div v-else class="fx-game-settings-tab-content">
+          <details class="fx-game-settings-accordion" open><summary>Keybind controls</summary>
+            <label class="fx-game-settings-check"><span>Q/E/R/F Navigation</span><input type="checkbox" :checked="cycleKeybindShortcuts" @change="setCycleKeybindShortcuts($event.target.checked)"></label>
+          </details>
+          <details class="fx-game-settings-accordion" open><summary>C-Attack</summary>
+            <label class="fx-game-settings-check"><span>Enable C-Attack</span><input v-model="gameHudControlSettings.cAttackEnabled" type="checkbox" @change="applyGameHudControlSettings"></label>
+            <label>Attack percentage <output>{{ gameHudControlSettings.cAttackPercent }}%</output><input v-model.number="gameHudControlSettings.cAttackPercent" type="range" min="1" max="100" step="1" @wheel.prevent.stop="adjustRangeWithWheel" @input="applyGameHudControlSettings"></label>
+            <small class="fx-game-control-note">Press C to attack at the pointer using this percentage. Your current selector value is restored immediately after the native Space action.</small>
+          </details>
+        </div>
+        </div>
+        <footer class="fx-game-settings-footer">
+          <label>{{ gameHudSettingsTab === 'layout' ? 'Layout profile' : gameHudSettingsTab === 'map' ? 'Map profile' : 'Control profile' }}<select v-if="gameHudSettingsTab === 'layout'" v-model.number="gameHudLayoutSlot"><option v-for="(slot, index) in gameHudLayoutSlots" :key="index" :value="index">{{ index + 1 }}{{ slot ? ' · saved' : ' · empty' }}</option></select><select v-else-if="gameHudSettingsTab === 'map'" v-model.number="gameMapSettingsSlot"><option v-for="(slot, index) in gameMapSettingsSlots" :key="index" :value="index">{{ index + 1 }}{{ slot ? ' · saved' : ' · empty' }}</option></select><select v-else v-model.number="gameControlSettingsSlot"><option v-for="(slot, index) in gameControlSettingsSlots" :key="index" :value="index">{{ index + 1 }}{{ slot ? ' · saved' : ' · empty' }}</option></select></label>
+          <button class="fx-game-profile-save" :class="{ 'is-saved': profileSavedFeedback }" type="button" :aria-label="profileSavedFeedback ? 'Profile saved' : 'Save profile'" :title="profileSavedFeedback ? 'Profile saved' : 'Save profile'" @click="gameHudSettingsTab === 'layout' ? saveGameHudLayout() : gameHudSettingsTab === 'map' ? saveGameMapSettings() : saveGameControlProfile(); $event.currentTarget.blur()"><svg v-if="profileSavedFeedback" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg><svg v-else viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h12l4 4v14H3V3h2zm2 0v6h9V3M7 21v-8h10v8M9 16h6"/></svg></button>
+          <input ref="profileImportInput" class="fx-game-profile-import-input" type="file" accept="application/json,.json" @change="importHudProfile">
+          <div class="fx-game-profile-menu-wrap"><button class="fx-game-profile-menu-trigger" type="button" aria-label="Profile actions" title="Profile actions" :aria-expanded="profileActionMenuOpen" @click="profileActionMenuOpen = !profileActionMenuOpen; $event.currentTarget.blur()"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button><div v-if="profileActionMenuOpen" class="fx-game-profile-menu"><button type="button" @click="profileActionMenuOpen=false; profileAction='save'; runProfileAction()">Save profile</button><button type="button" :disabled="gameHudSettingsTab === 'layout' ? !gameHudLayoutSlots[gameHudLayoutSlot] : gameHudSettingsTab === 'map' ? !gameMapSettingsSlots[gameMapSettingsSlot] : !gameControlSettingsSlots[gameControlSettingsSlot]" @click="profileActionMenuOpen=false; profileAction='load'; runProfileAction()">Load profile</button><button type="button" :disabled="gameHudSettingsTab === 'layout' ? !gameHudLayoutSlots[gameHudLayoutSlot] : gameHudSettingsTab === 'map' ? !gameMapSettingsSlots[gameMapSettingsSlot] : !gameControlSettingsSlots[gameControlSettingsSlot]" @click="profileActionMenuOpen=false; profileAction='delete'; runProfileAction()">Delete profile</button><button type="button" @click="profileActionMenuOpen=false; profileAction='import'; runProfileAction()">Import JSON…</button><button type="button" @click="profileActionMenuOpen=false; profileAction='export'; runProfileAction()">Export JSON</button></div></div>
+        </footer>
       </section>
       </template>
       <GameLeaderboardWidget
@@ -1399,6 +1603,7 @@ const GameLeaderboardHud = defineComponent({
       <GameTeamChartWidget
         :visible="teamChartVisible"
         :collapsed="teamChartCollapsed"
+        :without-frame="teamChartWithoutFrame"
         :position-style="teamChartStyle"
         :segments="teamChartSegments"
         :detailed-team-percentage="detailedTeamPercentage"
@@ -1442,8 +1647,8 @@ export function createVueGameLeaderboardHud() {
       .fx-game-tick-rail{position:relative;grid-row:1/3;display:block;overflow:hidden;background:rgba(0,0,0,.14)}.fx-game-tick-rail i{position:absolute;right:0;bottom:0;left:0;display:block;background:rgba(225,255,214,.9);box-shadow:0 0 6px rgba(210,255,200,.5);transition:height .2s linear}
       .fx-game-leaderboard-hud{position:fixed;z-index:60;top:clamp(12px,2vh,24px);left:calc(var(--fx-sidebar-width, 0px) + 14px);width:min(278px,calc(100vw - var(--fx-sidebar-width, 0px) - 28px));max-height:min(90vh,900px);container-type:inline-size;container-name:fx-game-leaderboard;display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden;border:1px solid rgba(160,190,225,.24);border-radius:12px;background:linear-gradient(145deg,rgba(20,30,45,var(--fx-game-hud-panel-alpha,.81)),rgba(9,15,26,var(--fx-game-hud-panel-alpha,.81)));box-shadow:0 12px 36px rgba(0,0,0,.32),inset 0 1px rgba(255,255,255,.06);backdrop-filter:blur(14px);color:#eef4ff;font:13px/1.35 var(--fx-game-native-font-family,Arial,sans-serif);pointer-events:auto}
       .fx-game-leaderboard-hud{position:fixed;z-index:60;top:clamp(12px,2vh,24px);left:calc(var(--fx-sidebar-width, 0px) + 14px);width:min(278px,calc(100vw - var(--fx-sidebar-width, 0px) - 28px));max-height:min(90vh,900px);container-type:inline-size;container-name:fx-game-leaderboard;display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden;border:1px solid rgba(160,190,225,.24);border-radius:12px;background:linear-gradient(145deg,rgba(20,30,45,var(--fx-game-hud-panel-alpha,.81)),rgba(9,15,26,var(--fx-game-hud-panel-alpha,.81)));box-shadow:0 12px 36px rgba(0,0,0,.32),inset 0 1px rgba(255,255,255,.06);backdrop-filter:blur(14px);color:#eef4ff;font:13px/1.35 var(--fx-game-native-font-family,Arial,sans-serif);pointer-events:auto}
-      .fx-game-team-chart{position:fixed;z-index:58;display:flex;flex-direction:column;align-items:center;gap:5px;width:168px;box-sizing:border-box;padding:10px 12px;border:1px solid rgba(150,185,225,.17);border-radius:10px;background:linear-gradient(145deg,rgba(20,30,45,var(--fx-game-hud-panel-alpha,.81)),rgba(9,15,26,var(--fx-game-hud-panel-alpha,.81)));box-shadow:inset 0 1px rgba(255,255,255,.055),0 4px 12px rgba(0,0,0,.12);backdrop-filter:blur(14px);color:#eef4ff;font:11px/1.2 var(--fx-game-native-font-family,Arial,sans-serif);pointer-events:none;user-select:none;-webkit-user-select:none}
-      .fx-game-team-chart header{display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;padding-bottom:6px;border-bottom:1px solid rgba(150,185,225,.14);color:#9fb2cb;font-size:10px;font-weight:750;letter-spacing:.08em;pointer-events:auto;touch-action:none;cursor:grab}.fx-game-team-chart header:active{cursor:grabbing}
+      .fx-game-team-chart{position:fixed;z-index:70;display:flex;flex-direction:column;align-items:center;gap:5px;width:168px;box-sizing:border-box;padding:10px 12px;border:1px solid rgba(150,185,225,.17);border-radius:10px;background:linear-gradient(145deg,rgba(20,30,45,var(--fx-game-hud-panel-alpha,.81)),rgba(9,15,26,var(--fx-game-hud-panel-alpha,.81)));box-shadow:inset 0 1px rgba(255,255,255,.055),0 4px 12px rgba(0,0,0,.12);backdrop-filter:blur(14px);color:#eef4ff;font:11px/1.2 var(--fx-game-native-font-family,Arial,sans-serif);pointer-events:none;user-select:none;-webkit-user-select:none}
+      .fx-game-team-chart.is-without-frame{border-color:transparent;background:transparent;box-shadow:none;backdrop-filter:none}.fx-game-team-chart header{display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;padding-bottom:6px;border-bottom:1px solid rgba(150,185,225,.14);color:#9fb2cb;font-size:10px;font-weight:750;letter-spacing:.08em;pointer-events:auto;touch-action:none;cursor:grab}.fx-game-team-chart header:active{cursor:grabbing}
       .fx-game-team-chart header span{display:grid;place-items:center;width:18px;height:18px;border-radius:5px;background:rgba(130,180,240,.13);color:#a8d0ff;font-size:13px}
       .fx-game-team-chart-pie{display:block;width:148px;height:148px;overflow:visible}
       .fx-game-team-chart-pie text{fill:#fff;font:700 7px/1 var(--fx-game-native-font-family,Arial,sans-serif);paint-order:stroke;stroke:rgba(0,0,0,.42);stroke-width:.75px;stroke-linejoin:round}
@@ -1468,7 +1673,7 @@ export function createVueGameLeaderboardHud() {
       .fx-game-leaderboard-row-wrap{display:grid;grid-template-columns:minmax(0,1fr) 30px;align-items:stretch;gap:2px;border:1px solid color-mix(in srgb,var(--fx-game-player-color,rgba(158,194,229,.2)) 24%,transparent);border-left:4px solid var(--fx-game-player-color,rgba(158,194,229,.22));border-radius:7px;background:linear-gradient(110deg,color-mix(in srgb,var(--fx-game-player-color,#193047) 18%,rgba(15,32,49,var(--fx-game-hud-panel-alpha,.81))),rgba(9,15,26,var(--fx-game-hud-panel-alpha,.81)) 80%);transition:background .16s ease,border-color .16s ease}
       .fx-game-leaderboard-row-wrap{height:31px;box-sizing:border-box;margin-bottom:2px}
       .fx-game-leaderboard-row-wrap:hover{background:linear-gradient(110deg,color-mix(in srgb,var(--fx-game-player-color,#224556) 27%,rgba(22,46,63,var(--fx-game-hud-panel-alpha,.81))),rgba(11,27,38,var(--fx-game-hud-panel-alpha,.81)) 80%)}
-      .fx-game-leaderboard-row-wrap.is-own{position:relative;z-index:1;border-color:#ffe36e;box-shadow:inset 0 0 0 1px rgba(255,227,110,.8),0 0 12px rgba(255,208,72,.32)}.fx-game-leaderboard-row-wrap.is-own .fx-game-leaderboard-row{background:linear-gradient(90deg,rgba(255,210,82,.24),rgba(255,210,82,.08) 64%,transparent)!important}.fx-game-leaderboard-row-wrap.is-clanmate{outline:1px dashed rgba(205,215,228,.42);outline-offset:-2px;background:transparent}.fx-game-leaderboard-row-wrap.is-clanmate .fx-game-leaderboard-row{background:transparent!important}.fx-game-leaderboard-player-badge{display:inline-flex;align-items:center;vertical-align:1px;margin-right:5px;padding:1px 4px;border-radius:4px;font-size:8px;font-weight:900;letter-spacing:.04em;line-height:1.35}.fx-game-leaderboard-player-badge.is-you{background:#ffe36e;color:#18202a}.fx-game-leaderboard-player-badge.is-clan{background:rgba(190,200,214,.12);color:#d2d9e3;border:1px solid rgba(190,200,214,.24)}
+      .fx-game-leaderboard-row-wrap.is-own{position:relative;z-index:1;border-color:#ffe36e;box-shadow:inset 0 0 0 1px rgba(255,227,110,.8),0 0 12px rgba(255,208,72,.32)}.fx-game-leaderboard-row-wrap.is-own .fx-game-leaderboard-row{background:linear-gradient(90deg,rgba(255,210,82,.24),rgba(255,210,82,.08) 64%,transparent)!important}.fx-game-leaderboard-row-wrap.is-clanmate{outline:1px dashed rgba(205,215,228,.42);outline-offset:-2px;background:transparent}.fx-game-leaderboard-row-wrap.is-clanmate .fx-game-leaderboard-row{background:transparent!important}.fx-game-leaderboard-player-badge{display:inline-flex;align-items:center;vertical-align:1px;margin-right:5px;padding:1px 4px;border-radius:4px;font-size:8px;font-weight:900;letter-spacing:.04em;line-height:1.35}.fx-game-leaderboard-player-badge.is-you{background:#ffe36e;color:#18202a}.fx-game-leaderboard-player-badge.is-clan{background:rgba(190,200,214,.12);color:#d2d9e3;border:1px solid rgba(190,200,214,.24)}.fx-game-leaderboard-ally-badge{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;margin:0 4px 0 1px;border:1px solid transparent;border-radius:50%;font-size:9px;line-height:1;vertical-align:-2px}.fx-game-leaderboard-ally-badge.is-allied{border-color:rgba(103,226,146,.3);background:rgba(48,164,91,.16);color:#8ff0ac}.fx-game-leaderboard-ally-badge.is-requested{border-color:rgba(245,193,90,.3);background:rgba(196,144,42,.15);color:#ffd36f}
       .fx-game-leaderboard-row-wrap.is-eliminated{opacity:.62}.fx-game-leaderboard-row-wrap.is-eliminated .fx-game-leaderboard-name{text-decoration:line-through;text-decoration-color:#ff8b8b;text-decoration-thickness:1.5px;color:#9ba8b9}
       .fx-game-leaderboard-row-wrap .fx-game-leaderboard-row{border:0;border-radius:6px;background:transparent;min-width:0}.fx-game-leaderboard-row-wrap .fx-game-leaderboard-row:hover{background:transparent}
       .fx-game-leaderboard-lock{align-self:center;justify-self:center;width:25px;height:25px;padding:0;border:1px solid transparent;border-radius:6px;background:transparent;color:#9fb2ca;font:13px/1 system-ui,sans-serif;cursor:pointer}
@@ -1534,14 +1739,21 @@ export function createVueGameLeaderboardHud() {
       .fx-game-status-card.is-collapsed{align-content:start!important;grid-template-rows:auto 1fr}
       .fx-game-status-card.is-collapsed.is-density>.fx-game-status-value,.fx-game-status-card.is-collapsed.is-map-control .fx-game-status-map-main>.fx-game-status-value{display:flex;align-items:center;justify-content:center;align-self:stretch;width:100%;min-width:0;box-sizing:border-box;font-size:calc(28px * var(--fx-game-hud-font-scale,1))!important;line-height:1.05;text-align:center}
       .fx-game-settings-opener{position:fixed;right:14px;top:14px;z-index:1000;width:34px;height:34px;border:1px solid rgba(160,190,225,.24);border-radius:9px;background:rgba(14,22,34,.88);color:#dce8f7;font:18px/1 Arial,sans-serif;cursor:pointer;pointer-events:auto;backdrop-filter:blur(10px)}
-      .fx-game-layout-quick-buttons,.fx-game-map-quick-buttons{position:fixed;right:14px;top:56px;z-index:1000;display:flex;flex-direction:column;gap:5px;pointer-events:auto}
-      .fx-game-layout-quick-buttons button,.fx-game-map-quick-buttons button{display:grid;place-items:center;width:34px;height:30px;border:1px solid rgba(160,190,225,.18);border-radius:8px;background:rgba(14,22,34,.84);color:#b9c9dc;font:700 10px/1 var(--fx-game-native-font-family,Arial,sans-serif);cursor:pointer;backdrop-filter:blur(8px);transition:background .15s ease,border-color .15s ease,color .15s ease}
-      .fx-game-layout-quick-buttons button:hover,.fx-game-map-quick-buttons button:hover{border-color:color-mix(in srgb,var(--fx-game-team-accent,#63e6d2) 55%,transparent);background:rgba(27,57,58,.94);color:#d9fff1}
-      .fx-hud-settings-panel{position:fixed;right:14px;top:56px;z-index:1000;width:min(260px,calc(100vw - 28px));max-height:calc(100vh - 70px);overflow-y:auto;scrollbar-width:thin;box-sizing:border-box;padding:12px;border:1px solid rgba(160,190,225,.24);border-radius:12px;background:linear-gradient(145deg,rgba(20,30,45,.96),rgba(9,15,26,.96));box-shadow:0 12px 36px rgba(0,0,0,.4);color:#eef4ff;font:12px/1.4 var(--fx-game-native-font-family,Arial,sans-serif);backdrop-filter:blur(14px);pointer-events:auto}
+      .fx-game-layout-quick-buttons,.fx-game-map-quick-buttons,.fx-game-control-quick-buttons{position:fixed;right:14px;top:56px;z-index:1000;display:flex;flex-direction:column;gap:5px;pointer-events:auto}
+      .fx-game-layout-quick-buttons button,.fx-game-map-quick-buttons button,.fx-game-control-quick-buttons button{display:grid;place-items:center;width:34px;height:30px;border:1px solid rgba(160,190,225,.18);border-radius:8px;background:rgba(14,22,34,.84);color:#b9c9dc;font:700 10px/1 var(--fx-game-native-font-family,Arial,sans-serif);cursor:pointer;backdrop-filter:blur(8px);transition:background .15s ease,border-color .15s ease,color .15s ease}
+      .fx-game-layout-quick-buttons button:hover,.fx-game-map-quick-buttons button:hover,.fx-game-control-quick-buttons button:hover{border-color:color-mix(in srgb,var(--fx-game-team-accent,#63e6d2) 55%,transparent);background:rgba(27,57,58,.94);color:#d9fff1}
+      .fx-hud-settings-panel{position:fixed;right:14px;top:56px;z-index:1000;width:min(320px,calc(100vw - 28px));height:min(620px,calc(100vh - 70px));display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;padding:12px;border:1px solid rgba(160,190,225,.24);border-radius:12px;background:linear-gradient(145deg,rgba(20,30,45,.96),rgba(9,15,26,.96));box-shadow:0 12px 36px rgba(0,0,0,.4);color:#eef4ff;font:12px/1.4 var(--fx-game-native-font-family,Arial,sans-serif);backdrop-filter:blur(14px);pointer-events:auto}
       .fx-hud-settings-panel header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.fx-hud-settings-panel header button{border:0;background:transparent;color:#b9c9dc;font-size:19px;cursor:pointer}
+      .fx-game-settings-content{min-height:0;flex:1;overflow-y:auto;scrollbar-width:thin}.fx-game-settings-tab-content{min-height:100%;display:flex;flex-direction:column}.fx-game-settings-footer{flex:none;min-width:0;margin-top:8px;padding-top:9px;border-top:1px solid rgba(160,190,225,.16)}.fx-game-settings-footer>label{display:grid;grid-template-columns:minmax(0,1fr);gap:5px;margin:0 0 8px;color:#c5d3e5}.fx-game-settings-footer>label select{grid-column:1;min-width:0;width:100%}
+      .fx-game-settings-search{display:flex!important;align-items:center;gap:8px;margin:0 0 10px!important;padding:7px 9px;border:1px solid rgba(160,190,225,.2);border-radius:7px;background:rgba(7,13,22,.42);color:#91a2b8!important}.fx-game-settings-search svg{flex:none;width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}.fx-game-settings-search input{min-width:0;width:100%;border:0;outline:0;background:transparent;color:#eef4ff;font:inherit}.fx-game-settings-search input::placeholder{color:#8293a9}.fx-game-settings-accordion>label.is-search-match{margin-left:8px;margin-right:8px;padding:6px 8px;border:1px solid rgba(255,227,110,.38);border-radius:6px;background:rgba(255,227,110,.1);color:#fff1ae}.fx-game-settings-accordion.is-search-match>summary{background:rgba(255,227,110,.1);color:#fff1ae}
+      .fx-game-settings-accordion{margin:0 0 7px;padding-bottom:4px;border:1px solid rgba(160,190,225,.13);border-radius:8px;background:rgba(255,255,255,.025)}.fx-game-settings-accordion summary{position:relative;padding:9px 28px 9px 10px;color:#d9e6f6;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;list-style:none}.fx-game-settings-accordion summary::-webkit-details-marker{display:none}.fx-game-settings-accordion summary:after{content:'+';position:absolute;right:10px;color:#8fdeb9;font-size:15px;line-height:12px}.fx-game-settings-accordion[open] summary{border-bottom:1px solid rgba(160,190,225,.1)}.fx-game-settings-accordion[open] summary:after{content:'−'}.fx-game-settings-content .fx-game-settings-accordion>label{margin:9px 12px}.fx-game-settings-content .fx-game-settings-accordion>label:last-child{margin-bottom:10px}
+      .fx-game-control-note{display:block;margin:4px 12px 10px;color:#91a2b8;font-size:10px;line-height:1.4}
       .fx-game-settings-tabs{display:flex;gap:4px;margin:0 -2px 12px;padding-bottom:6px;border-bottom:1px solid rgba(160,190,225,.16)}.fx-game-settings-tabs button{flex:1;padding:7px 8px;border:0;border-bottom:2px solid transparent;background:transparent;color:#91a2b8;font:inherit;font-size:10px;font-weight:700;letter-spacing:.1em;cursor:pointer}.fx-game-settings-tabs button.is-active{border-bottom-color:var(--fx-game-team-accent,#68cdb0);color:#eaf3ff}.fx-hud-settings-panel .fx-game-settings-check{display:flex;align-items:center;justify-content:space-between;gap:10px}.fx-hud-settings-panel input[type=checkbox]{accent-color:var(--fx-game-team-accent,#68cdb0)}
-      .fx-hud-settings-panel label{display:grid;grid-template-columns:1fr auto;gap:5px;margin:9px 0;color:#c5d3e5}.fx-hud-settings-panel output{color:#8fdeb9;font-variant-numeric:tabular-nums}.fx-hud-settings-panel input[type=range]{grid-column:1/-1;width:100%;accent-color:#67d9b2}.fx-hud-settings-panel select{grid-column:1/-1;padding:5px;border:1px solid rgba(160,190,225,.2);border-radius:6px;background:#101b2a;color:#eef4ff;font:inherit}
-      .fx-game-settings-actions{display:flex;gap:7px;margin-top:10px}.fx-game-settings-actions button{flex:1;padding:7px;border:1px solid rgba(160,190,225,.2);border-radius:7px;background:rgba(99,160,255,.12);color:#e7f0ff;font:inherit;cursor:pointer}.fx-game-settings-actions button.is-danger{border-color:rgba(235,130,130,.24);background:rgba(160,60,65,.12);color:#ffc6c6}.fx-game-settings-actions button:disabled{opacity:.4;cursor:default}
+      .fx-hud-settings-panel label{display:grid;grid-template-columns:1fr auto;gap:5px;margin:9px 0;color:#c5d3e5}.fx-hud-settings-panel output{color:#8fdeb9;font-variant-numeric:tabular-nums}.fx-hud-settings-panel input[type=range]{grid-column:1/-1;width:100%;accent-color:#67d9b2}.fx-hud-settings-panel select{grid-column:1/-1;padding:5px;border:1px solid rgba(160,190,225,.2);border-radius:6px;background:#101b2a;color:#eef4ff;font:inherit}.fx-hud-settings-panel select option{background:#101b2a;color:#eef4ff}
+      .fx-game-settings-actions{display:flex;width:100%;min-width:0;gap:7px;margin-top:0}.fx-game-settings-actions button{flex:1 1 0;min-width:0;display:grid;place-items:center;padding:7px;border:1px solid rgba(160,190,225,.2);border-radius:7px;background:rgba(99,160,255,.12);color:#e7f0ff;cursor:pointer}.fx-game-settings-actions button svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.fx-game-settings-actions button.is-danger{border-color:rgba(235,130,130,.24);background:rgba(160,60,65,.12);color:#ffc6c6}.fx-game-settings-actions button:disabled{opacity:.4;cursor:default}
+      .fx-game-profile-import-input{display:none!important}.fx-game-profile-transfer{margin-top:6px}.fx-game-profile-transfer button{display:flex;flex-direction:row;gap:6px;font-size:10px}
+      .fx-hud-settings-panel .fx-game-settings-footer>label{display:grid;grid-template-columns:minmax(88px,auto) minmax(0,1fr);align-items:center;gap:10px;margin:0 0 9px;color:#9fb1c8;font-size:11px;font-weight:650;letter-spacing:.015em;white-space:nowrap}.fx-hud-settings-panel .fx-game-settings-footer>label select{grid-column:2;min-width:0;width:100%;height:34px;margin:0;padding:0 10px;border-color:rgba(160,190,225,.24);border-radius:8px;background:linear-gradient(180deg,rgba(24,38,56,.96),rgba(14,24,38,.96));color:#eef4ff;font-weight:600}.fx-game-settings-footer{padding-top:12px;border-color:rgba(160,190,225,.2)}.fx-game-settings-footer .fx-game-settings-actions{gap:8px}.fx-game-settings-footer .fx-game-settings-actions button{height:40px;border-radius:9px;background:linear-gradient(180deg,rgba(55,116,105,.34),rgba(28,75,72,.36));border-color:rgba(91,210,174,.34);box-shadow:inset 0 1px rgba(255,255,255,.055);transition:transform .14s ease,background .14s ease,border-color .14s ease,box-shadow .14s ease}.fx-game-settings-footer .fx-game-settings-actions button:hover:not(:disabled){transform:translateY(-1px);background:linear-gradient(180deg,rgba(62,151,129,.45),rgba(30,95,84,.48));border-color:rgba(112,239,195,.7);box-shadow:0 4px 12px rgba(20,180,135,.12),inset 0 1px rgba(255,255,255,.08)}.fx-game-settings-footer .fx-game-settings-actions button.is-danger{background:linear-gradient(180deg,rgba(130,57,66,.27),rgba(85,35,45,.32));border-color:rgba(235,130,130,.3);color:#ffc6c6}.fx-game-settings-footer .fx-game-settings-actions button.is-danger:hover:not(:disabled){background:rgba(160,60,65,.42);border-color:rgba(255,150,155,.65)}.fx-game-profile-transfer{margin-top:8px!important}.fx-game-profile-transfer button{height:34px!important;display:flex!important;flex-direction:row;align-items:center;justify-content:center;gap:7px;padding:0 8px!important;background:rgba(99,160,255,.08)!important;border-color:rgba(160,190,225,.18)!important;color:#b9c9dc!important;font-size:10px;font-weight:650;letter-spacing:.02em}.fx-game-profile-transfer button:hover{background:rgba(99,160,255,.16)!important;border-color:rgba(130,190,255,.42)!important;color:#eef6ff!important}.fx-game-profile-transfer button svg{width:15px;height:15px}.fx-game-settings-footer .fx-game-settings-actions button:disabled{opacity:.3}
+      .fx-game-settings-footer{display:grid;grid-template-columns:minmax(0,1fr) 40px 40px;align-items:center;gap:0 8px}.fx-hud-settings-panel .fx-game-settings-footer>label{grid-column:1;grid-template-columns:minmax(0,1fr) minmax(92px,auto);gap:8px;margin:0;white-space:nowrap}.fx-hud-settings-panel .fx-game-settings-footer>label select{grid-column:2;width:100px!important;min-width:100px!important;height:36px}.fx-game-profile-save,.fx-game-profile-menu-wrap{position:relative;grid-row:1;width:40px!important;min-width:40px!important}.fx-game-profile-save,.fx-game-profile-menu-trigger{display:grid!important;place-items:center;width:40px!important;min-width:40px!important;max-width:40px!important;height:38px!important;min-height:38px!important;padding:0!important;flex:none!important;border:1px solid rgba(160,190,225,.24);border-radius:9px;background:rgba(99,160,255,.1);color:#d8e8f8;cursor:pointer}.fx-game-profile-save{grid-column:2;border-color:rgba(91,210,174,.42);background:rgba(45,125,112,.23);color:#9ee9d0}.fx-game-profile-save svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.fx-game-profile-save:hover{border-color:rgba(112,239,195,.7);background:rgba(45,145,120,.36);color:#d9fff5}.fx-game-profile-save.is-saved{border-color:rgba(95,235,174,.82);background:rgba(30,155,105,.48);color:#b8ffe0;box-shadow:0 0 0 2px rgba(82,225,159,.16),0 0 14px rgba(54,208,134,.22)}.fx-game-profile-menu-wrap{grid-column:3}.fx-game-profile-menu-trigger:hover,.fx-game-profile-menu-trigger[aria-expanded=true]{border-color:rgba(112,210,190,.65);background:rgba(45,125,112,.28);color:#a9f3dc}.fx-game-profile-menu-trigger svg{width:19px;height:19px;fill:currentColor}.fx-game-profile-menu{position:absolute;right:0;bottom:calc(100% + 8px);z-index:1002;width:176px;max-height:min(230px,calc(100vh - 110px));overflow:auto;box-sizing:border-box;padding:5px;border:1px solid rgba(160,190,225,.22);border-radius:10px;background:rgba(10,17,28,.98)!important;box-shadow:0 12px 30px rgba(0,0,0,.48);backdrop-filter:blur(14px)}.fx-game-profile-menu button{display:flex!important;align-items:center;width:100%;height:34px!important;min-height:0!important;box-sizing:border-box;margin:0;padding:0 10px!important;border:0!important;border-radius:6px!important;background:transparent!important;box-shadow:none!important;color:#d4e0ef!important;text-align:left;font:600 11px/1.2 var(--fx-game-native-font-family,Arial,sans-serif)!important;cursor:pointer}.fx-game-profile-menu button+button{margin-top:2px}.fx-game-profile-menu button:hover:not(:disabled){background:rgba(110,155,205,.16)!important;color:#fff!important}.fx-game-profile-menu button:disabled{opacity:.35;cursor:default}.fx-game-profile-import-input{display:none!important}
       .fx-game-leaderboard-hud{border-color:color-mix(in srgb,var(--fx-game-team-accent,#9bc4ff) 32%,rgba(160,190,225,.24))}
       .fx-game-leaderboard-icon,.fx-game-status-card-head .fx-game-status-icon,.fx-game-team-chart header span{background:color-mix(in srgb,var(--fx-game-team-accent,#9bc4ff) 20%,rgba(130,180,240,.13));color:var(--fx-game-team-accent,#a8d0ff)}
       .fx-game-leaderboard-tabs button.is-active{border-color:color-mix(in srgb,var(--fx-game-team-accent,#9bc4ff) 36%,transparent);border-top-color:var(--fx-game-team-accent,#63e6d2);background:linear-gradient(0deg,color-mix(in srgb,var(--fx-game-team-accent,#63e6d2) 15%,transparent),color-mix(in srgb,var(--fx-game-team-accent,#63e6d2) 5%,transparent));color:color-mix(in srgb,var(--fx-game-team-accent,#b8f2e8) 48%,white)}

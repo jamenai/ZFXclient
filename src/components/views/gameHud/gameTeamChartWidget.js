@@ -1,4 +1,4 @@
-import { defineComponent, onBeforeUnmount, onMounted } from "vue/dist/vue.esm-bundler.js";
+import { defineComponent, onBeforeUnmount, onMounted, ref } from "vue/dist/vue.esm-bundler.js";
 
 export const GameTeamChartWidget = defineComponent({
   name: "FxGameTeamChartWidget",
@@ -8,9 +8,16 @@ export const GameTeamChartWidget = defineComponent({
     segments: { type: Object, required: true },
     detailedTeamPercentage: { type: Boolean, required: true },
     collapsed: { type: Boolean, default: false },
+    withoutFrame: { type: Boolean, default: false },
   },
   emits: ["start-move", "toggle-collapse"],
   setup(_props, { emit }) {
+    const title = ref("");
+    const refreshTitle = () => {
+      const language = String(window.__fx?.getGameLanguage?.() || navigator.language || "en").toLowerCase();
+      title.value = language.startsWith("de") ? "TEAMANTEILE" : "TEAM SHARES";
+    };
+    let titleTimer = 0;
     let pointerStart = null;
     let dragged = false;
     let ignoreClick = false;
@@ -42,6 +49,8 @@ export const GameTeamChartWidget = defineComponent({
       emit("toggle-collapse");
     };
     onMounted(() => {
+      refreshTitle();
+      titleTimer = window.setInterval(refreshTitle, 1000);
       window.addEventListener("pointermove", onPointerMove);
       window.addEventListener("pointerup", onPointerUp);
       window.addEventListener("pointercancel", onPointerUp);
@@ -51,14 +60,15 @@ export const GameTeamChartWidget = defineComponent({
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerUp);
       window.clearTimeout(clearIgnoreTimer);
+      window.clearInterval(titleTimer);
     });
-    return { onPointerDown, onHeaderClick };
+    return { title, onPointerDown, onHeaderClick };
   },
   template: `
-    <aside v-if="visible" class="fx-game-team-chart" :class="{ 'is-collapsed': collapsed }" :style="positionStyle" aria-label="Teamanteile">
+    <aside v-if="visible" class="fx-game-team-chart" :class="{ 'is-collapsed': collapsed, 'is-without-frame': withoutFrame }" :style="positionStyle" :aria-label="title">
       <header :aria-expanded="!collapsed" :title="collapsed ? 'Zum Ausklappen klicken oder zum Verschieben ziehen' : 'Zum Einklappen klicken oder zum Verschieben ziehen'" @pointerdown="onPointerDown" @click="onHeaderClick">
         <span class="fx-game-team-chart-icon" aria-hidden="true">◒</span>
-        <strong>TEAMANTEILE</strong>
+        <strong>{{ title }}</strong>
       </header>
       <svg v-if="!collapsed" class="fx-game-team-chart-pie" viewBox="0 0 100 100" role="img" aria-label="Gebietsanteile der Teams">
         <circle v-if="segments.teams.length === 1" cx="50" cy="50" r="45" :fill="segments.teams[0].color" stroke="rgba(255,255,255,.85)" stroke-width="1.2" />

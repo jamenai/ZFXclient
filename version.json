@@ -1,15 +1,20 @@
 {
-    "version": "0.1.51",
+    "version": "0.1.52",
     "lastUpdated": "November 13, 2026",
     "changes": [
-        "Adapt patches and game data adapters to native game version 2.17.9",
-        "Restore lobby chat actions, player ranks, contest data, and transition handling",
-        "Add a dedicated Vue attack selector HUD and make keybind controls draggable",
-        "Keep attack selector and keybind HUD positions in saved Game HUD layouts",
-        "Improve density, attack estimate, tick counter, and team chart data feeds"
+        "Add per-widget visibility controls to Game HUD layout settings",
+        "Collapse the minimap and team chart by clicking their draggable headers"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.52",
+            "lastUpdated": "November 13, 2026",
+            "changes": [
+                "Add per-widget visibility controls to Game HUD layout settings",
+                "Collapse the minimap and team chart by clicking their draggable headers"
+            ]
+        },
         {
             "version": "0.1.51",
             "lastUpdated": "November 13, 2026",

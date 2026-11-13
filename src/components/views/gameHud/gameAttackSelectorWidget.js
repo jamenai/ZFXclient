@@ -1,5 +1,6 @@
 import { computed, createApp, defineComponent, onBeforeUnmount, onMounted, ref } from "vue/dist/vue.esm-bundler.js";
 import { gameAttackSelectorAdapter, keybindFunctions } from "../../../modules/keybinds.js";
+import { loadGameHudVisibility } from "../../../modules/gameHudVisibility.js";
 
 const POSITION_KEY = "zfx.gameAttackSelector.position.v1";
 
@@ -11,6 +12,7 @@ const GameAttackSelectorWidget = defineComponent({
     const position = ref(null);
     const ready = ref(false);
     const inMatch = ref(false);
+    const hudVisibility = ref(loadGameHudVisibility());
     let drag = null;
     let stopDragging;
 
@@ -142,17 +144,24 @@ const GameAttackSelectorWidget = defineComponent({
       inMatch.value = Number(rawMatchState) > 0;
       if (!inMatch.value) clearNativeSnapshot();
     };
+    const syncLayoutSettings = () => { hudVisibility.value = loadGameHudVisibility(); };
+    const syncVisibility = event => {
+      if (event.detail && typeof event.detail === "object") hudVisibility.value = { ...hudVisibility.value, ...event.detail };
+    };
 
     onMounted(() => {
       window.__fx ||= {};
       window.__fx.gameAttackSelectorHud = {
         receiveLayout,
         receiveState,
-        isReady: () => ready.value && inMatch.value,
+        isReady: () => ready.value && inMatch.value && hudVisibility.value.attackSelector,
       };
       syncMatchState();
+      syncLayoutSettings();
       receiveLayout(window.__fx.gameAttackSelectorLayout);
       receiveState(window.__fx.gameAttackSelectorState);
+      window.addEventListener("fx-game-hud-layout-loaded", syncLayoutSettings);
+      window.addEventListener("fx-game-hud-visibility-changed", syncVisibility);
       stopDragging = window.setInterval(syncMatchState, 200);
       readPosition();
       window.addEventListener("fx-game-hud-layout-loaded", onLayoutLoaded);
@@ -163,6 +172,8 @@ const GameAttackSelectorWidget = defineComponent({
     onBeforeUnmount(() => {
       stopDrag();
       window.clearInterval(stopDragging);
+      window.removeEventListener("fx-game-hud-layout-loaded", syncLayoutSettings);
+      window.removeEventListener("fx-game-hud-visibility-changed", syncVisibility);
       window.removeEventListener("fx-game-hud-layout-loaded", onLayoutLoaded);
       window.removeEventListener("resize", readPosition);
       window.removeEventListener("orientationchange", readPosition);
@@ -170,10 +181,10 @@ const GameAttackSelectorWidget = defineComponent({
       if (window.__fx?.gameAttackSelectorHud?.receiveLayout === receiveLayout) delete window.__fx.gameAttackSelectorHud;
     });
 
-    return { style, state, inMatch, startDrag, onSliderPointerDown, onSliderPointerMove, activateAdjust, stopNativeInput };
+    return { style, state, inMatch, hudVisibility, startDrag, onSliderPointerDown, onSliderPointerMove, activateAdjust, stopNativeInput };
   },
   template: `
-    <div v-if="inMatch && state.unitsLabel !== ''" class="fx-game-attack-selector" :style="style" aria-label="Attack percentage selector" @pointerdown="stopNativeInput" @mousedown="stopNativeInput">
+    <div v-if="inMatch && hudVisibility.attackSelector && state.unitsLabel !== ''" class="fx-game-attack-selector" :style="style" aria-label="Attack percentage selector" @pointerdown="stopNativeInput" @mousedown="stopNativeInput">
       <button class="fx-game-attack-adjust" type="button" aria-label="Decrease attack percentage" tabindex="-1" @pointerdown="stopNativeInput" @pointerup="activateAdjust($event, 11 / 12)">−</button>
       <div class="fx-game-attack-track" role="slider" aria-label="Attack percentage" :aria-valuenow="Math.round(state.percentage * 100)" aria-valuemin="0" aria-valuemax="100" tabindex="-1" @pointerdown="onSliderPointerDown" @pointermove="onSliderPointerMove">
         <div class="fx-game-attack-track-fill"></div>

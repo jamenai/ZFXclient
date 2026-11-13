@@ -4,6 +4,7 @@ import { GameLeaderboardWidget } from "./gameLeaderboardWidget.js";
 import { GameStatusWidgets } from "./gameStatusWidgets.js";
 import { GameTeamChartWidget } from "./gameTeamChartWidget.js";
 import { GameTickCounterWidget } from "./gameTickCounterWidget.js";
+import { GAME_HUD_VISIBILITY_OPTIONS, GAME_HUD_VISIBILITY_STORAGE_KEY, loadGameHudVisibility, saveGameHudVisibility } from "../../../modules/gameHudVisibility.js";
 
 const numberFormat = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
 const LEADERBOARD_ROW_HEIGHT = 31;
@@ -53,6 +54,9 @@ const GameLeaderboardHud = defineComponent({
     const gameHudSettingsOpen = ref(false);
     const gameHudFontScale = ref(100);
     const gameHudTransparency = ref(settingsApi.getNumber("gameHudTransparency", 15));
+    const gameHudVisibility = ref(loadGameHudVisibility());
+    const teamChartCollapsed = ref(false);
+    const gameHudVisibilityItems = GAME_HUD_VISIBILITY_OPTIONS;
     const gameHudLayoutSlots = ref([null, null, null, null]);
     const gameHudLayoutSlot = ref(0);
     const gameHudSettingsTab = ref("layout");
@@ -89,6 +93,8 @@ const GameLeaderboardHud = defineComponent({
     const teamChartPositionStorageKey = "zfx.gameTeamChart.position.v1";
     const tickHudPositionStorageKey = "zfx.gameTickHud.position.v1";
     const attackSelectorPositionStorageKey = "zfx.gameAttackSelector.position.v1";
+    const teamChartCollapsedStorageKey = "zfx.gameTeamChart.collapsed.v1";
+    const minimapCollapsedStorageKey = "zfx.gameMinimap.collapsed.v1";
     const teamChartWidth = 168;
     const teamChartHeight = 190;
     const tickHudWidth = 312;
@@ -128,7 +134,7 @@ const GameLeaderboardHud = defineComponent({
       applyGameMapSettings();
     };
     const getGameHudLayoutSnapshot = () => Object.fromEntries([
-      panelPositionStorageKey, sizeStorageKey, leaderboardCollapsedStorageKey, statusCardLayoutsStorageKey, statusCardsCollapsedStorageKey, teamChartPositionStorageKey, tickHudPositionStorageKey, attackSelectorPositionStorageKey, "zfx.gameKeybindHud.position.v1", gameHudSettingsStorageKey, "zfx.gameMinimap.position.v1",
+      panelPositionStorageKey, sizeStorageKey, leaderboardCollapsedStorageKey, statusCardLayoutsStorageKey, statusCardsCollapsedStorageKey, teamChartPositionStorageKey, teamChartCollapsedStorageKey, tickHudPositionStorageKey, attackSelectorPositionStorageKey, "zfx.gameKeybindHud.position.v1", gameHudSettingsStorageKey, GAME_HUD_VISIBILITY_STORAGE_KEY, "zfx.gameMinimap.position.v1", minimapCollapsedStorageKey,
     ].map(key => [key, window.localStorage.getItem(key)]));
     const saveGameHudLayout = () => {
       const slots = [...gameHudLayoutSlots.value];
@@ -156,6 +162,7 @@ const GameLeaderboardHud = defineComponent({
         applyGameHudSettings();
       } catch { /* Ignore invalid saved HUD settings. */ }
       try { collapsed.value = JSON.parse(window.localStorage.getItem(leaderboardCollapsedStorageKey) || "false") === true; } catch { collapsed.value = false; }
+      try { teamChartCollapsed.value = JSON.parse(window.localStorage.getItem(teamChartCollapsedStorageKey) || "false") === true; } catch { teamChartCollapsed.value = false; }
       try {
         const savedSize = JSON.parse(window.localStorage.getItem(sizeStorageKey) || "null");
         if (Number.isFinite(savedSize?.width) && Number.isFinite(savedSize?.height)) panelSize.value = clampPanelSize(savedSize.width, savedSize.height);
@@ -167,6 +174,21 @@ const GameLeaderboardHud = defineComponent({
       } catch { /* Ignore invalid saved layouts. */ }
       window.__fx?.gameMinimapHud?.reloadPosition?.();
       window.dispatchEvent(new Event("fx-game-hud-layout-loaded"));
+    };
+    const setGameHudVisibility = (key, value) => {
+      gameHudVisibility.value = saveGameHudVisibility({ ...gameHudVisibility.value, [key]: Boolean(value) });
+    };
+    const setTeamChartCollapsed = value => {
+      teamChartCollapsed.value = Boolean(value);
+      try { window.localStorage.setItem(teamChartCollapsedStorageKey, JSON.stringify(teamChartCollapsed.value)); } catch { /* Storage may be unavailable. */ }
+    };
+    const toggleTeamChartCollapsed = () => setTeamChartCollapsed(!teamChartCollapsed.value);
+    const syncLayoutVisibility = () => {
+      gameHudVisibility.value = loadGameHudVisibility();
+      try { teamChartCollapsed.value = JSON.parse(window.localStorage.getItem(teamChartCollapsedStorageKey) || "false") === true; } catch { teamChartCollapsed.value = false; }
+    };
+    const onVisibilityChanged = event => {
+      if (event.detail && typeof event.detail === "object") gameHudVisibility.value = { ...gameHudVisibility.value, ...event.detail };
     };
     let teamChartDrag = null;
     let tickHudDrag = null;
@@ -345,7 +367,11 @@ const GameLeaderboardHud = defineComponent({
       });
       return { teams, total, segments };
     });
-    const teamChartVisible = computed(() => inMatch.value && teamChartSegments.value.total > 0);
+    const teamChartVisible = computed(() => inMatch.value && gameHudVisibility.value.teamChart && teamChartSegments.value.total > 0);
+    const visibleStatusRows = computed(() => (statusSnapshot.value?.rows || []).filter(row => {
+      const key = row.key === "map-control" ? "mapControl" : row.key;
+      return gameHudVisibility.value[key] !== false;
+    }));
     const ownTeamColor = computed(() => {
       if (!inMatch.value) return null;
       const ownPlayer = snapshot.value?.ownPlayer
@@ -1067,6 +1093,10 @@ const GameLeaderboardHud = defineComponent({
     onMounted(() => {
       window.__fx ||= {};
       window.__fx.gameLeaderboardAdapter ||= {};
+      gameHudVisibility.value = loadGameHudVisibility();
+      try { teamChartCollapsed.value = JSON.parse(window.localStorage.getItem(teamChartCollapsedStorageKey) || "false") === true; } catch { teamChartCollapsed.value = false; }
+      window.addEventListener("fx-game-hud-layout-loaded", syncLayoutVisibility);
+      window.addEventListener("fx-game-hud-visibility-changed", onVisibilityChanged);
       try {
         const savedHudSettings = JSON.parse(window.localStorage.getItem(gameHudSettingsStorageKey) || "null");
         if (Number.isFinite(savedHudSettings?.fontScale)) gameHudFontScale.value = clamp(savedHudSettings.fontScale, 75, 150);
@@ -1140,6 +1170,8 @@ const GameLeaderboardHud = defineComponent({
     });
     onBeforeUnmount(() => {
       window.clearInterval(timer);
+      window.removeEventListener("fx-game-hud-layout-loaded", syncLayoutVisibility);
+      window.removeEventListener("fx-game-hud-visibility-changed", onVisibilityChanged);
       document.documentElement.style.removeProperty("--fx-game-team-accent");
       rowsResizeObserver?.disconnect();
       window.removeEventListener("resize", updateViewport);
@@ -1176,11 +1208,12 @@ const GameLeaderboardHud = defineComponent({
       if (window.__fx) window.__fx.gameTeamChartReady = false;
     });
 
-    return { snapshot, visible, dataReady, rows, visibleRows, topSpacerHeight, bottomSpacerHeight, updateVirtualWindow, collapsed, showEliminated, toggleEliminatedVisibility, showBots, toggleBotVisibility, activeTab, setActiveTab, ownClanRank, tabLabels, playerFilter, canFilterClan, canFilterTeam, setPlayerFilter, formatted, focusPlayer, toggleCollapsed, rowsContainer, aliveHumanCount, aliveBotCount, toggleOwnPlayerLock, goTop, panelStyle, startPanelMove, startPanelResize, handlePanelHeaderClick, setLeaderboardPanel, setRowsContainer, statusSnapshot, lockedPlayerId, togglePlayerLock, handleManualScroll, statusCardStyle, statusCardsCollapsed, toggleStatusCardCollapsed, startStatusCardMove, leaderboardPanel, teamChartVisible, teamChartStyle, teamChartSegments, detailedTeamPercentage, startTeamChartMove, tickHudSnapshot, tickHudStyle, startTickHudMove, gameHudSettingsOpen, gameHudSettingsTab, gameHudFontScale, gameHudTransparency, gameMapProfileSettings, gameMapSettingsSlots, gameMapSettingsSlot, applyGameMapSettings, saveGameMapSettings, deleteGameMapSettings, loadGameMapSettings, gameHudLayoutSlots, gameHudLayoutSlot, applyGameHudSettings, saveGameHudLayout, deleteGameHudLayout, loadGameHudLayout, gameHudAccentStyle };
+    return { snapshot, visible, dataReady, rows, visibleRows, topSpacerHeight, bottomSpacerHeight, updateVirtualWindow, collapsed, showEliminated, toggleEliminatedVisibility, showBots, toggleBotVisibility, activeTab, setActiveTab, ownClanRank, tabLabels, playerFilter, canFilterClan, canFilterTeam, setPlayerFilter, formatted, focusPlayer, toggleCollapsed, rowsContainer, aliveHumanCount, aliveBotCount, toggleOwnPlayerLock, goTop, panelStyle, startPanelMove, startPanelResize, handlePanelHeaderClick, setLeaderboardPanel, setRowsContainer, statusSnapshot, visibleStatusRows, gameHudVisibility, gameHudVisibilityItems, setGameHudVisibility, lockedPlayerId, togglePlayerLock, handleManualScroll, statusCardStyle, statusCardsCollapsed, toggleStatusCardCollapsed, startStatusCardMove, leaderboardPanel, teamChartVisible, teamChartCollapsed, toggleTeamChartCollapsed, teamChartStyle, teamChartSegments, detailedTeamPercentage, startTeamChartMove, tickHudSnapshot, tickHudStyle, startTickHudMove, gameHudSettingsOpen, gameHudSettingsTab, gameHudFontScale, gameHudTransparency, gameMapProfileSettings, gameMapSettingsSlots, gameMapSettingsSlot, applyGameMapSettings, saveGameMapSettings, deleteGameMapSettings, loadGameMapSettings, gameHudLayoutSlots, gameHudLayoutSlot, applyGameHudSettings, saveGameHudLayout, deleteGameHudLayout, loadGameHudLayout, gameHudAccentStyle };
   },
   template: `
     <div v-if="visible" class="fx-game-hud-container" :style="gameHudAccentStyle">
       <GameTickCounterWidget
+        v-if="gameHudVisibility.tickCounter"
         :snapshot="tickHudSnapshot"
         :position-style="tickHudStyle"
         :show-tick="Boolean(gameMapProfileSettings.displayTickNumber)"
@@ -1200,6 +1233,8 @@ const GameLeaderboardHud = defineComponent({
         <div v-if="gameHudSettingsTab === 'layout'">
           <label>Font size <output>{{ gameHudFontScale }}%</output><input v-model.number="gameHudFontScale" type="range" min="75" max="150" step="5" @input="applyGameHudSettings"></label>
           <label>Transparency <output>{{ gameHudTransparency }}%</output><input v-model.number="gameHudTransparency" type="range" min="0" max="70" step="1" @input="applyGameHudSettings"></label>
+          <strong class="fx-game-layout-section-title">HUD widgets</strong>
+          <label v-for="item in gameHudVisibilityItems" :key="item.key" class="fx-game-settings-check"><span>{{ item.label }}</span><input type="checkbox" :checked="gameHudVisibility[item.key]" @change="setGameHudVisibility(item.key,$event.target.checked)"></label>
           <label>Layout slot<select v-model.number="gameHudLayoutSlot"><option v-for="(slot, index) in gameHudLayoutSlots" :key="index" :value="index">{{ index + 1 }}{{ slot ? ' · saved' : ' · empty' }}</option></select></label>
           <div class="fx-game-settings-actions"><button type="button" @click="saveGameHudLayout(); $event.currentTarget.blur()">Save</button><button type="button" :disabled="!gameHudLayoutSlots[gameHudLayoutSlot]" @click="loadGameHudLayout(); $event.currentTarget.blur()">Load</button><button type="button" class="is-danger" :disabled="!gameHudLayoutSlots[gameHudLayoutSlot]" @click="deleteGameHudLayout(); $event.currentTarget.blur()">Delete</button></div>
         </div>
@@ -1223,6 +1258,7 @@ const GameLeaderboardHud = defineComponent({
         </div>
       </section>
       <GameLeaderboardWidget
+        v-if="gameHudVisibility.leaderboard"
         :panel-style="panelStyle"
         :collapsed="collapsed"
         :data-ready="dataReady"
@@ -1262,13 +1298,15 @@ const GameLeaderboardHud = defineComponent({
       />
       <GameTeamChartWidget
         :visible="teamChartVisible"
+        :collapsed="teamChartCollapsed"
         :position-style="teamChartStyle"
         :segments="teamChartSegments"
         :detailed-team-percentage="detailedTeamPercentage"
         @start-move="startTeamChartMove"
+        @toggle-collapse="toggleTeamChartCollapsed"
       />
       <GameStatusWidgets
-        :rows="statusSnapshot?.rows || []"
+        :rows="visibleStatusRows"
         :collapsed-cards="statusCardsCollapsed"
         :status-card-style="statusCardStyle"
         :formatted="formatted"
@@ -1410,6 +1448,9 @@ export function createVueGameLeaderboardHud() {
       .fx-game-status-card:not(.is-density){border-color:color-mix(in srgb,var(--fx-game-team-accent,#9bc4ff) 34%,rgba(150,185,225,.17))}
       .fx-game-status-card.is-density{border-color:color-mix(in srgb,var(--fx-game-team-accent,#9bc4ff) 36%,var(--fx-game-density-color,#78a9ff))}
       .fx-game-team-chart{border-color:color-mix(in srgb,var(--fx-game-team-accent,#9bc4ff) 32%,rgba(160,190,225,.24))}
+      .fx-game-team-chart.is-collapsed{gap:0;padding:8px 10px}
+      .fx-game-team-chart header strong{flex:1;min-width:0}
+      .fx-game-layout-section-title{display:block;margin:14px 0 5px;padding-top:10px;border-top:1px solid rgba(160,190,225,.14);color:#91a5bf;font-size:9px;letter-spacing:.1em;text-transform:uppercase}
       .fx-game-keybind-hud{outline:1px solid color-mix(in srgb,var(--fx-game-team-accent,#9bc4ff) 40%,transparent);outline-offset:1px}
       .fx-game-keybind-hud button{border-right-color:color-mix(in srgb,var(--fx-game-team-accent,#9bc4ff) 48%,rgba(110,180,220,.3))}
       .fx-game-debug-hud{border-color:color-mix(in srgb,var(--fx-game-team-accent,#9bc4ff) 34%,rgba(155,190,225,.3))}

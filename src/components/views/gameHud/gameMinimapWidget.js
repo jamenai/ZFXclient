@@ -1,6 +1,8 @@
-import { createApp, defineComponent, onBeforeUnmount, onMounted, ref, watch } from "vue/dist/vue.esm-bundler.js";
+import { computed, createApp, defineComponent, onBeforeUnmount, onMounted, ref, watch } from "vue/dist/vue.esm-bundler.js";
+import { loadGameHudVisibility } from "../../../modules/gameHudVisibility.js";
 
 const STORAGE_KEY = "zfx.gameMinimap.position.v1";
+const COLLAPSED_STORAGE_KEY = "zfx.gameMinimap.collapsed.v1";
 
 const GameMinimapWidget = defineComponent({
   name: "FxGameMinimapWidget",
@@ -9,7 +11,10 @@ const GameMinimapWidget = defineComponent({
     const frameCanvas = ref(null);
     const snapshot = ref(null);
     const mapViewport = ref(null);
-    const visible = ref(false);
+    const gameReady = ref(false);
+    const hudVisibility = ref(loadGameHudVisibility());
+    const collapsed = ref(false);
+    const visible = computed(() => gameReady.value && hudVisibility.value.minimap);
     const dataError = ref("");
     const mapPanning = ref(false);
     const sidebarOffset = () => {
@@ -20,6 +25,8 @@ const GameMinimapWidget = defineComponent({
     let pollTimer = 0;
     let viewportTimer = 0;
     let drag = null;
+    let suppressHeaderClick = false;
+    let clearHeaderClickTimer = 0;
     let mapPanPointerId = null;
     let lastMapPanAt = 0;
 
@@ -28,6 +35,26 @@ const GameMinimapWidget = defineComponent({
         const saved = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "null");
         if (Number.isFinite(saved?.left) && Number.isFinite(saved?.bottom)) position.value = { ...saved, left: Math.max(saved.left, sidebarOffset()) };
       } catch { /* Ignore invalid saved coordinates. */ }
+    };
+    const loadCollapsed = () => {
+      try { collapsed.value = JSON.parse(window.localStorage.getItem(COLLAPSED_STORAGE_KEY) || "false") === true; } catch { collapsed.value = false; }
+    };
+    const toggleCollapsed = event => {
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+      collapsed.value = !collapsed.value;
+      try { window.localStorage.setItem(COLLAPSED_STORAGE_KEY, JSON.stringify(collapsed.value)); } catch { /* Storage may be unavailable. */ }
+      event?.currentTarget?.blur?.();
+    };
+    const syncLayoutSettings = () => {
+      loadPosition();
+      loadCollapsed();
+      hudVisibility.value = loadGameHudVisibility();
+      refresh();
+    };
+    const syncVisibility = event => {
+      if (event.detail && typeof event.detail === "object") hudVisibility.value = { ...hudVisibility.value, ...event.detail };
+      refresh();
     };
     const draw = () => {
       const map = snapshot.value;
@@ -80,7 +107,7 @@ const GameMinimapWidget = defineComponent({
     };
     const refresh = () => {
       const adapter = window.__fx?.gameMinimapAdapter;
-      visible.value = window.__fx?.gameLeaderboardHudReady === true;
+      gameReady.value = window.__fx?.gameLeaderboardHudReady === true;
       if (!visible.value) {
         snapshot.value = null;
         mapViewport.value = null;
@@ -165,7 +192,20 @@ const GameMinimapWidget = defineComponent({
       const moved = drag.moved;
       drag = null;
       try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(position.value)); } catch { /* Storage may be unavailable. */ }
-      if (moved) window.setTimeout(() => { drag = null; }, 0);
+      if (moved) {
+        suppressHeaderClick = true;
+        window.clearTimeout(clearHeaderClickTimer);
+        clearHeaderClickTimer = window.setTimeout(() => { suppressHeaderClick = false; }, 0);
+      }
+    };
+    const onHeaderClick = event => {
+      if (suppressHeaderClick) {
+        event.preventDefault();
+        event.stopPropagation();
+        suppressHeaderClick = false;
+        return;
+      }
+      toggleCollapsed(event);
     };
     const style = () => ({ left: `${position.value.left}px`, bottom: `${position.value.bottom}px` });
     watch(snapshot, draw, { flush: "post" });
@@ -173,8 +213,11 @@ const GameMinimapWidget = defineComponent({
 
     onMounted(() => {
       loadPosition();
+      loadCollapsed();
       window.__fx ||= {};
       window.__fx.gameMinimapHud = { reloadPosition: loadPosition };
+      window.addEventListener("fx-game-hud-layout-loaded", syncLayoutSettings);
+      window.addEventListener("fx-game-hud-visibility-changed", syncVisibility);
       refresh();
       pollTimer = window.setInterval(refresh, 1100);
       viewportTimer = window.setInterval(refreshViewport, 60);
@@ -186,18 +229,21 @@ const GameMinimapWidget = defineComponent({
       window.clearInterval(viewportTimer);
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", endMove);
+      window.removeEventListener("fx-game-hud-layout-loaded", syncLayoutSettings);
+      window.removeEventListener("fx-game-hud-visibility-changed", syncVisibility);
+      window.clearTimeout(clearHeaderClickTimer);
       if (window.__fx?.gameMinimapHud?.reloadPosition === loadPosition) delete window.__fx.gameMinimapHud;
     });
-    return { canvas, frameCanvas, snapshot, visible, dataError, mapPanning, style, startMove, startMapPan, continueMapPan, endMapPan, zoomMainMap };
+    return { canvas, frameCanvas, snapshot, visible, collapsed, dataError, mapPanning, style, startMove, startMapPan, continueMapPan, endMapPan, zoomMainMap, onHeaderClick };
   },
   template: `
-    <aside v-if="visible" class="fx-game-minimap" :style="style()" aria-label="Game minimap">
-      <header @pointerdown="startMove"><span class="fx-game-minimap-icon" aria-hidden="true"><svg viewBox="0 0 16 16" focusable="false"><path d="M1.5 3.5 5.5 2l5 1.5 4-1.5v10.5l-4 1.5-5-1.5-4 1.5z"/><path d="M5.5 2v10.5M10.5 3.5V14"/></svg></span><strong>MAP</strong><small>CLICK TO MOVE</small></header>
-      <div v-if="snapshot" class="fx-game-minimap-view" :class="{ 'is-panning': mapPanning }" aria-label="Minimap with current game map view">
+    <aside v-if="visible" class="fx-game-minimap" :class="{ 'is-collapsed': collapsed }" :style="style()" aria-label="Game minimap">
+      <header :aria-expanded="!collapsed" :title="collapsed ? 'Zum Ausklappen klicken oder zum Verschieben ziehen' : 'Zum Einklappen klicken oder zum Verschieben ziehen'" @pointerdown="startMove" @click="onHeaderClick"><span class="fx-game-minimap-icon" aria-hidden="true"><svg viewBox="0 0 16 16" focusable="false"><path d="M1.5 3.5 5.5 2l5 1.5 4-1.5v10.5l-4 1.5-5-1.5-4 1.5z"/><path d="M5.5 2v10.5M10.5 3.5V14"/></svg></span><strong>MAP</strong><small v-if="!collapsed">CLICK TO MOVE</small></header>
+      <div v-if="!collapsed && snapshot" class="fx-game-minimap-view" :class="{ 'is-panning': mapPanning }" aria-label="Minimap with current game map view">
         <canvas ref="canvas" class="fx-game-minimap-map" @pointerdown="startMapPan" @pointermove="continueMapPan" @pointerup="endMapPan" @pointercancel="endMapPan" @lostpointercapture="endMapPan" @wheel="zoomMainMap" aria-label="Hold and drag to move across the game map; use the wheel to zoom the game map"></canvas>
         <canvas ref="frameCanvas" class="fx-game-minimap-frame" aria-hidden="true"></canvas>
       </div>
-      <div v-else class="fx-game-minimap-placeholder">{{ dataError || 'Loading map…' }}</div>
+      <div v-else-if="!collapsed" class="fx-game-minimap-placeholder">{{ dataError || 'Loading mapâ€¦' }}</div>
     </aside>
   `,
 });
@@ -209,7 +255,8 @@ export function createVueGameMinimapWidget() {
     style.id = "fx-game-minimap-style";
     style.textContent = `
       .fx-game-minimap{position:fixed;z-index:200;box-sizing:border-box;width:176px;padding:10px 12px;border:1px solid rgba(150,185,225,.17);border-radius:10px;background:linear-gradient(145deg,rgba(20,30,45,var(--fx-game-hud-panel-alpha,.81)),rgba(9,15,26,var(--fx-game-hud-panel-alpha,.81)));box-shadow:inset 0 1px rgba(255,255,255,.055),0 4px 12px rgba(0,0,0,.12);backdrop-filter:blur(14px);color:#edf4ff;font:11px/1.25 var(--fx-game-native-font-family,Arial,sans-serif);user-select:none;contain:layout paint}
-      .fx-game-minimap header{display:flex;align-items:center;gap:8px;box-sizing:border-box;padding:0 0 6px;margin-bottom:6px;border-bottom:1px solid rgba(150,185,225,.14);color:#9fb2cb;cursor:grab;touch-action:none;letter-spacing:.08em}.fx-game-minimap header:active{cursor:grabbing}.fx-game-minimap header .fx-game-minimap-icon{display:grid;place-items:center;flex:0 0 18px;width:18px;height:18px;border-radius:5px;background:color-mix(in srgb,var(--fx-game-team-accent,#9bc4ff) 20%,rgba(130,180,240,.13));color:var(--fx-game-team-accent,#a8d0ff);line-height:1}.fx-game-minimap header .fx-game-minimap-icon svg{display:block;width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.fx-game-minimap header strong{font-size:10px;font-weight:750;letter-spacing:.08em}.fx-game-minimap header small{margin-left:auto;color:#99abc0;font-size:9px;letter-spacing:.04em;white-space:nowrap}
+      .fx-game-minimap.is-collapsed{padding:8px 10px}
+      .fx-game-minimap header{display:flex;align-items:center;gap:8px;box-sizing:border-box;padding:0 0 6px;margin-bottom:6px;border-bottom:1px solid rgba(150,185,225,.14);color:#9fb2cb;cursor:grab;touch-action:none;letter-spacing:.08em}.fx-game-minimap header:active{cursor:grabbing}.fx-game-minimap.is-collapsed header{padding-bottom:0;margin-bottom:0;border-bottom:0}.fx-game-minimap header .fx-game-minimap-icon{display:grid;place-items:center;flex:0 0 18px;width:18px;height:18px;border-radius:5px;background:color-mix(in srgb,var(--fx-game-team-accent,#9bc4ff) 20%,rgba(130,180,240,.13));color:var(--fx-game-team-accent,#a8d0ff);line-height:1}.fx-game-minimap header .fx-game-minimap-icon svg{display:block;width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.fx-game-minimap header strong{font-size:10px;font-weight:750;letter-spacing:.08em}.fx-game-minimap header small{margin-left:auto;color:#99abc0;font-size:9px;letter-spacing:.04em;white-space:nowrap}
       .fx-game-minimap-view{position:relative;width:100%;aspect-ratio:4/3;overflow:hidden;border-radius:5px}.fx-game-minimap-view canvas{position:absolute;inset:0;display:block;width:100%;height:100%;border-radius:5px;touch-action:none}.fx-game-minimap-map{cursor:grab;image-rendering:pixelated}.fx-game-minimap-view.is-panning .fx-game-minimap-map{cursor:grabbing}.fx-game-minimap-frame{pointer-events:none}
       .fx-game-minimap-placeholder{display:grid;place-items:center;min-height:72px;border-radius:5px;background:rgba(20,31,46,.8);color:#a9b8ca;font-size:10px}
     `.replace(/font-size:\s*([^;}]+)/g, (_match, declaration) => `font-size:${declaration.replace(/(\d+(?:\.\d+)?)px/g, "calc($1px * var(--fx-game-hud-font-scale,1))")}`)

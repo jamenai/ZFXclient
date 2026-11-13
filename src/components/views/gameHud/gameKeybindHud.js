@@ -1,6 +1,7 @@
 import { computed, createApp, defineComponent, onBeforeUnmount, onMounted, ref } from "vue/dist/vue.esm-bundler.js";
 import { mobileKeybinds } from "../../../modules/keybinds.js";
 import { settingsApi } from "../../../modules/settings/settings.js";
+import { loadGameHudVisibility } from "../../../modules/gameHudVisibility.js";
 
 const POSITION_KEY = "zfx.gameKeybindHud.position.v1";
 
@@ -10,10 +11,11 @@ const GameKeybindHud = defineComponent({
     const layout = ref(null);
     const enabled = ref(settingsApi.getBoolean("keybindButtons"));
     const inMatch = ref(false);
+    const hudVisibility = ref(loadGameHudVisibility());
     const position = ref(null);
     let settingsTimer;
     let drag = null;
-    const visible = computed(() => enabled.value && inMatch.value && layout.value?.buttons?.length > 0);
+    const visible = computed(() => enabled.value && hudVisibility.value.keybindButtons && inMatch.value && layout.value?.buttons?.length > 0);
     const getViewportPosition = current => {
       if (!position.value) return { left: current.left, top: current.top };
       return {
@@ -101,7 +103,13 @@ const GameKeybindHud = defineComponent({
       window.addEventListener("pointerup", stopDrag, true);
       window.addEventListener("pointercancel", stopDrag, true);
     };
-    const onLayoutLoaded = () => readPosition();
+    const onLayoutLoaded = () => {
+      readPosition();
+      hudVisibility.value = loadGameHudVisibility();
+    };
+    const syncVisibility = event => {
+      if (event.detail && typeof event.detail === "object") hudVisibility.value = { ...hudVisibility.value, ...event.detail };
+    };
     const getDiagnostics = () => ({
       enabled: settingsApi.getBoolean("keybindButtons"),
       inMatch: inMatch.value,
@@ -114,9 +122,11 @@ const GameKeybindHud = defineComponent({
       window.__fx.gameKeybindHudAdapter ||= {};
       window.__fx.gameKeybindHudAdapter.receiveLayout = receiveLayout;
       window.__fx.getGameKeybindHudDiagnostics = getDiagnostics;
+      hudVisibility.value = loadGameHudVisibility();
       receiveLayout(window.__fx.gameKeybindHudLayout);
       readPosition();
       window.addEventListener("fx-game-hud-layout-loaded", onLayoutLoaded);
+      window.addEventListener("fx-game-hud-visibility-changed", syncVisibility);
       window.addEventListener("resize", readPosition);
       window.addEventListener("orientationchange", readPosition);
       document.addEventListener("fullscreenchange", readPosition);
@@ -136,6 +146,7 @@ const GameKeybindHud = defineComponent({
       window.clearInterval(settingsTimer);
       stopDrag();
       window.removeEventListener("fx-game-hud-layout-loaded", onLayoutLoaded);
+      window.removeEventListener("fx-game-hud-visibility-changed", syncVisibility);
       window.removeEventListener("resize", readPosition);
       window.removeEventListener("orientationchange", readPosition);
       document.removeEventListener("fullscreenchange", readPosition);

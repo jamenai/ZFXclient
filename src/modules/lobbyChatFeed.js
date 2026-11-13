@@ -35,9 +35,12 @@ function observeSocketEntry(entry, queueIndex = null, nativeText = null, source 
       textEntry: typeof entry?.s === "string" || typeof nativeText === "string",
     });
   }
-  // Native formatting covers text, gold transfers, moderation notices, and
-  // confirmation prompts (including the follow-up "yes" flow).
+  // Native formatting covers text, gold transfers, and moderation notices.
   const nativeType = Number(entry?.id);
+  // Type 6 is a transient server confirmation prompt. The live aZV hook
+  // publishes it explicitly with a stable chat identity; importing it here
+  // would make that copy collide with the generic live/queue deduplicator.
+  if (nativeType === 6) return;
   const text = textValue(nativeType === 0 ? entry?.s ?? nativeText : nativeText ?? entry?.s).trim();
   if (!text) return;
   const senderId = nativeType === 0 ? (entry?.pk ?? entry?.uu ?? entry?.ur ?? entry?.ue) : null;
@@ -79,6 +82,8 @@ function publish(message) {
     receivedAt: Number.isFinite(Number(message?.receivedAt)) ? Number(message.receivedAt) : Date.now(),
     system: message?.system === true,
     nativeType: Number.isInteger(Number(message?.nativeType)) ? Number(message.nativeType) : null,
+    confirmationMode: ["ui", "chat", "auto"].includes(message?.confirmationMode) ? message.confirmationMode : null,
+    confirmationState: ["pending", "confirmed", "cancelled"].includes(message?.confirmationState) ? message.confirmationState : null,
   };
   if (entry.nativeType != null) {
     const fingerprint = `${entry.nativeType}:${entry.senderId ?? ""}:${entry.text}`;
@@ -125,6 +130,16 @@ function subscribe(listener) {
   return () => listeners.delete(listener);
 }
 
+function update(id, changes = {}) {
+  const key = String(id);
+  const index = history.findIndex(entry => entry.id === key);
+  if (index < 0) return false;
+  const updated = { ...history[index], ...changes, id: key, isUpdate: true };
+  history[index] = updated;
+  for (const listener of listeners) listener(updated);
+  return true;
+}
+
 function getDiagnostics() {
   return {
     packetCounts: { ...packetCounts }, decodedEntryCount, publishedMessageCount,
@@ -134,4 +149,4 @@ function getDiagnostics() {
     chatModeCommandCount, lastChatModeCommand,
   };
 }
-export default { observeSocketPacket, observeSocketEntry, observeChatModeCommand, publish, subscribe, getDiagnostics };
+export default { observeSocketPacket, observeSocketEntry, observeChatModeCommand, publish, update, subscribe, getDiagnostics };

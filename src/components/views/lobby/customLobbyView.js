@@ -450,6 +450,10 @@ const getLobbyLabels = (language = window.__fx?.getGameLanguage?.() || "en") => 
     topLeft: "Oben links", top: "Oben", topRight: "Oben rechts", left: "Links", center: "Mitte", right: "Rechts", bottomLeft: "Unten links", bottom: "Unten", bottomRight: "Unten rechts",
     send: "Senden", readyAction: "Bereit",
     chatEmpty: "Noch keine Nachrichten", mention: "Erwähnen", dismiss: "Schließen",
+    clanConfirmationTitle: "Clan-Erwähnung bestätigen", clanConfirmationHint: "Möchtest du diese Nachricht an den Clan senden?",
+    clanConfirmationChatHint: "Im Chat mit yes oder no bestätigen.", clanConfirmationUiHint: "Bitte im Bestätigungsdialog entscheiden.", clanConfirmationAutoHint: "Automatisch bestätigt",
+    confirmationPending: "Bestätigung erforderlich", confirmationAccepted: "Bestätigt", confirmationDeclined: "Abgelehnt",
+    confirm: "Senden", cancel: "Abbrechen",
     playersCount: "Spieler", noClan: "Kein eigener Clan erkannt", lobbyUnavailable: "Lobby wird geladen …",
     chatUnavailable: "Lobby-Chat konnte nicht geöffnet werden",
     zfxChat: "ZFX Chat", zfxChatPlaceholder: "Nachricht im ZFX Chat …", zfxChatConnected: "Mit ZFX Chat verbunden", zfxChatConnecting: "Verbinde mit ZFX Chat …", zfxChatDisconnected: "Verbindung zum ZFX Chat getrennt", zfxChatOffline: "ZFX Chat nicht verbunden", zfxChatUnavailable: "ZFX Chat ist nicht erreichbar", terriChatConnected: "Terri-Chat-Datenstrom aktiv", terriChatConnecting: "Warte auf Terri-Chat-Daten …", terriChatDisconnected: "Terri-Chat-Socket getrennt",
@@ -477,6 +481,10 @@ const getLobbyLabels = (language = window.__fx?.getGameLanguage?.() || "en") => 
     topLeft: "Top left", top: "Top", topRight: "Top right", left: "Left", center: "Center", right: "Right", bottomLeft: "Bottom left", bottom: "Bottom", bottomRight: "Bottom right",
     send: "Send", readyAction: "Ready",
     chatEmpty: "No messages yet", mention: "Mention", dismiss: "Close",
+    clanConfirmationTitle: "Confirm clan mention", clanConfirmationHint: "Do you want to send this message to the clan?",
+    clanConfirmationChatHint: "Reply with yes or no in chat.", clanConfirmationUiHint: "Choose an option in the confirmation dialog.", clanConfirmationAutoHint: "Automatically confirmed",
+    confirmationPending: "Confirmation required", confirmationAccepted: "Confirmed", confirmationDeclined: "Declined",
+    confirm: "Send", cancel: "Cancel",
     playersCount: "Players", noClan: "No own clan detected", lobbyUnavailable: "Loading lobby …",
     chatUnavailable: "Could not open lobby chat",
     zfxChat: "ZFX Chat", zfxChatPlaceholder: "Message in ZFX chat …", zfxChatConnected: "Connected to ZFX chat", zfxChatConnecting: "Connecting to ZFX chat …", zfxChatDisconnected: "Disconnected from ZFX chat", zfxChatOffline: "ZFX chat is offline", zfxChatUnavailable: "ZFX chat is unavailable", terriChatConnected: "Terri chat data stream active", terriChatConnecting: "Waiting for Terri chat data …", terriChatDisconnected: "Terri chat socket disconnected",
@@ -551,6 +559,13 @@ const LobbyView = defineComponent({
     const entryFilter = ref("all");
     const chatStatus = ref("");
     const lobbyNotifications = ref([]);
+    const activeClanConfirmation = ref(null);
+    const clanConfirmationAcceptButton = ref(null);
+    watch(activeClanConfirmation, async confirmation => {
+      if (!confirmation) return;
+      await nextTick();
+      clanConfirmationAcceptButton.value?.focus();
+    });
     const notificationIndex = ref(-1);
     const notificationPanelOpen = ref(false);
     const notificationPanelMinimized = ref(true);
@@ -986,6 +1001,7 @@ const LobbyView = defineComponent({
     let unsubscribe = () => {};
     let unsubscribeGameSdk = () => {};
     let unsubscribeLobbyChat = () => {};
+    let unsubscribeNativeNotifications = () => {};
     let unsubscribeZfxLobbyChat = () => {};
     let getLobbyDataDiagnostics = null;
     let chatReplayTimer = 0;
@@ -1700,7 +1716,8 @@ const LobbyView = defineComponent({
     }
 
     function handleLobbyNotification(event) {
-      const text = String(event.detail?.text ?? "").trim();
+      const detail = event?.detail ?? event;
+      const text = String(detail?.text ?? "").trim();
       if (!text) return;
       const presentation = formatLobbyNotification(text);
       if (presentation.kind === "followers") {
@@ -1713,13 +1730,13 @@ const LobbyView = defineComponent({
           if (now - timestamp > 10 * 60 * 1000) recentFollowNoticeAt.delete(key);
         }
       }
-      const sourceIndex = Number.isInteger(event.detail?.index) ? event.detail.index : null;
+      const sourceIndex = Number.isInteger(detail?.index) ? detail.index : null;
       const id = sourceIndex !== null && sourceIndex >= 0
         ? `native:${sourceIndex}` : `${Date.now()}:${Math.random().toString(36).slice(2)}`;
       const existingIndex = lobbyNotifications.value.findIndex(item => item.id === id);
       if (existingIndex >= 0) {
         const categoryKey = presentation.kind === "followers" ? "followers"
-          : Number(event.detail?.id) === 7 ? "lobbyCategory" : "noticeCategory";
+          : Number(detail?.id) === 7 ? "lobbyCategory" : "noticeCategory";
         const existing = lobbyNotifications.value[existingIndex];
         lobbyNotifications.value[existingIndex] = {
           ...existing, text, ...presentation,
@@ -1730,11 +1747,11 @@ const LobbyView = defineComponent({
         return;
       }
       const categoryKey = presentation.kind === "followers" ? "followers"
-        : Number(event.detail?.id) === 7 ? "lobbyCategory" : "noticeCategory";
+        : Number(detail?.id) === 7 ? "lobbyCategory" : "noticeCategory";
       const nextNotifications = [...lobbyNotifications.value, {
         id,
         text,
-        receivedAt: Number.isFinite(Number(event.detail?.timestamp)) ? Number(event.detail.timestamp) : Date.now(),
+        receivedAt: Number.isFinite(Number(detail?.timestamp)) ? Number(detail.timestamp) : Date.now(),
         ...presentation,
         categoryKey,
         category: labels[categoryKey],
@@ -1743,6 +1760,23 @@ const LobbyView = defineComponent({
       lobbyNotifications.value = nextNotifications;
       notificationIndex.value = nextNotifications.length - 1;
       expandLobbyNotificationsTemporarily();
+    }
+
+    function handleNativeNotification(item) {
+      if (item?.kind === "confirmation") {
+        activeClanConfirmation.value = item;
+        return;
+      }
+      if (item?.kind === "confirmation-resolved") {
+        if (activeClanConfirmation.value?.id === item.id) activeClanConfirmation.value = null;
+        return;
+      }
+      handleLobbyNotification(item);
+    }
+
+    function resolveClanConfirmation(accept) {
+      const handled = window.__fx?.nativeNotificationAdapter?.respondToConfirmation?.(accept === true) === true;
+      if (handled) activeClanConfirmation.value = null;
     }
 
     function formatLobbyNotificationTime(value) {
@@ -1770,7 +1804,9 @@ const LobbyView = defineComponent({
     function markLobbyNotificationRead() {
       if (notificationIndex.value < 0 || notificationIndex.value >= lobbyNotifications.value.length) return;
       const nextNotifications = [...lobbyNotifications.value];
-      nextNotifications.splice(notificationIndex.value, 1);
+      const [readNotification] = nextNotifications.splice(notificationIndex.value, 1);
+      const nativeIndex = String(readNotification?.id ?? "").match(/^native:(\d+)$/)?.[1];
+      if (nativeIndex != null) window.__fx?.nativeNotificationAdapter?.acknowledge?.(Number(nativeIndex));
       lobbyNotifications.value = nextNotifications;
       if (!nextNotifications.length) {
         clearNotificationAutoMinimizeTimer();
@@ -2023,7 +2059,9 @@ const LobbyView = defineComponent({
       for (const message of native.messages ?? []) {
         const text = String(message?.text ?? "").trim();
         const type = Number(message?.id);
-        if (!text) continue;
+        // Confirmation prompts are transient live server responses and are
+        // injected by the native aZV hook; don't replay stale type-6 prompts.
+        if (!text || type === 6) continue;
         const senderId = type === 0 ? message.senderId : null;
         // Match the socket queue observer's stable ID so the 1s snapshot
         // fallback cannot publish a second copy of the same native entry.
@@ -2074,38 +2112,26 @@ const LobbyView = defineComponent({
       migrateNativePropaganda();
       window.addEventListener("fx-lobby-notification", handleLobbyNotification);
       window.addEventListener("fx-game-language-change", handleGameLanguageChange);
-      let nativeHistory = [];
-      try {
-        const history = window.__fx?.getLobbyNotificationHistory?.();
-        nativeHistory = Array.isArray(history) ? history : [];
-      } catch (error) {
-        console.warn("[ZFX Client LobbyView] Native notification history is not ready yet:", error);
-      }
-      const seenFollowHistory = new Set();
-      lobbyNotifications.value = nativeHistory.filter(item => {
-        if (!item || item.id === 6 || !item.text) return false;
-        const presentation = formatLobbyNotification(item.text);
-        if (presentation.kind !== "followers") return true;
-        const key = getFollowNoticeKey(item.text);
-        if (seenFollowHistory.has(key)) return false;
-        seenFollowHistory.add(key);
-        recentFollowNoticeAt.set(key, Date.now());
-        return true;
-      })
-        .slice(-100)
-        .map(item => {
-          const presentation = formatLobbyNotification(item.text);
-          const categoryKey = presentation.kind === "followers" ? "followers"
-            : Number(item.id) === 7 ? "lobbyCategory" : "noticeCategory";
-          return {
-            id: `native:${item.index}`,
+      const nativeNotificationAdapter = window.__fx?.nativeNotificationAdapter;
+      if (typeof nativeNotificationAdapter?.subscribe === "function") {
+        unsubscribeNativeNotifications = nativeNotificationAdapter.subscribe(handleNativeNotification, { replay: true });
+      } else {
+        let nativeHistory = [];
+        try {
+          const history = window.__fx?.getLobbyNotificationHistory?.();
+          nativeHistory = Array.isArray(history) ? history : [];
+        } catch (error) {
+          console.warn("[ZFX Client LobbyView] Native notification history is not ready yet:", error);
+        }
+        for (const item of nativeHistory.filter(item => item && item.id !== 6 && item.text).slice(-100)) {
+          handleLobbyNotification({
+            id: item.id,
+            index: item.index,
             text: String(item.text ?? "").trim(),
-            receivedAt: Number.isFinite(Number(item.timestamp)) ? Number(item.timestamp) : Date.now(),
-            ...presentation,
-            categoryKey,
-            category: labels[categoryKey],
-          };
-        });
+            timestamp: Number.isFinite(Number(item.timestamp)) ? Number(item.timestamp) : Date.now(),
+          });
+        }
+      }
       refreshLobbyLanguage();
       notificationIndex.value = lobbyNotifications.value.length - 1;
       if (lobbyNotifications.value.length) expandLobbyNotificationsTemporarily();
@@ -2138,6 +2164,16 @@ const LobbyView = defineComponent({
       }) ?? (() => {});
       unsubscribeLobbyChat = window.__fx?.lobbyChatFeed?.subscribe?.(message => {
         const current = adapter.getSnapshot();
+        if (message?.isUpdate) {
+          const hasExistingMessage = current.chatMessages.some(entry => entry.id === message.id);
+          if (hasExistingMessage) {
+          const chatMessages = current.chatMessages.map(entry => entry.id === message.id
+            ? { ...entry, confirmationMode: message.confirmationMode ?? entry.confirmationMode, confirmationState: message.confirmationState ?? entry.confirmationState }
+            : entry);
+          adapter.publish({ ...current, chatMessages }, current.source);
+          return;
+          }
+        }
         const socketPlayerName = window.__fx?.getLobbyChatSenderName?.(message.senderId);
         const sdkPlayer = window.__fx?.gameSdk?.lobby?.getSnapshot?.()?.players
           ?.find(player => Number(player.id) === Number(message.senderId));
@@ -2220,6 +2256,7 @@ const LobbyView = defineComponent({
       window.removeEventListener("fx-native-menu-state-change", handleNativeMenuStateChange);
       window.removeEventListener("fx-lobby-notification", handleLobbyNotification);
       window.removeEventListener("fx-game-language-change", handleGameLanguageChange);
+      unsubscribeNativeNotifications();
       if (window.__fx?.showPropagandaInVue === showPropagandaInVue) delete window.__fx.showPropagandaInVue;
       if (window.__fx?.debugLobbyChat === debugLobbyChat) delete window.__fx.debugLobbyChat;
       if (window.__fx?.replayNativeLobbyChat === replayNativeLobbyChat) delete window.__fx.replayNativeLobbyChat;
@@ -2265,6 +2302,8 @@ const LobbyView = defineComponent({
       sendCall: sendSpawnCall,
       sendJoin: sendJoinCall,
       sendTeamMessage,
+      activeClanConfirmation,
+      resolveClanConfirmation,
       selectLobbyTab,
       toggleSelectedGameJoin,
     };
@@ -2272,6 +2311,14 @@ const LobbyView = defineComponent({
   template: `
     <section v-if="active" id="fx-custom-lobby-view" class="fx-custom-lobby" :style="{ '--fx-custom-lobby-scale': scale, ...lobbyBackgroundStyle }" :aria-label="labels.title">
       <Teleport to="body">
+      <div v-if="activeClanConfirmation" class="fx-clan-confirmation-backdrop" role="presentation" @pointerdown.stop @mousedown.stop @click.stop>
+        <section class="fx-clan-confirmation-dialog" role="alertdialog" aria-modal="true" :aria-label="labels.clanConfirmationTitle">
+          <header><span class="fx-clan-confirmation-icon" aria-hidden="true">@</span><div><strong>{{ labels.clanConfirmationTitle }}</strong><small>{{ labels.confirmationPending }}</small></div></header>
+          <p class="fx-clan-confirmation-message">{{ activeClanConfirmation.text }}</p>
+          <p class="fx-clan-confirmation-hint">{{ labels.clanConfirmationHint }}</p>
+          <footer><button type="button" class="fx-clan-confirmation-cancel" @click="resolveClanConfirmation(false)">{{ labels.cancel }}</button><button ref="clanConfirmationAcceptButton" type="button" class="fx-clan-confirmation-accept" @click="resolveClanConfirmation(true)">{{ labels.confirm }}</button></footer>
+        </section>
+      </div>
       <dialog ref="propagandaDialog" class="fx-lobby-propaganda-dialog" :style="propagandaMessage?.style" aria-label="Propaganda message" @cancel.prevent="closePropagandaMessage" @click.self="closePropagandaMessage">
         <header><span>PROPAGANDA</span><button type="button" :aria-label="labels.dismiss" @click="closePropagandaMessage">×</button></header>
         <p>{{ propagandaMessage?.text }}</p>

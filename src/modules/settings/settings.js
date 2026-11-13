@@ -43,6 +43,11 @@ const settingsTextDe = {
   "Auto-minimize delay": "Zeit bis zum Einklappen",
   "Seconds before an automatically opened notification is minimized.": "Sekunden, bis eine automatisch geöffnete Benachrichtigung wieder eingeklappt wird.",
   "Show lobby notification close button": "SchlieÃŸen-SchaltflÃ¤che fÃ¼r Lobby-Benachrichtigungen anzeigen",
+  "Clan mention confirmation": "Best\u00e4tigung f\u00fcr Clan-Erw\u00e4hnungen",
+  "Choose how to respond when Terri asks you to confirm an @[TAG] mention.": "Legt fest, wie eine @[TAG]-Erw\u00e4hnung best\u00e4tigt wird.",
+  "Confirmation dialog": "Best\u00e4tigungsdialog",
+  "Chat only": "Nur im Chat",
+  "Auto-confirm": "Automatisch best\u00e4tigen",
   "Display win counter": "SiegzÃ¤hler anzeigen", "The win counter tracks multiplayer solo wins (not in team games)": "Der SiegzÃ¤hler erfasst Solo-Siege im Mehrspielermodus, keine Teamsiege.",
   "Reset win counter": "SiegzÃ¤hler zurÃ¼cksetzen", "Display tick number near the balance": "Tick-Nummer neben dem Kontostand anzeigen",
   "Show Unicode country flags on the map": "Unicode-LÃ¤nderflaggen auf der Karte anzeigen",
@@ -60,7 +65,7 @@ const settingsTextDe = {
   "Inappropriate name hider": "Unpassende Namen ausblenden", "Hidden Name": "Verborgener Name",
   "Replaces player names that contain common offensive or inappropriate words with \"Hidden Name\".": "Ersetzt Spielernamen mit hÃ¤ufigen beleidigenden oder unpassenden Begriffen durch â€žVerborgener Nameâ€œ.",
   "Keybind buttons": "TastenkÃ¼rzel-SchaltflÃ¤chen",
-  "Show keybind buttons above the troop selector (max 6)": "Zeigt bis zu sechs TastenkÃ¼rzel oberhalb der Truppenauswahl.",
+  "Show keybind buttons above the troop selector (up to 12 in two rows)": "Zeigt bis zu zwölf TastenkÃ¼rzel oberhalb der Truppenauswahl.",
   "Highlights players in the lobby's team list who share the same IP hash (the same one shown when hovering over a player's name). Each group of matching IPs gets its own color, so distinct duplicates are easy to tell apart at a glance.": "Hebt Spieler mit derselben IP-Kennung in der Lobby-Spielerliste hervor. Jede Gruppe erhÃ¤lt eine eigene Farbe.",
   "Replay timebar": "Replay-Zeitleiste",
   "ZFX Client Discord": "ZFX-Client-Discord", "Github repository": "GitHub-Repository", Changelog: "Ã„nderungsprotokoll", "Clear cache": "Cache leeren",
@@ -743,7 +748,7 @@ const settingsManager = new (function () {
     KeybindsInput,
     {
       for: "keybindButtons", type: "checkbox",
-      label: "Keybind buttons", note: "Show keybind buttons above the troop selector (max 6)"
+      label: "Keybind buttons", note: "Show keybind buttons above the troop selector (up to 12 in two rows)"
     },
     StartingPercentageInput,
     CustomQuickEmojis,
@@ -839,6 +844,17 @@ const settingsManager = new (function () {
       max: 30,
       step: 1,
       unit: "s",
+    },
+    {
+      for: "clanMentionConfirmationMode",
+      type: "selectMenu",
+      label: "Clan mention confirmation",
+      note: "Choose how to respond when Terri asks you to confirm an @[TAG] mention.",
+      options: [
+        { value: "ui", label: "Confirmation dialog" },
+        { value: "chat", label: "Chat only" },
+        { value: "auto", label: "Auto-confirm" },
+      ],
     },
     LobbyReminderRulesInput,
     MutePingSection,

@@ -86,7 +86,11 @@ export function KeybindsInput(/** @type {HTMLElement} */ containerElement) {
     };
     this.startKeyInput = function (index, property, event) {
         event.target.value = t("settingPressAnyKey");
-        const handler = this.updateObject.bind(this, index, property);
+        const handler = keyEvent => {
+            keyEvent.preventDefault();
+            keyEvent.stopPropagation();
+            this.updateObject(index, property, keyEvent);
+        };
         event.target.addEventListener('keydown', handler, { once: true });
         event.target.addEventListener("blur", () => {
             event.target.removeEventListener('keydown', handler);
@@ -107,10 +111,13 @@ export function KeybindsInput(/** @type {HTMLElement} */ containerElement) {
             this.objectArray[index].type === "absolute"
                 ? truncate(parseFloat(event.target.value) / 100)
                 : parseFloat(event.target.value)
-        ) : property === "key" ? event.key : event.target.value;
+        ) : property === "key" ? (event.key === " " ? "Space" : event.key) : event.target.value;
         this.objectArray[index][property] = value;
 
-        if (property === "key") this.recreateInputField(index, property);
+        if (property === "key") {
+            this.objectArray[index].code = event.code || value;
+            this.recreateInputField(index, property);
+        }
         // when the keybind's type (absolute or relative) is changed
         else if (property === "type") this.recreateInputField(index, "value");
     };

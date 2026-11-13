@@ -112,6 +112,8 @@ function normalizeSnapshot(snapshot, source, previousSnapshot = EMPTY_SNAPSHOT) 
         receivedAt: Number.isFinite(Number(message.receivedAt)) ? Number(message.receivedAt) : Date.now(),
         system: message.system === true,
         nativeType: message.nativeType != null && Number.isInteger(Number(message.nativeType)) ? Number(message.nativeType) : null,
+        confirmationMode: ["ui", "chat", "auto"].includes(message.confirmationMode) ? message.confirmationMode : null,
+        confirmationState: ["pending", "confirmed", "cancelled"].includes(message.confirmationState) ? message.confirmationState : null,
         segments: Array.isArray(message.segments) ? message.segments.map(segment => ({
           text: String(segment?.text ?? ""),
           color: typeof segment?.color === "string" ? segment.color : "",

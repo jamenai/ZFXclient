@@ -157,20 +157,29 @@ export const clanFilter = new (function() {
     this.inOwnClan = new Array(512);
     this.inOwnClan.fill(false);
     this.isInOwnClan = (id) => {
-        const gHumans = getVar("gHumans") || 0;
-        if (!Number.isInteger(id) || id < 0 || id >= gHumans) return false;
         const rawNames = getVar("rawPlayerNames");
         const playerId = getVar("playerId");
-        if (!rawNames || !Number.isInteger(playerId)) return false;
+        // During spawn selection, the native player count can still be
+        // transitioning while player names are already populated. Use the
+        // names array as the authoritative bounds check so clan membership is
+        // available before territories and the normal match HUD are ready.
+        if (!Number.isInteger(id) || id < 0 || !rawNames || id >= rawNames.length || !Number.isInteger(playerId) || playerId < 0 || playerId >= rawNames.length) return false;
         const ownClan = leaderboardFilter.parseClanFromPlayerName(rawNames[playerId]);
         return ownClan !== null && leaderboardFilter.parseClanFromPlayerName(rawNames[id]) === ownClan;
     };
     this.refresh = () => {
-        const gHumans = getVar("gHumans");
-        const ownClan = leaderboardFilter.parseClanFromPlayerName(getVar("rawPlayerNames")[getVar("playerId")]);
+        const rawNames = getVar("rawPlayerNames");
+        const playerId = getVar("playerId");
+        const ownClan = rawNames && Number.isInteger(playerId)
+            ? leaderboardFilter.parseClanFromPlayerName(rawNames[playerId])
+            : null;
         if (ownClan === null) this.inOwnClan.fill(false);
-        else getVar("rawPlayerNames").forEach((name, id) => {
-            this.inOwnClan[id] = id < gHumans && leaderboardFilter.parseClanFromPlayerName(name) === ownClan;
-        });
+        else {
+            const humans = getVar("gHumans");
+            const playerLimit = Number.isInteger(humans) && humans > 0 ? humans : rawNames.length;
+            rawNames.forEach((name, id) => {
+                this.inOwnClan[id] = id < playerLimit && leaderboardFilter.parseClanFromPlayerName(name) === ownClan;
+            });
+        }
     }
 });

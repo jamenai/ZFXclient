@@ -1,35 +1,18 @@
 import ModUtils from "../modUtils.js";
 
-export default (/** @type {ModUtils} */ { replaceRawCode, waitForMinification }) => {
-  // Keep the native map-cell tooltip renderer, but expose it to the ZFX hover
-  // handler. This version computes the map cell through bP.ht/hv/fz/fS.
-  replaceRawCode(
-    "this.click=function(mouseX,mouseY,clickState){var mapX=map.ht(mouseX);var mapY=map.hv(mouseY);var point=map.fz(mapX,mapY);var cell=map.fS(point);",
-    "this.click=function(mouseX,mouseY,clickState){var mapX=map.ht(mouseX);var mapY=map.hv(mouseY);var point=map.fz(mapX,mapY);var cell=map.fS(point);__fx.hoveringTooltip.display=function(hoverX,hoverY){var hoverMapX=map.ht(hoverX),hoverMapY=map.hv(hoverY);var hoverPoint=map.fz(hoverMapX,hoverMapY);var hoverCell=map.fS(hoverPoint);if(map.hw(hoverMapX,hoverMapY))a9G(hoverX,hoverY,hoverCell);};",
-  );
-
-  try {
-    if (!replaceRawCode) throw new Error("Replay player selection hook not found");
-    try {
-      const currentReplaySelectionHook = "if((aE.hp||aE.hq)&&player!==aE.fQ){aE.fQ=player;bg.aAv();}";
-      replaceRawCode(currentReplaySelectionHook,
-        "if((aE.hp||aE.hq)&&player!==aE.fQ&&window.__fx?.hoveringTooltip?.active===false){aE.fQ=player;bg.aAv();}");
-      console.info("[ZFX Client] Installed replay hover selection guard for the current game version.");
-    } catch {
-      const replaySelectionHook = "if(aE.hj||aE.hk){aE.fK=player;}";
-      replaceRawCode(replaySelectionHook,
-        "if((aE.hj||aE.hk)&&__fx.hoveringTooltip.active===false){aE.fK=player;}");
-    }
-  } catch {
-    console.info("[ZFX Client] Native replay tooltip hook is absent in this game version.");
-  }
-
+export default (/** @type {ModUtils} */ { replaceOne, waitForMinification }) => {
+  // Native right-click handling already resolves the exact map cell. Route
+  // owned territory info through the ZFX tooltip and keep the native popup as
+  // the fallback for unowned cells.
   waitForMinification(() => {
     try {
-      replaceRawCode("aK.nH=(window.devicePixelRatio||1)*aEr,",
-        `aK.nH = (window.devicePixelRatio || 1) * aEr, __fx.hoveringTooltip.canvasPixelScale = aK.nH,`);
-    } catch {
-      console.info("[ZFX Client] Native tooltip canvas scale hook is absent in this game version.");
+      replaceOne(
+        /this\.a9w\s*=\s*function\s*\((?<cell>\w+)\)\s*\{/g,
+        `$&if(window.__fx?.hoveringTooltip?.showNativeTerritory?.(ad.hG($<cell>)?ad.fY($<cell>):-1,bP.fo($<cell>>>2),bP.fq($<cell>>>2)))return;`,
+      );
+      console.info("[ZFX Client] Native territory info now uses the ZFX tooltip on right-click.");
+    } catch (error) {
+      console.info("[ZFX Client] Native territory info hook is absent; the native popup remains active.", error);
     }
   });
 };

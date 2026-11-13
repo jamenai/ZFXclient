@@ -144,7 +144,7 @@ function applyPatches(/** @type {ModUtils} */ modUtils) {
             replaceOne(/this\.el=function\(\)\{aFj\(\);aFk\(\);this\.nH\(\);aFl\(\);aFc\(\);aFm\(\);aFn\(\);aFo\(\);\};/g,
                 'this.el=function(){aFj();aFk();this.nH();aFl();aFc();aFm();aFn();aFo();var fxStatusNow=Date.now();if(window.__fx?.gameStatusHudAdapter?.receiveNativeSnapshot&&fxStatusNow-(window.__fx.gameStatusHudLastSent||0)>=250){window.__fx.gameStatusHudLastSent=fxStatusNow;window.__fx.gameStatusHudAdapter.receiveNativeSnapshot({updatedAt:fxStatusNow,rows:aFU.map(function(label,index){return{index:index,label:label,value:aFd(index),visible:!!aFX[index]};}).filter(function(row){return row.visible&&row.label;})});}};');
             replaceOne(/this\.yr=function\(\)\{ys\.drawImage\(canvas,fn,fp\);\};/g,
-                'this.yr=function(){if(window.__fx?.gameStatusHudReady)return;ys.drawImage(canvas,fn,fp);};');
+                'this.yr=function(){};');
             console.info("[ZFX Client] Installed native status-data adapter for the current game HUD.");
         } else {
             replaceOne(/(p0\.fillStyle=bE\.pR),p0\.fillRect\(0,0,aX\.j,aX\.k\),p0\.fillStyle=bE\.po/g,
@@ -152,7 +152,7 @@ function applyPatches(/** @type {ModUtils} */ modUtils) {
             replaceOne(/(function aF8\(\)\{)/g,
                 '$1var fxStatusNow=Date.now();if(window.__fx.gameStatusHudAdapter?.receiveNativeSnapshot&&fxStatusNow-(window.__fx.gameStatusHudLastSent||0)>=250){window.__fx.gameStatusHudLastSent=fxStatusNow;window.__fx.gameStatusHudAdapter.receiveNativeSnapshot({updatedAt:fxStatusNow,rows:aEx.map(function(label,index){return{index:index,label:label,value:aF6(index),visible:!!aF0[index]};}).filter(function(row){return row.visible&&row.label;})});}');
             replaceOne(/this\.yI=function\(\)\{yJ\.drawImage\(canvas,fj,fl\)\}/g,
-                'this.yI=function(){if(window.__fx?.gameStatusHudReady)return;yJ.drawImage(canvas,fj,fl)}');
+                'this.yI=function(){}');
             console.info("[ZFX Client] Native status HUD transparency hook installed.");
         }
     } catch (error) {
@@ -196,7 +196,7 @@ function applyPatches(/** @type {ModUtils} */ modUtils) {
             replaceOne(/this\.a5l=function\(oD\)\{if\(aE\.a3f===0\|\|!this\.iP\(\)\)\{return;\}if\(aCV\(oD\)\)\{bi\.du=true;\}\};function aCV\(a66\)\{/g,
                 '$&window.__fx.keybindFunctions.setAbsolute=value=>{var percentage=Math.max(1/1024,Math.min(1,Number(value)));if(Number.isFinite(percentage)&&aE.a3f!==0&&this.iP()){jG=percentage;aCL();bi.du=true;}};');
             replaceOne(/function a5Q\(e\)\{if\(a5T\(\)\)\{return;\}if\(i\.uc>0\)\{return;\}var code=e\.code;if\(!code\|\|!code\.length\)\{return;\}/g,
-                '$&if(window.__fx?.keybindHandler?.(code)){e.preventDefault();return;}');
+                '$&if(window.__fx?.keybindHandler?.(e)){e.preventDefault();return;}');
         } else {
         // match required variables
         const { 0: match, groups: { attackBarObject, setRelative } } = matchOne(/:\w+\.\w+\(\w+,8\)\?(?<attackBarObject>\w+)\.(?<setRelative>\w+)\(32\/31\):/g);
@@ -208,7 +208,7 @@ function applyPatches(/** @type {ModUtils} */ modUtils) {
             + `__fx.keybindFunctions.setRelative = (arg1) => ${attackBarObject}.${setRelative}(arg1); $1`);
         // insert keybind handling code into the keyDown handler function
         replaceOne(new RegExp(/(function \w+\((?<event>\w+)\){)([^}]+matched)/g.source.replace(/matched/g, escapeRegExp(match)), "g"),
-            "$1 if (__fx.keybindHandler($<event>.key)) return; $3");
+            "$1 if (__fx.keybindHandler($<event>)) return; $3");
         }
     } catch (error) {
         console.info("[ZFX Client] Legacy post-minification keybind hook is unavailable; native keybind adapter remains active.");
@@ -238,7 +238,7 @@ function applyPatches(/** @type {ModUtils} */ modUtils) {
 
     // Track donations
     replaceOne(/(this\.\w+=function\((\w+),(\w+)\)\{)(\2===\w+\.\w+&&\(\w+\.\w+\((\w+\.\w+)\[0\],\5\[1\],\3\),this\.(\w+)\[12\]\+=\5\[1\],this\.\6\[16\]\+=\5\[0\]\),\3===\w+\.\w+&&\()/g,
-        `$1 __fx.donationsTracker.logDonation($2, $3, $5[0], ${dict.sidebar}.${dict.getTime}()); $4`)
+        `$1 __fx.donationsTracker.logDonation($2, $3, $5[0], ${dict.sidebar}.${dict.getTime}()); if(Number($3)===aE.fQ&&Number($2)!==aE.fQ)window.__fx?.gameTickHudAdapter?.receiveDonation?.({amount:Number($5[0]),at:Date.now()}); $4`)
 
 
     // Keep the team pie labels readable when two-decimal percentages are on.

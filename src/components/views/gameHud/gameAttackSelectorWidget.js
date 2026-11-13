@@ -12,6 +12,7 @@ const GameAttackSelectorWidget = defineComponent({
     const position = ref(null);
     const ready = ref(false);
     const inMatch = ref(false);
+    const matchFinished = ref(false);
     const hudVisibility = ref(loadGameHudVisibility());
     let drag = null;
     let stopDragging;
@@ -123,6 +124,14 @@ const GameAttackSelectorWidget = defineComponent({
       adjust(factor);
       event.currentTarget.blur();
     };
+    const adjustWithWheel = event => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!Number.isFinite(event.deltaY) || event.deltaY === 0) return;
+      const configuredStep = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--fx-game-attack-wheel-step"));
+      const step = Math.max(1, Math.min(10, Number.isFinite(configuredStep) ? configuredStep : 2)) / 100;
+      adjust(event.deltaY < 0 ? 1 + step : 1 / (1 + step));
+    };
     const stopNativeInput = event => {
       event.preventDefault();
       event.stopPropagation();
@@ -141,6 +150,7 @@ const GameAttackSelectorWidget = defineComponent({
     const syncMatchState = () => {
       const rawMatchState = window.__fx?.getGameVar?.("gMatchState");
       if (rawMatchState === undefined || rawMatchState === null) return;
+      matchFinished.value = window.__fx?.nativeGameFinished === true;
       inMatch.value = Number(rawMatchState) > 0;
       if (!inMatch.value) clearNativeSnapshot();
     };
@@ -154,7 +164,7 @@ const GameAttackSelectorWidget = defineComponent({
       window.__fx.gameAttackSelectorHud = {
         receiveLayout,
         receiveState,
-        isReady: () => ready.value && inMatch.value && hudVisibility.value.attackSelector,
+        isReady: () => ready.value && inMatch.value && !matchFinished.value && hudVisibility.value.attackSelector,
       };
       syncMatchState();
       syncLayoutSettings();
@@ -181,10 +191,10 @@ const GameAttackSelectorWidget = defineComponent({
       if (window.__fx?.gameAttackSelectorHud?.receiveLayout === receiveLayout) delete window.__fx.gameAttackSelectorHud;
     });
 
-    return { style, state, inMatch, hudVisibility, startDrag, onSliderPointerDown, onSliderPointerMove, activateAdjust, stopNativeInput };
+    return { style, state, inMatch, matchFinished, hudVisibility, startDrag, onSliderPointerDown, onSliderPointerMove, activateAdjust, adjustWithWheel, stopNativeInput };
   },
   template: `
-    <div v-if="inMatch && hudVisibility.attackSelector && state.unitsLabel !== ''" class="fx-game-attack-selector" :style="style" aria-label="Attack percentage selector" @pointerdown="stopNativeInput" @mousedown="stopNativeInput">
+    <div v-if="inMatch && !matchFinished && hudVisibility.attackSelector && state.unitsLabel !== ''" class="fx-game-attack-selector" :style="style" aria-label="Attack percentage selector" @pointerdown="stopNativeInput" @mousedown="stopNativeInput" @wheel.capture="adjustWithWheel">
       <button class="fx-game-attack-adjust" type="button" aria-label="Decrease attack percentage" tabindex="-1" @pointerdown="stopNativeInput" @pointerup="activateAdjust($event, 11 / 12)">−</button>
       <div class="fx-game-attack-track" role="slider" aria-label="Attack percentage" :aria-valuenow="Math.round(state.percentage * 100)" aria-valuemin="0" aria-valuemax="100" tabindex="-1" @pointerdown="onSliderPointerDown" @pointermove="onSliderPointerMove">
         <div class="fx-game-attack-track-fill"></div>

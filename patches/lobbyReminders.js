@@ -21,20 +21,14 @@ export default definePatch((modUtils) => {
   // Native aHa.a4I is the transport endpoint behind the chat adapter. Keep
   // the patched native method private to the low-level transport bridge.
   optional(/function aHa\(\)\{/g,
-    "$&if(window.__fx){window.__fx.nativeLobbyChatTransport=window.__fx.nativeLobbyChatTransport||{};window.__fx.nativeLobbyChatTransport.sendMessage=message=>{if(!bq?.fD||typeof bq?.pe?.a4I!=='function')return false;bq.pe.a4I(String(message));return true;};}",
+    "$&if(window.__fx){window.__fx.nativeLobbyChatTransport=window.__fx.nativeLobbyChatTransport||{};window.__fx.nativeLobbyChatTransport.sendMessage=message=>{var text=String(message);if(!bq?.fD||typeof bq?.pe?.a4I!=='function'||window.__fx.nativeNotificationAdapter?.canSendChatMessage?.(text)===false)return false;bq.pe.a4I(text);window.__fx.nativeNotificationAdapter?.handleManualResponse?.(text,!bq.pe.aK3?.());return true;};window.__fx.nativeLobbyChatTransport.respondClanConfirmation=accept=>{if(!bq?.fD||!bq?.pe?.aK3?.()||typeof bq?.pe?.a4I!=='function')return false;bq.pe.a4I(accept?'yes':'no');return !bq.pe.aK3?.();};}",
     "native lobby chat send");
 
   // Confirm a clan action only when Terri's native chat parser actually opened
   // its confirmation state. Sending "yes" unconditionally can turn into a
   // separate chat message when the tag was rejected or the prompt is absent.
   optional(/this\.aK3=function\(\)\{return aJn;\};/g,
-    "$&if(window.__fx){delete window.__fx.sendLobbyMessage;delete window.__fx.sendClanMessage;window.__fx.nativeLobbyChatTransport=window.__fx.nativeLobbyChatTransport||{};window.__fx.nativeLobbyChatTransport.sendClanMessage=(clan,message)=>{var tag=String(clan||'').trim().replace(/^\\[|\\]$/g,'').toUpperCase(),text=String(message||'').trim();if(!tag||tag.length>6||!/^[A-Z0-9_-]+$/.test(tag)||!text||!bq?.fD||typeof bq?.pe?.a4I!=='function'||bq.pe.aK3?.())return false;bq.pe.a4I('@['+tag+'] '+text);if(!bq.pe.aK3?.())return false;bq.pe.a4I('yes');return !bq.pe.aK3?.();};}",
+    "$&if(window.__fx){delete window.__fx.sendLobbyMessage;delete window.__fx.sendClanMessage;window.__fx.nativeLobbyChatTransport=window.__fx.nativeLobbyChatTransport||{};window.__fx.nativeLobbyChatTransport.sendClanMessage=(clan,message)=>{var tag=String(clan||'').trim().replace(/^\\[|\\]$/g,'').toUpperCase(),text=String(message||'').trim();if(!tag||tag.length>6||!/^[A-Z0-9_-]+$/.test(tag)||!text||!bq?.fD||typeof bq?.pe?.a4I!=='function'||bq.pe.aK3?.())return false;bq.pe.a4I('@['+tag+'] '+text);return window.__fx.nativeNotificationAdapter?.isConfirmationPending?.()===true;};}",
     "native clan call confirmation");
 
-  // aZV is the current decoded native lobby-notification entry point. Preserve
-  // the native UI and mirror non-chat notifications to the Vue notification
-  // panel using the game's own localized formatter.
-  optional(/bq\.message\.aIK\(aKy\);/g,
-    "if(window.__fx&&aKy?.id!==0){var fxNotificationText=bq.lr?.q2?.(aKy,bq.lr?.q3?.(aKy))?.s||aKy?.s||'';if(aKy?.id===6)window.__fx.lobbyChatFeed?.publish?.({id:'native-confirm:'+Date.now(),text:fxNotificationText,system:true,nativeType:6});window.dispatchEvent(new CustomEvent('fx-lobby-notification',{detail:{id:aKy.id,index:null,text:fxNotificationText,senderId:aKy.pk,soundAllowed:!bm.buffer.data[14].value&&aKy.id!==7,mention:false}}));}bq.message.aIK(aKy);",
-    "native lobby notifications");
 });

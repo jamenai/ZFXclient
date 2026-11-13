@@ -1,18 +1,28 @@
 {
-    "version": "0.1.52",
+    "version": "0.1.53",
     "lastUpdated": "November 13, 2026",
     "changes": [
-        "Add per-widget visibility controls to Game HUD layout settings",
-        "Collapse the minimap and team chart by clicking their draggable headers"
+        "Fix keybind event handling and support up to 12 buttons in two rows with adjustable height",
+        "Add configurable tick counter placement and attack selector mouse-wheel sensitivity",
+        "Add a resizable minimap with zoom-to-cursor and saved dimensions",
+        "Replace native attack and boat rows with stable reserved action slots, faster stop controls, and optional route display",
+        "Add territory owner details on right-click and improve HUD visibility during spawn selection and after match end",
+        "Add a native notification adapter and clear clan-mention confirmation dialog, chat-only, and auto-confirm modes",
+        "Improve HUD layout persistence, widget visibility, donation feedback, and native game patch compatibility"
     ],
     "isSignificant": true,
     "history": [
         {
-            "version": "0.1.52",
+            "version": "0.1.53",
             "lastUpdated": "November 13, 2026",
             "changes": [
-                "Add per-widget visibility controls to Game HUD layout settings",
-                "Collapse the minimap and team chart by clicking their draggable headers"
+                "Fix keybind event handling and support up to 12 buttons in two rows with adjustable height",
+                "Add configurable tick counter placement and attack selector mouse-wheel sensitivity",
+                "Add a resizable minimap with zoom-to-cursor and saved dimensions",
+                "Replace native attack and boat rows with stable reserved action slots, faster stop controls, and optional route display",
+                "Add territory owner details on right-click and improve HUD visibility during spawn selection and after match end",
+                "Add a native notification adapter and clear clan-mention confirmation dialog, chat-only, and auto-confirm modes",
+                "Improve HUD layout persistence, widget visibility, donation feedback, and native game patch compatibility"
             ]
         },
         {

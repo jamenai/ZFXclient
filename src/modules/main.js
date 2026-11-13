@@ -39,6 +39,7 @@ import { createVueGameKeybindHud } from "../components/views/gameHud/gameKeybind
 import { createVueGameAttackSelectorWidget } from "../components/views/gameHud/gameAttackSelectorWidget.js";
 import { createVueGameDebugHud } from "../components/views/gameHud/gameDebugHud.js";
 import { createVueGameMinimapWidget } from "../components/views/gameHud/gameMinimapWidget.js";
+import { createVueGameActionQueueWidget } from "../components/views/gameHud/gameActionQueueWidget.js";
 import { createVueMyAccountView, myAccountAdapter } from "../components/views/account/myAccountView.js";
 import { createVueGoldTransferView } from "../components/views/goldTransfer/goldTransferView.js";
 import { createVueLoginView } from "../components/views/login/loginView.js";
@@ -47,11 +48,13 @@ import { gameDataAdapter, getVar, getGameMapNames } from "../adapter/gameInterfa
 import { publishFxBridge } from "../adapter/fxBridge.js";
 import { createGameSdk } from "../adapter/gameSdk.js";
 import { createLobbyChatSocketAdapter } from "../adapter/lobbyChatSocketAdapter.js";
+import { createNativeNotificationAdapter } from "../adapter/nativeNotificationAdapter.js";
 import { createNativeStartup } from "./nativeStartup.js";
 import { networkDebug } from "./networkDebug.js";
 
 const gameSdk = createGameSdk({ getMapNames: getGameMapNames });
 const lobbyChatAdapter = createLobbyChatSocketAdapter(gameSdk);
+const nativeNotificationAdapter = createNativeNotificationAdapter({ lobbyChatFeed, pingFilter, settingsApi });
 const nativeStartup = createNativeStartup();
 
 // Stable bridge used by injected game patches. Keep this surface explicit:
@@ -80,6 +83,7 @@ const fxBridge = publishFxBridge(window, {
   lobbyReminders,
   lobbyChatFeed,
   lobbyChatAdapter,
+  nativeNotificationAdapter,
   pingFilter,
   nameFilter,
   followedAccounts,
@@ -143,6 +147,8 @@ try { createVueGameDebugHud(); }
 catch (error) { console.error("[ZFX Client] Game debug HUD failed to initialize:", error); }
 try { createVueGameMinimapWidget(); }
 catch (error) { console.error("[ZFX Client] Game minimap HUD failed to initialize:", error); }
+try { createVueGameActionQueueWidget(); }
+catch (error) { console.error("[ZFX Client] Game action queue HUD failed to initialize:", error); }
 createVueLogsView();
 createVueMyAccountView();
 createVueGoldTransferView();

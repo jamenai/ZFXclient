@@ -18,11 +18,12 @@ export default definePatch((modUtils) => {
         if (!currentLanguageCodesHookInstalled) console.info("[ZFX Client] Native language-code adapter hook is absent in this game version.");
     }
 
-    // In 2.17.9 the notification manager receives decoded entries through
-    // aHZ.aIK. Filter before it appends to the native popup queue or plays sound.
+    // aHZ.aIK receives both server entries and local chat confirmation prompts.
+    // Forward them through one adapter before native popup filtering/rendering.
     const currentNotificationHook = /this\.aIK=function\(pi\)\{/g;
     const before = modUtils.script;
-    replace(currentNotificationHook, 'this.aIK=function(pi){if(window.__fx?.pingFilter?.isMuted?.(pi,"s"))return;');
+    replace(currentNotificationHook,
+        'this.aIK=function(pi){var fxNativeNotificationHandled=false;if(window.__fx){var fxNativeNotificationText=bq.lr?.q2?.(pi,bq.lr?.q3?.(pi))?.s||pi?.s||"";fxNativeNotificationHandled=window.__fx.nativeNotificationAdapter?.receive?.(pi,fxNativeNotificationText)===true;}if(Number(pi?.id)===6&&fxNativeNotificationHandled)return;if(window.__fx?.pingFilter?.isMuted?.(pi,"s"))return;');
     if (modUtils.script === before) {
         // Older native bundles used aJX/aIJ instead.
         const legacyNotificationHook = /aJX\.push\(aIJ\);!bm\.buffer\.data\[14\]\.value&&aIJ\.id!==7&&bt\.play\(\);?/g;

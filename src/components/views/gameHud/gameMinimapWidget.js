@@ -3,28 +3,34 @@ import { loadGameHudVisibility } from "../../../modules/gameHudVisibility.js";
 
 const STORAGE_KEY = "zfx.gameMinimap.position.v1";
 const COLLAPSED_STORAGE_KEY = "zfx.gameMinimap.collapsed.v1";
+const SIZE_STORAGE_KEY = "zfx.gameMinimap.size.v1";
+const DEFAULT_WIDTH = 176;
 
 const GameMinimapWidget = defineComponent({
   name: "FxGameMinimapWidget",
   setup() {
     const canvas = ref(null);
+    const root = ref(null);
     const frameCanvas = ref(null);
     const snapshot = ref(null);
     const mapViewport = ref(null);
     const gameReady = ref(false);
+    const matchFinished = ref(false);
     const hudVisibility = ref(loadGameHudVisibility());
     const collapsed = ref(false);
-    const visible = computed(() => gameReady.value && hudVisibility.value.minimap);
+    const size = ref({ width: DEFAULT_WIDTH });
+    const visible = computed(() => gameReady.value && !matchFinished.value && hudVisibility.value.minimap);
     const dataError = ref("");
     const mapPanning = ref(false);
     const sidebarOffset = () => {
       const width = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--fx-sidebar-width")) || 0;
       return Math.max(18, width + 14);
     };
-    const position = ref({ left: sidebarOffset(), bottom: 18 });
+    const position = ref({ left: sidebarOffset(), top: Math.max(8, window.innerHeight - 190) });
     let pollTimer = 0;
     let viewportTimer = 0;
     let drag = null;
+    let resizeDrag = null;
     let suppressHeaderClick = false;
     let clearHeaderClickTimer = 0;
     let mapPanPointerId = null;
@@ -33,8 +39,25 @@ const GameMinimapWidget = defineComponent({
     const loadPosition = () => {
       try {
         const saved = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "null");
-        if (Number.isFinite(saved?.left) && Number.isFinite(saved?.bottom)) position.value = { ...saved, left: Math.max(saved.left, sidebarOffset()) };
+        const height = root.value?.getBoundingClientRect?.().height || (collapsed.value ? 40 : (size.value.width - 24) * .75 + 52);
+        const top = Number.isFinite(saved?.top) ? saved.top
+          : Number.isFinite(saved?.bottom) ? window.innerHeight - saved.bottom - height
+            : window.innerHeight - height - 18;
+        const left = Number.isFinite(saved?.left) ? saved.left : sidebarOffset();
+        position.value = {
+          left: Math.max(sidebarOffset(), Math.min(window.innerWidth - size.value.width - 8, left)),
+          top: Math.max(8, Math.min(window.innerHeight - height - 8, top)),
+        };
       } catch { /* Ignore invalid saved coordinates. */ }
+    };
+    const loadSize = () => {
+      try {
+        const saved = JSON.parse(window.localStorage.getItem(SIZE_STORAGE_KEY) || "null");
+        if (Number.isFinite(saved?.width)) size.value = { width: Math.max(144, Math.min(480, saved.width)) };
+      } catch { /* Ignore invalid saved dimensions. */ }
+    };
+    const savePosition = () => {
+      try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(position.value)); } catch { /* Storage may be unavailable. */ }
     };
     const loadCollapsed = () => {
       try { collapsed.value = JSON.parse(window.localStorage.getItem(COLLAPSED_STORAGE_KEY) || "false") === true; } catch { collapsed.value = false; }
@@ -47,8 +70,9 @@ const GameMinimapWidget = defineComponent({
       event?.currentTarget?.blur?.();
     };
     const syncLayoutSettings = () => {
-      loadPosition();
       loadCollapsed();
+      loadSize();
+      loadPosition();
       hudVisibility.value = loadGameHudVisibility();
       refresh();
     };
@@ -108,6 +132,7 @@ const GameMinimapWidget = defineComponent({
     const refresh = () => {
       const adapter = window.__fx?.gameMinimapAdapter;
       gameReady.value = window.__fx?.gameLeaderboardHudReady === true;
+      matchFinished.value = window.__fx?.nativeGameFinished === true;
       if (!visible.value) {
         snapshot.value = null;
         mapViewport.value = null;
@@ -167,36 +192,61 @@ const GameMinimapWidget = defineComponent({
     const zoomMainMap = event => {
       event.preventDefault();
       event.stopPropagation();
+      const rect = canvas.value?.getBoundingClientRect();
+      if (!rect) return;
+      const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+      const y = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
       const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? window.innerHeight : 1;
-      window.__fx?.gameMinimapAdapter?.zoom?.(event.deltaY * unit);
+      window.__fx?.gameMinimapAdapter?.zoom?.(event.deltaY * unit, x, y);
     };
     const startMove = event => {
       if (event.button !== 0) return;
       event.preventDefault();
       event.stopPropagation();
-      drag = { x: event.clientX, y: event.clientY, left: position.value.left, bottom: position.value.bottom, moved: false };
+      drag = { x: event.clientX, y: event.clientY, left: position.value.left, top: position.value.top, moved: false };
       event.currentTarget.setPointerCapture?.(event.pointerId);
     };
     const move = event => {
+      if (resizeDrag) {
+        event.preventDefault();
+        event.stopPropagation();
+        const maxWidth = Math.max(144, Math.min(480, window.innerWidth - position.value.left - 8));
+        size.value = { width: Math.max(144, Math.min(maxWidth, resizeDrag.width + event.clientX - resizeDrag.x)) };
+        return;
+      }
       if (!drag) return;
       const dx = event.clientX - drag.x;
       const dy = event.clientY - drag.y;
       if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
+      const height = root.value?.getBoundingClientRect?.().height || 190;
       position.value = {
-        left: Math.max(0, Math.min(window.innerWidth - 170, drag.left + dx)),
-        bottom: Math.max(0, Math.min(window.innerHeight - 130, drag.bottom - dy)),
+        left: Math.max(sidebarOffset(), Math.min(window.innerWidth - size.value.width - 8, drag.left + dx)),
+        top: Math.max(8, Math.min(window.innerHeight - height - 8, drag.top + dy)),
       };
     };
     const endMove = () => {
       if (!drag) return;
       const moved = drag.moved;
       drag = null;
-      try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(position.value)); } catch { /* Storage may be unavailable. */ }
+      savePosition();
       if (moved) {
         suppressHeaderClick = true;
         window.clearTimeout(clearHeaderClickTimer);
         clearHeaderClickTimer = window.setTimeout(() => { suppressHeaderClick = false; }, 0);
       }
+    };
+    const startResize = event => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      resizeDrag = { x: event.clientX, width: size.value.width };
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+    };
+    const endResize = () => {
+      if (!resizeDrag) return;
+      resizeDrag = null;
+      try { window.localStorage.setItem(SIZE_STORAGE_KEY, JSON.stringify(size.value)); } catch { /* Storage may be unavailable. */ }
+      loadPosition();
     };
     const onHeaderClick = event => {
       if (suppressHeaderClick) {
@@ -207,15 +257,23 @@ const GameMinimapWidget = defineComponent({
       }
       toggleCollapsed(event);
     };
-    const style = () => ({ left: `${position.value.left}px`, bottom: `${position.value.bottom}px` });
+    const style = () => ({ left: `${position.value.left}px`, top: `${position.value.top}px`, width: `${size.value.width}px` });
+    const clampPosition = () => {
+      const height = root.value?.getBoundingClientRect?.().height || (collapsed.value ? 40 : (size.value.width - 24) * .75 + 52);
+      position.value = {
+        left: Math.max(sidebarOffset(), Math.min(window.innerWidth - size.value.width - 8, position.value.left)),
+        top: Math.max(8, Math.min(window.innerHeight - height - 8, position.value.top)),
+      };
+    };
     watch(snapshot, draw, { flush: "post" });
     watch([snapshot, mapViewport], drawViewportFrame, { flush: "post" });
 
     onMounted(() => {
-      loadPosition();
       loadCollapsed();
+      loadSize();
+      loadPosition();
       window.__fx ||= {};
-      window.__fx.gameMinimapHud = { reloadPosition: loadPosition };
+      window.__fx.gameMinimapHud = { reloadPosition: syncLayoutSettings };
       window.addEventListener("fx-game-hud-layout-loaded", syncLayoutSettings);
       window.addEventListener("fx-game-hud-visibility-changed", syncVisibility);
       refresh();
@@ -223,27 +281,34 @@ const GameMinimapWidget = defineComponent({
       viewportTimer = window.setInterval(refreshViewport, 60);
       window.addEventListener("pointermove", move);
       window.addEventListener("pointerup", endMove);
+      window.addEventListener("pointerup", endResize);
+      window.addEventListener("resize", clampPosition);
+      document.addEventListener("fullscreenchange", clampPosition);
     });
     onBeforeUnmount(() => {
       window.clearInterval(pollTimer);
       window.clearInterval(viewportTimer);
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", endMove);
+      window.removeEventListener("pointerup", endResize);
+      window.removeEventListener("resize", clampPosition);
+      document.removeEventListener("fullscreenchange", clampPosition);
       window.removeEventListener("fx-game-hud-layout-loaded", syncLayoutSettings);
       window.removeEventListener("fx-game-hud-visibility-changed", syncVisibility);
       window.clearTimeout(clearHeaderClickTimer);
-      if (window.__fx?.gameMinimapHud?.reloadPosition === loadPosition) delete window.__fx.gameMinimapHud;
+      if (window.__fx?.gameMinimapHud?.reloadPosition === syncLayoutSettings) delete window.__fx.gameMinimapHud;
     });
-    return { canvas, frameCanvas, snapshot, visible, collapsed, dataError, mapPanning, style, startMove, startMapPan, continueMapPan, endMapPan, zoomMainMap, onHeaderClick };
+    return { root, canvas, frameCanvas, snapshot, visible, collapsed, dataError, mapPanning, style, startMove, startResize, endResize, startMapPan, continueMapPan, endMapPan, zoomMainMap, onHeaderClick };
   },
   template: `
-    <aside v-if="visible" class="fx-game-minimap" :class="{ 'is-collapsed': collapsed }" :style="style()" aria-label="Game minimap">
+    <aside v-if="visible" ref="root" class="fx-game-minimap" :class="{ 'is-collapsed': collapsed }" :style="style()" aria-label="Game minimap">
       <header :aria-expanded="!collapsed" :title="collapsed ? 'Zum Ausklappen klicken oder zum Verschieben ziehen' : 'Zum Einklappen klicken oder zum Verschieben ziehen'" @pointerdown="startMove" @click="onHeaderClick"><span class="fx-game-minimap-icon" aria-hidden="true"><svg viewBox="0 0 16 16" focusable="false"><path d="M1.5 3.5 5.5 2l5 1.5 4-1.5v10.5l-4 1.5-5-1.5-4 1.5z"/><path d="M5.5 2v10.5M10.5 3.5V14"/></svg></span><strong>MAP</strong><small v-if="!collapsed">CLICK TO MOVE</small></header>
       <div v-if="!collapsed && snapshot" class="fx-game-minimap-view" :class="{ 'is-panning': mapPanning }" aria-label="Minimap with current game map view">
         <canvas ref="canvas" class="fx-game-minimap-map" @pointerdown="startMapPan" @pointermove="continueMapPan" @pointerup="endMapPan" @pointercancel="endMapPan" @lostpointercapture="endMapPan" @wheel="zoomMainMap" aria-label="Hold and drag to move across the game map; use the wheel to zoom the game map"></canvas>
         <canvas ref="frameCanvas" class="fx-game-minimap-frame" aria-hidden="true"></canvas>
       </div>
       <div v-else-if="!collapsed" class="fx-game-minimap-placeholder">{{ dataError || 'Loading mapâ€¦' }}</div>
+      <button v-if="!collapsed" type="button" class="fx-game-minimap-resize" aria-label="Resize minimap" title="Drag to resize" @pointerdown="startResize" @pointerup="endResize" @pointercancel="endResize" @click.stop.prevent></button>
     </aside>
   `,
 });
@@ -258,6 +323,7 @@ export function createVueGameMinimapWidget() {
       .fx-game-minimap.is-collapsed{padding:8px 10px}
       .fx-game-minimap header{display:flex;align-items:center;gap:8px;box-sizing:border-box;padding:0 0 6px;margin-bottom:6px;border-bottom:1px solid rgba(150,185,225,.14);color:#9fb2cb;cursor:grab;touch-action:none;letter-spacing:.08em}.fx-game-minimap header:active{cursor:grabbing}.fx-game-minimap.is-collapsed header{padding-bottom:0;margin-bottom:0;border-bottom:0}.fx-game-minimap header .fx-game-minimap-icon{display:grid;place-items:center;flex:0 0 18px;width:18px;height:18px;border-radius:5px;background:color-mix(in srgb,var(--fx-game-team-accent,#9bc4ff) 20%,rgba(130,180,240,.13));color:var(--fx-game-team-accent,#a8d0ff);line-height:1}.fx-game-minimap header .fx-game-minimap-icon svg{display:block;width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.fx-game-minimap header strong{font-size:10px;font-weight:750;letter-spacing:.08em}.fx-game-minimap header small{margin-left:auto;color:#99abc0;font-size:9px;letter-spacing:.04em;white-space:nowrap}
       .fx-game-minimap-view{position:relative;width:100%;aspect-ratio:4/3;overflow:hidden;border-radius:5px}.fx-game-minimap-view canvas{position:absolute;inset:0;display:block;width:100%;height:100%;border-radius:5px;touch-action:none}.fx-game-minimap-map{cursor:grab;image-rendering:pixelated}.fx-game-minimap-view.is-panning .fx-game-minimap-map{cursor:grabbing}.fx-game-minimap-frame{pointer-events:none}
+      .fx-game-minimap-resize{position:absolute;right:2px;bottom:2px;width:16px;height:16px;padding:0;border:0;border-right:2px solid rgba(168,208,255,.72);border-bottom:2px solid rgba(168,208,255,.72);border-radius:0 0 6px 0;background:transparent;opacity:.6;cursor:nwse-resize;touch-action:none}.fx-game-minimap-resize:hover{opacity:1}
       .fx-game-minimap-placeholder{display:grid;place-items:center;min-height:72px;border-radius:5px;background:rgba(20,31,46,.8);color:#a9b8ca;font-size:10px}
     `.replace(/font-size:\s*([^;}]+)/g, (_match, declaration) => `font-size:${declaration.replace(/(\d+(?:\.\d+)?)px/g, "calc($1px * var(--fx-game-hud-font-scale,1))")}`)
       .replace(/(font:\s*(?:\d+\s+)?)(\d+(?:\.\d+)?)px(?=\/)/g, "$1calc($2px * var(--fx-game-hud-font-scale,1))");

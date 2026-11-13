@@ -9,6 +9,7 @@ const GameDebugHud = defineComponent({
     const network = ref(networkDebug.getSnapshot());
     let animationFrame = 0;
     let sampleTimer = 0;
+    let finishedTimer = 0;
     let frameCount = 0;
     let fpsUpdatedAt = 0;
 
@@ -54,9 +55,13 @@ const GameDebugHud = defineComponent({
       window.__fx ||= {};
       window.__fx.toggleNetworkDebugHud = toggle;
       window.addEventListener("keydown", onKeyDown);
+      finishedTimer = window.setInterval(() => {
+        if (window.__fx?.nativeGameFinished && visible.value) setVisible(false);
+      }, 200);
     });
     onBeforeUnmount(() => {
       stopSampling();
+      window.clearInterval(finishedTimer);
       window.removeEventListener("keydown", onKeyDown);
       if (window.__fx?.toggleNetworkDebugHud === toggle) delete window.__fx.toggleNetworkDebugHud;
     });

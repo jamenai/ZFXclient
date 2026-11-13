@@ -12,7 +12,7 @@ export default (/** @type {import('../modUtils.js').default} */ modUtils) => {
         );
         modUtils.replaceOne(
             /function a5y\(e\)\{if\(a61\(\)\)\{return;\}if\(i\.vF>0\)\{return;\}var code=e\.code;if\(!code\|\|!code\.length\)\{return;\}/g,
-            '$&if(window.__fx?.keybindHandler?.(e.key)){e.preventDefault();return;}'
+            '$&if(window.__fx?.keybindHandler?.(e)){e.preventDefault();return;}'
         );
         return;
     }

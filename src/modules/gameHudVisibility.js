@@ -10,6 +10,9 @@ export const GAME_HUD_VISIBILITY_DEFAULTS = Object.freeze({
   tickCounter: true,
   minimap: true,
   attackSelector: true,
+  actionQueue: true,
+  actionQueueFrame: true,
+  boatRoutes: true,
   keybindButtons: true,
 });
 
@@ -23,6 +26,8 @@ export const GAME_HUD_VISIBILITY_OPTIONS = Object.freeze([
   ["tickCounter", "Tick counter / balance"],
   ["minimap", "Minimap"],
   ["attackSelector", "Attack selector"],
+  ["actionQueue", "Running attacks / boats"],
+  ["actionQueueFrame", "Action list frame"],
   ["keybindButtons", "Keybind buttons"],
 ].map(([key, label]) => Object.freeze({ key, label })));
 

@@ -11,11 +11,12 @@ const GameKeybindHud = defineComponent({
     const layout = ref(null);
     const enabled = ref(settingsApi.getBoolean("keybindButtons"));
     const inMatch = ref(false);
+    const matchFinished = ref(false);
     const hudVisibility = ref(loadGameHudVisibility());
     const position = ref(null);
     let settingsTimer;
     let drag = null;
-    const visible = computed(() => enabled.value && hudVisibility.value.keybindButtons && inMatch.value && layout.value?.buttons?.length > 0);
+    const visible = computed(() => enabled.value && hudVisibility.value.keybindButtons && inMatch.value && !matchFinished.value && layout.value?.buttons?.length > 0);
     const getViewportPosition = current => {
       if (!position.value) return { left: current.left, top: current.top };
       return {
@@ -34,6 +35,7 @@ const GameKeybindHud = defineComponent({
         height: `${current.height}px`,
         gap: `${current.gap}px`,
         "--fx-keybind-base-font-size": `${current.fontSize}px`,
+        "--fx-keybind-rows": current.rows || 1,
       };
     });
     const receiveLayout = next => {
@@ -46,6 +48,7 @@ const GameKeybindHud = defineComponent({
         && previous.height === next.height
         && previous.gap === next.gap
         && previous.fontSize === next.fontSize
+        && previous.rows === next.rows
         && previous.buttons.map(button => button.label).join("|") === next.buttons.map(button => button.label).join("|")) return;
       layout.value = next;
     };
@@ -134,6 +137,7 @@ const GameKeybindHud = defineComponent({
         enabled.value = settingsApi.getBoolean("keybindButtons");
         const rawMatchState = window.__fx?.getGameVar?.("gMatchState");
         if (rawMatchState === undefined || rawMatchState === null) return;
+        matchFinished.value = window.__fx?.nativeGameFinished === true;
         const nextInMatch = Number(rawMatchState) > 0;
         inMatch.value = nextInMatch;
         if (!nextInMatch) {
@@ -174,7 +178,7 @@ export function createVueGameKeybindHud() {
     const style = document.createElement("style");
     style.id = styleId;
     style.textContent = `
-      .fx-game-keybind-hud{position:fixed;z-index:61;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));box-sizing:border-box;overflow:hidden;padding:2px;border:1px solid color-mix(in srgb,var(--fx-game-team-accent,#9bc4ff) 32%,rgba(150,185,225,.17));border-radius:9px;background:linear-gradient(145deg,rgba(20,30,45,var(--fx-game-hud-panel-alpha,.81)),rgba(9,15,26,var(--fx-game-hud-panel-alpha,.81)));box-shadow:inset 0 1px rgba(255,255,255,.055),0 4px 12px rgba(0,0,0,.16);backdrop-filter:blur(12px);pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;font-family:var(--fx-game-native-font-family,Arial,sans-serif);font-size:calc(var(--fx-keybind-base-font-size,12px) * var(--fx-game-hud-font-scale,1))}
+      .fx-game-keybind-hud{position:fixed;z-index:61;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));grid-template-rows:repeat(var(--fx-keybind-rows,1),minmax(0,1fr));box-sizing:border-box;overflow:hidden;padding:2px;border:1px solid color-mix(in srgb,var(--fx-game-team-accent,#9bc4ff) 32%,rgba(150,185,225,.17));border-radius:9px;background:linear-gradient(145deg,rgba(20,30,45,var(--fx-game-hud-panel-alpha,.81)),rgba(9,15,26,var(--fx-game-hud-panel-alpha,.81)));box-shadow:inset 0 1px rgba(255,255,255,.055),0 4px 12px rgba(0,0,0,.16);backdrop-filter:blur(12px);pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;font-family:var(--fx-game-native-font-family,Arial,sans-serif);font-size:calc(var(--fx-keybind-base-font-size,12px) * var(--fx-game-hud-font-scale,1))}
       .fx-game-keybind-hud button{min-width:0;height:100%;padding:0 3px;border:0;border-right:1px solid color-mix(in srgb,var(--fx-game-team-accent,#9bc4ff) 30%,rgba(110,180,220,.16));background:transparent;color:#f5f8ff;font:700 1em/1 var(--fx-game-native-font-family,Arial,sans-serif);text-align:center;white-space:nowrap;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none}
       .fx-game-keybind-hud button:first-child{border-radius:5px 0 0 5px}
       .fx-game-keybind-hud button:last-child{border-right:0;border-radius:0 5px 5px 0}

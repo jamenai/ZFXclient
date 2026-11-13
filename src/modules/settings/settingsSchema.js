@@ -9,6 +9,7 @@ const defaultValues = Object.freeze({
   showPlayerDensity: true,
   playerDensityFontScale: 100,
   showEstimatedEliminationAttack: false,
+  territoryOwnerTooltip: true,
   estimatedAttackFontScale: 100,
   estimatedAttackTroopMultiplier: 2,
   estimatedAttackGreenThreshold: 25,
@@ -30,6 +31,7 @@ const defaultValues = Object.freeze({
   startingPercentage: 50,
   hidePropagandaPopup: false,
   showLobbyNotificationCloseButton: false,
+  clanMentionConfirmationMode: "ui",
   "lobbyNotifications.autoMinimize": true,
   "lobbyNotifications.autoMinimizeDelaySeconds": 6,
   showReplayTimebar: true,
@@ -73,11 +75,13 @@ schemaEntries.uiTransparency = { type: "number", min: 0, max: 45 };
 schemaEntries.gameHudTransparency = { type: "number", min: 0, max: 70 };
 schemaEntries.gameStatusHudStyle = { type: "string", values: ["tiles", "strip", "rows"] };
 schemaEntries["lobbyNotifications.autoMinimizeDelaySeconds"] = { type: "number", min: 1, max: 30 };
+schemaEntries.clanMentionConfirmationMode = { type: "string", values: ["ui", "chat", "auto"] };
 schemaEntries.uiSkin = { type: "string", values: ["zfx", "blue", "violet", "amber", "rose"] };
 schemaEntries.densityDisplayStyle = { type: "string", values: ["percentage", "absoluteQuotient"] };
 for (const definition of Object.values(schemaEntries)) Object.freeze(definition);
 Object.freeze(schemaEntries.densityDisplayStyle.values);
 Object.freeze(schemaEntries.gameStatusHudStyle.values);
+Object.freeze(schemaEntries.clanMentionConfirmationMode.values);
 export const SETTINGS_SCHEMA = Object.freeze(schemaEntries);
 
 export const DISCONTINUED_SETTINGS = Object.freeze([

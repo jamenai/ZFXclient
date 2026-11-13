@@ -7,6 +7,7 @@ export const GameTickCounterWidget = defineComponent({
     positionStyle: { type: Object, default: () => ({}) },
     showTick: { type: Boolean, default: true },
     fontScale: { type: Number, default: 100 },
+    counterSide: { type: String, default: "left" },
   },
   emits: ["start-move"],
   setup(props) {
@@ -111,7 +112,7 @@ export const GameTickCounterWidget = defineComponent({
     return { balanceElement, headerElement, incomeElement, tickElement, totalsElement, totalTicksElement, totalCyclesElement, balanceFontSize, tickFontSize, totalsFontSize };
   },
   template: `
-    <div v-if="snapshot && snapshot.visible !== false" class="fx-game-tick-hud" :class="snapshot.isGrowing ? 'is-growing' : 'is-falling'" :style="[positionStyle,{ width: showTick ? '312px' : '232px' }]" aria-label="Balance and tick counter">
+    <div v-if="snapshot && snapshot.visible !== false" class="fx-game-tick-hud" :class="[snapshot.isGrowing ? 'is-growing' : 'is-falling', snapshot.donationHighlight ? 'is-donation' : '', counterSide === 'right' ? 'is-counter-right' : '']" :style="[positionStyle,{ width: showTick ? '312px' : '232px' }]" aria-label="Balance and tick counter">
       <span v-if="showTick" class="fx-game-tick-counter" aria-label="Current tick and match totals" title="Current tick · total ticks | total cycles" @pointerdown="$emit('start-move',$event)">
         <span class="fx-game-tick-cycle"><strong ref="tickElement" :style="{ fontSize: tickFontSize + 'px' }">{{ snapshot.cycleTick }}</strong></span>
         <span ref="totalsElement" class="fx-game-tick-totals" :style="{ fontSize: totalsFontSize + 'px' }" aria-label="Total ticks and cycles">

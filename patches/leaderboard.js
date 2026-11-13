@@ -23,7 +23,7 @@ export default definePatch((modUtils) => {
 		replaceOne(/this\.el=function\(\)\{aFD\(\);aFE\(\);aFF\(\);aFG\(\);\};/g,
 			'this.el=function(){aFD();aFE();if(window.__fx?.gameLeaderboardAdapter){window.__fx.gameLeaderboardAdapter.focusPlayer=function(playerId){var id=Number(playerId);if(!Number.isInteger(id)||id<0||id>=aE.fd)return false;aI.o0(id,800,false,0);bi.du=true;return true;};if(window.__fx.gameLeaderboardAdapter.receiveNativeSnapshot){var fxNow=Date.now();if(fxNow-(window.__fx.gameLeaderboardLastSent||0)>180){window.__fx.gameLeaderboardLastSent=fxNow;var fxPlayers=md.slice(0,aE.fd).map(function(id,index){return{id:id,rank:index+1,name:ah.a4x[id]||("Player "+(id+1)),territories:Number(ah.hU[id])||0,isAlive:ah.ne[id]!==0,isBot:id>=aE.l2,teamId:window.__fx.getNativePlayerTeamId?.(id)??null,color:window.__fx.getNativePlayerColor?.(id)??null};});var fxOwn=fxPlayers.find(function(player){return player.id===aE.fQ})||null;window.__fx.gameLeaderboardAdapter.receiveNativeSnapshot({updatedAt:fxNow,total:aE.fd,humanCount:aE.l2,botCount:aE.lO,spectatorCount:0,ownPlayerId:aE.fQ,ownRank:kn[aE.fQ]+1,players:fxPlayers,ownPlayer:fxOwn});}}}aFF();aFG();};');
 		replaceOne(/this\.yr=function\(\)\{ys\.drawImage\(aEc,bf\.gap,bf\.gap\);\};/g,
-			'this.yr=function(){if(window.__fx?.gameLeaderboardHudReady)return;ys.drawImage(aEc,bf.gap,bf.gap);};');
+			'this.yr=function(){};');
 		replaceOne(/this\.hu=function\(fn,fp\)\{if\(a3D\(fn,fp\)\)\{/g,
 			'this.hu=function(fn,fp){if(window.__fx?.gameLeaderboardHudReady)return false;if(a3D(fn,fp)){');
 		replaceOne(/this\.a5m=function\(fn,fp\)\{var eh;/g,
@@ -35,6 +35,36 @@ export default definePatch((modUtils) => {
 		console.info("[ZFX Client] Installed native in-game leaderboard snapshot adapter.");
 	} else {
 		console.info("[ZFX Client] Native in-game leaderboard update hook is absent in this game version.");
+	}
+
+	// The current native action queue contains one row per running attack and
+	// boat. Forward each row's native placement to the Vue replacement and hide
+	// the canvas copy while keeping native cancel handlers available.
+	if (/a9L\[aC\]\.canvas/.test(modUtils.script)) {
+		replaceOne(/ys\.drawImage\(a9L\[aC\]\.canvas,aC0\(aC\),aC1\(aC\)\)/g,
+			'window.__fx.gameActionQueueAdapter||(window.__fx.gameActionQueueAdapter={getSnapshot:function(){return a9L.map(function(row,index){var target=Number(row.kB),type=Number(row.id)===0?"attack":"boat",displayTarget=target,route=[];if(type==="boat"){displayTarget=Number(window.__fx.gameBoatTargetById?.[target]);if(!Number.isInteger(displayTarget)||displayTarget<0||displayTarget>=aE.fd)displayTarget=-1;var fxBoatPlayer=aE.fQ,fxBoatCount=Number(bQ.z?.l6?.[fxBoatPlayer])||0;for(var fxBoatIndex=0;fxBoatIndex<fxBoatCount;fxBoatIndex++){var fxBoatRecord=bQ.z.aCC[(fxBoatPlayer<<3)+fxBoatIndex];if(Number(bQ.z.mv[fxBoatRecord])!==target)continue;var fxPath=bQ.z.mu[fxBoatRecord],fxDestination=Array.isArray(fxPath)&&fxPath.length?Number(fxPath[fxPath.length-1]):-1,fxCanvas=ys.canvas,fxRect=fxCanvas?.getBoundingClientRect?.();if(fxRect?.width&&fxRect?.height){var fxViewWidth=Number(i.j)||fxCanvas.width,fxViewHeight=Number(i.k)||fxCanvas.height,fxBoatPosition=Number(bQ.z.n7[fxBoatRecord]),fxGridWidth=bV.fr<<4,fxWorldX=fxBoatPosition%fxGridWidth/16,fxWorldY=Math.floor(fxBoatPosition/fxGridWidth)/16;route.push({x:fxRect.left+(iv*fxWorldX-jL)*fxRect.width/fxViewWidth,y:fxRect.top+(iv*fxWorldY-jM)*fxRect.height/fxViewHeight});for(var fxRouteIndex=(Number(bQ.z.n6[fxBoatRecord])||0)+1;fxRouteIndex<fxPath.length;fxRouteIndex++){var fxRouteTile=Number(fxPath[fxRouteIndex]);route.push({x:fxRect.left+(iv*bP.fo(fxRouteTile)-jL)*fxRect.width/fxViewWidth,y:fxRect.top+(iv*bP.fq(fxRouteTile)-jM)*fxRect.height/fxViewHeight});}}if(displayTarget<0&&Number.isInteger(fxDestination)&&fxDestination>=0){var fxCell=bP.fW(fxDestination);if(ad.hG(fxCell))displayTarget=ad.fY(fxCell);else for(var fxSide=0;fxSide<4;fxSide++){var fxNeighbor=fxCell+bP.ip[fxSide];if(bP.jP(bP.fU(fxNeighbor))&&ad.hG(fxNeighbor)){displayTarget=ad.fY(fxNeighbor);break;}}}break;}}var validPlayer=Number.isInteger(displayTarget)&&displayTarget>=0&&displayTarget<aE.fd,playerName=validPlayer?(ah.a2j[displayTarget]||ah.a4x[displayTarget]||("Player "+(displayTarget+1))):null;return{key:type+":"+target,type:type,target:target,playerId:validPlayer?displayTarget:null,units:Number(row.iQ)||0,path:route,name:type==="boat"?(playerName?"→ "+playerName:"→ Unknown target"):target===aE.fd?"Neutral land":playerName||"Neutral land",color:validPlayer?(aE.ib?(bj.aag?.[bj.lP?.[bj.fe?.[displayTarget]]]||window.__fx.getNativePlayerTeamColor?.(displayTarget)||null):(window.__fx.gameMinimapAdapter?.getPlayerColor?.(displayTarget)||window.__fx.getNativePlayerColor?.(displayTarget)||null)):null};});},getBoatRoutes:function(){var fxRoutes=[],fxCanvas=ys.canvas,fxRect=fxCanvas?.getBoundingClientRect?.();if(!fxRect?.width||!fxRect?.height)return fxRoutes;var fxViewWidth=Number(i.j)||fxCanvas.width,fxViewHeight=Number(i.k)||fxCanvas.height,fxGridWidth=bV.fr<<4;for(var fxBoatRecord=0;fxBoatRecord<(Number(bQ.z?.ms)||0);fxBoatRecord++){var fxOwner=Number(bQ.z.mw[fxBoatRecord]>>3);var fxId=Number(bQ.z.mv[fxBoatRecord]),fxPath=bQ.z.mu[fxBoatRecord];if(!Array.isArray(fxPath)||!fxPath.length)continue;var fxBoatPosition=Number(bQ.z.n7[fxBoatRecord]),fxWorldX=fxBoatPosition%fxGridWidth/16,fxWorldY=Math.floor(fxBoatPosition/fxGridWidth)/16,fxPoints=[{x:fxRect.left+(iv*fxWorldX-jL)*fxRect.width/fxViewWidth,y:fxRect.top+(iv*fxWorldY-jM)*fxRect.height/fxViewHeight}];for(var fxRouteIndex=(Number(bQ.z.n6[fxBoatRecord])||0)+1;fxRouteIndex<fxPath.length;fxRouteIndex++){var fxRouteTile=Number(fxPath[fxRouteIndex]);fxPoints.push({x:fxRect.left+(iv*bP.fo(fxRouteTile)-jL)*fxRect.width/fxViewWidth,y:fxRect.top+(iv*bP.fq(fxRouteTile)-jM)*fxRect.height/fxViewHeight});}var fxDestination=Number(fxPath[fxPath.length-1]),fxCell=bP.fW(fxDestination),fxTarget=ad.hG(fxCell)?ad.fY(fxCell):-1;if(fxTarget<0)for(var fxSide=0;fxSide<4;fxSide++){var fxNeighbor=fxCell+bP.ip[fxSide];if(bP.jP(bP.fU(fxNeighbor))&&ad.hG(fxNeighbor)){fxTarget=ad.fY(fxNeighbor);break;}}var fxColor=fxTarget>=0&&fxTarget<aE.fd?(aE.ib?(bj.aag?.[bj.lP?.[bj.fe?.[fxTarget]]]||null):(window.__fx.gameMinimapAdapter?.getPlayerColor?.(fxTarget)||window.__fx.getNativePlayerColor?.(fxTarget)||null)):null;fxRoutes.push({key:"other-boat:"+fxId,type:"boat",ownerId:fxOwner,targetPlayerId:fxTarget,name:fxTarget>=0&&fxTarget<aE.fd?(ah.a2j[fxTarget]||ah.a4x[fxTarget]||("Player "+(fxTarget+1))):"Unknown target",color:fxColor||"#9db0c8",path:fxPoints});}return fxRoutes;},stopAttack:function(target){target=Number(target);if(!Number.isInteger(target)||!ae.kN(aE.fQ,target))return false;bB.i7.sA(target);return true;},reinforceAttack:function(target){target=Number(target);if(!Number.isInteger(target)||!ae.kN(aE.fQ,target))return false;bY.a9m(3);bB.i7.iE(aS.iB(),target);return true;},stopBoat:function(target){target=Number(target);if(!Number.isInteger(target))return false;bB.i7.s9(target);return true;},receiveNativeLayout:function(index,x,y,width,rowHeight,total){if(Number(index)!==0)return;var canvas=ys.canvas,rect=canvas?.getBoundingClientRect?.();if(!canvas||!rect?.width||!rect?.height||!canvas.width||!canvas.height)return;this.layout={left:rect.left+x*rect.width/canvas.width,top:rect.top+y*rect.height/canvas.height,width:width*rect.width/canvas.width,rowHeight:rowHeight*rect.height/canvas.height,total:Number(total)||0,updatedAt:Date.now()};}});window.__fx.gameActionQueueAdapter.receiveNativeLayout(aC,aC0(aC),aC1(aC),a9L[aC].canvas.width,a1A,a9L.length);');
+		console.info("[ZFX Client] Native attack and boat action rows are bridged to the Vue stop-action HUD.");
+	}
+	// A locally dispatched boat already has its exact target player in the
+	// native command. Keep that association keyed by the boat id assigned next.
+	let boatTargetHookInstalled = false;
+	if (/this\.iM\s*=\s*function\(player,\s*jK,\s*o2\)/.test(modUtils.script)) {
+		replaceOne(/this\.iM\s*=\s*function\(player,\s*jK,\s*o2\)\s*\{/g,
+			'$&window.__fx.gameBoatTargetById=window.__fx.gameBoatTargetById||{};window.__fx.gameBoatTargetById[bQ.z.nB]=jK;');
+		boatTargetHookInstalled = true;
+	}
+	if (/this\.iJ\s*=\s*function\(player,\s*jK,\s*s5\)/.test(modUtils.script)) {
+		replaceOne(/this\.iJ\s*=\s*function\(player,\s*jK,\s*s5\)\s*\{/g,
+			'$&window.__fx.gameBoatTargetById=window.__fx.gameBoatTargetById||{};window.__fx.gameBoatTargetById[bQ.z.nB]=jK;');
+		boatTargetHookInstalled = true;
+	}
+	if (boatTargetHookInstalled) console.info("[ZFX Client] Native boat launches and retargets are associated with their destination players.");
+	// Keep an independent route feed alive even when the local player has no
+	// attacks or boats, so routes from every other player can still be shown.
+	if (/function cN\(\)\{/.test(modUtils.script)) {
+		replaceOne(/function cN\(\)\{/g,
+			'function cN(){window.__fx.gameBoatRoutesAdapter=window.__fx.gameBoatRoutesAdapter||{getSnapshot:function(){var fxRoutes=[],fxCanvas=ys.canvas,fxRect=fxCanvas?.getBoundingClientRect?.();if(!fxRect?.width||!fxRect?.height)return fxRoutes;var fxViewWidth=Number(i.j)||fxCanvas.width,fxViewHeight=Number(i.k)||fxCanvas.height,fxGridWidth=bV.fr<<4;for(var fxBoatRecord=0;fxBoatRecord<(Number(bQ.z?.ms)||0);fxBoatRecord++){var fxOwner=Number(bQ.z.mw[fxBoatRecord]>>3);var fxId=Number(bQ.z.mv[fxBoatRecord]),fxPath=bQ.z.mu[fxBoatRecord];if(!Array.isArray(fxPath)||!fxPath.length)continue;var fxBoatPosition=Number(bQ.z.n7[fxBoatRecord]),fxWorldX=fxBoatPosition%fxGridWidth/16,fxWorldY=Math.floor(fxBoatPosition/fxGridWidth)/16,fxPoints=[{x:fxRect.left+(iv*fxWorldX-jL)*fxRect.width/fxViewWidth,y:fxRect.top+(iv*fxWorldY-jM)*fxRect.height/fxViewHeight}];for(var fxRouteIndex=(Number(bQ.z.n6[fxBoatRecord])||0)+1;fxRouteIndex<fxPath.length;fxRouteIndex++){var fxRouteTile=Number(fxPath[fxRouteIndex]);fxPoints.push({x:fxRect.left+(iv*bP.fo(fxRouteTile)-jL)*fxRect.width/fxViewWidth,y:fxRect.top+(iv*bP.fq(fxRouteTile)-jM)*fxRect.height/fxViewHeight});}var fxDestination=Number(fxPath[fxPath.length-1]),fxCell=bP.fW(fxDestination),fxTarget=ad.hG(fxCell)?ad.fY(fxCell):-1;if(fxTarget<0)for(var fxSide=0;fxSide<4;fxSide++){var fxNeighbor=fxCell+bP.ip[fxSide];if(bP.jP(bP.fU(fxNeighbor))&&ad.hG(fxNeighbor)){fxTarget=ad.fY(fxNeighbor);break;}}var fxColor=fxTarget>=0&&fxTarget<aE.fd?(aE.ib?(bj.aag?.[bj.lP?.[bj.fe?.[fxTarget]]]||null):(window.__fx.gameMinimapAdapter?.getPlayerColor?.(fxTarget)||window.__fx.getNativePlayerColor?.(fxTarget)||null)):null;fxRoutes.push({key:"other-boat:"+fxId,type:"boat",ownerId:fxOwner,targetPlayerId:fxTarget,name:fxTarget>=0&&fxTarget<aE.fd?(ah.a2j[fxTarget]||ah.a4x[fxTarget]||("Player "+(fxTarget+1))):"Unknown target",color:fxColor||"#9db0c8",path:fxPoints});}return fxRoutes;}};');
+		console.info("[ZFX Client] Native routes from other players are available to the boat-route HUD.");
 	}
 
 	// dT owns the native team-share pie chart in the current game build. Hide
@@ -49,13 +79,13 @@ export default definePatch((modUtils) => {
 
 	// Current status panel cU owns the labels, visibility flags, and formatted
 	// values used by the four Vue status widgets. Forward its live rows and hide
-	// the native duplicate once the Vue replacement has data.
+		// the native duplicate permanently; the Vue owns the visible replacement.
 	if (/function cU\(\)\{/.test(modUtils.script)
 		&& /this\.el=function\(\)\{aFj\(\);aFk\(\);this\.nH\(\);aFl\(\);aFc\(\);aFm\(\);aFn\(\);aFo\(\);\};/.test(modUtils.script)) {
 		replaceOne(/this\.el=function\(\)\{aFj\(\);aFk\(\);this\.nH\(\);aFl\(\);aFc\(\);aFm\(\);aFn\(\);aFo\(\);\};/g,
 			'this.el=function(){aFj();aFk();this.nH();aFl();aFc();aFm();aFn();aFo();var fxStatusNow=Date.now();if(window.__fx?.gameStatusHudAdapter?.receiveNativeSnapshot&&fxStatusNow-(window.__fx.gameStatusHudLastSent||0)>=250){window.__fx.gameStatusHudLastSent=fxStatusNow;window.__fx.gameStatusHudAdapter.receiveNativeSnapshot({updatedAt:fxStatusNow,rows:aFU.map(function(label,index){return{index:index,label:label,value:aFd(index),visible:!!aFX[index]};}).filter(function(row){return row.visible&&row.label;})});}};');
 		replaceOne(/this\.yr=function\(\)\{ys\.drawImage\(canvas,fn,fp\);\};/g,
-			'this.yr=function(){if(window.__fx?.gameStatusHudReady)return;ys.drawImage(canvas,fn,fp);};');
+			'this.yr=function(){};');
 		console.info("[ZFX Client] Installed native status-data adapter for the current game HUD.");
 	} else {
 		console.info("[ZFX Client] Native status-data update hook is absent in this game version.");
@@ -149,7 +179,7 @@ export default definePatch((modUtils) => {
 				`function a2e(fj,fl){return fj>=bf.gap&&fj<bf.gap+aE0&&fl>=bf.gap&&fl<bf.gap+aBv+window.__fx.leaderboardFilter.tabBarOffset;}`);
 			modUtils.replaceOne(/this\.hq=function\(fj,fl\)\{if\(a2e\(fj,fl\)\)\{/g, `this.hq=function(fj,fl){if(a2e(fj,fl)){if(window.__fx.settingsApi.getBoolean("zfx.leaderboard.showTabs")&&fl>=bf.gap+aBv&&fl<bf.gap+aBv+window.__fx.leaderboardFilter.tabBarOffset){window.__fx.leaderboardFilter.handleMouseDown(fj-bf.gap);position=0;aEV();bi.du=true;return true;}`);
 			modUtils.replaceOne(/this\.yI=function\(\)\{yJ\.drawImage\(aE5,bf\.gap,bf\.gap\);\}/g,
-				"this.yI=function(){if(!window.__fx?.gameLeaderboardHudReady&&aE5.width&&aE5.height)yJ.drawImage(aE5,bf.gap,bf.gap);}");
+				"this.yI=function(){}");
 			// Publish native rank order on each game update, independently of rendering.
 			modUtils.replaceOne(
 				/this\.eh=function\(\)\{aEg\(\);aEh\(\);aEi\(\);aEj\(\);\};/g,

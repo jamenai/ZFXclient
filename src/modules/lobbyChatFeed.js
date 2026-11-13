@@ -1,12 +1,22 @@
 const listeners = new Set();
 const history = [];
 let decodedEntryCount = 0;
+let lastSocketEntryAt = 0;
 let publishedMessageCount = 0;
 let duplicateMessageCount = 0;
 let chatModeCommandCount = 0;
 let lastChatModeCommand = null;
 const packetCounts = Object.create(null);
 const recentSocketEntries = new Map();
+
+function textValue(value) {
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (!value || typeof value !== "object") return "";
+  for (const key of ["s", "text", "content", "value"]) {
+    if (typeof value[key] === "string" || typeof value[key] === "number") return String(value[key]);
+  }
+  return "";
+}
 
 function observeSocketPacket(packetType) {
   packetCounts[packetType] = (packetCounts[packetType] ?? 0) + 1;
@@ -17,6 +27,7 @@ function observeSocketPacket(packetType) {
 
 function observeSocketEntry(entry, queueIndex = null, nativeText = null, source = "queue") {
   decodedEntryCount++;
+  lastSocketEntryAt = Date.now();
   if (decodedEntryCount === 1 || decodedEntryCount % 25 === 0) {
     console.info("[ZFX Client LobbyChat] decoded room-chat socket entries", {
       decodedEntryCount,
@@ -27,9 +38,17 @@ function observeSocketEntry(entry, queueIndex = null, nativeText = null, source 
   // Native formatting covers text, gold transfers, moderation notices, and
   // confirmation prompts (including the follow-up "yes" flow).
   const nativeType = Number(entry?.id);
-  const text = String(nativeType === 0 ? entry?.s ?? "" : nativeText ?? entry?.s ?? "").trim();
+  const text = textValue(nativeType === 0 ? entry?.s ?? nativeText : nativeText ?? entry?.s).trim();
   if (!text) return;
   const senderId = nativeType === 0 ? (entry?.pk ?? entry?.uu ?? entry?.ur ?? entry?.ue) : null;
+  // The native formatter sometimes includes the sender prefix in its body.
+  // Vue renders the sender separately, so remove that prefix before source
+  // deduplication and display.
+  const senderName = senderId != null ? window.__fx?.getLobbyChatSenderName?.(senderId) : null;
+  const escapedSender = senderName?.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const normalizedText = escapedSender
+    ? text.replace(new RegExp(`^${escapedSender}\\s*:\\s*`, "i"), "").trim()
+    : text;
   // A room message may be observed once as a live packet and again when the
   // native client appends/replays its history queue. Those observations have
   // different queue IDs, so correlate identical entries briefly by payload.
@@ -38,7 +57,7 @@ function observeSocketEntry(entry, queueIndex = null, nativeText = null, source 
       ? `native:live:${Date.now()}:${nativeType}:${senderId ?? ""}:${text}`
       : `native:queue:${queueIndex}:${nativeType}:${senderId ?? ""}:${text}`,
     senderId,
-    text,
+    text: normalizedText,
     system: nativeType !== 0,
     nativeType,
   });
@@ -109,10 +128,10 @@ function subscribe(listener) {
 function getDiagnostics() {
   return {
     packetCounts: { ...packetCounts }, decodedEntryCount, publishedMessageCount,
+    lastSocketEntryAt,
     duplicateMessageCount,
     bufferedMessageCount: history.length, subscriberCount: listeners.size,
     chatModeCommandCount, lastChatModeCommand,
   };
 }
-
 export default { observeSocketPacket, observeSocketEntry, observeChatModeCommand, publish, subscribe, getDiagnostics };

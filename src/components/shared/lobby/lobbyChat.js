@@ -10,51 +10,14 @@ export const LobbyChat = defineComponent({
     status: { type: String, default: "" },
   },
   emits: ["send"],
-  data() { return { message: "", activationTimer: 0, stickToChatBottom: true, senderMenu: null }; },
+  data() { return { message: "", stickToChatBottom: true, senderMenu: null }; },
   mounted() {
-    this.handleLobbyChatReturn = () => {
-      // The native chat subscription belongs to the current lobby session.
-      // A match return creates a new session, so request the channel again.
-      window.__fx.lobbyChatChannelRequested = false;
-      if (this.activationTimer) window.clearTimeout(this.activationTimer);
-      this.activationTimer = 0;
-      this.activateLobbyChat();
-    };
-    window.addEventListener("fx-native-lobby-return-chat", this.handleLobbyChatReturn);
-    this.activateLobbyChat();
     this.$nextTick(() => {
       const list = this.$refs.messages;
       if (list) list.scrollTop = list.scrollHeight;
     });
   },
   methods: {
-    activateLobbyChat() {
-      // The native client needs one request per lobby session to populate its
-      // lobby-wide chat list. Retry while the game transitions back to lobby.
-    const activationStartedAt = Date.now();
-    const tryActivateLobbyChat = () => {
-      const fx = window.__fx;
-      if (fx?.lobbyChatChannelRequested) {
-        this.activationTimer = 0;
-        return;
-      }
-      const activate = fx?.setNativeLobbyChatMode;
-      if (typeof activate === "function") {
-        if (activate(0) === true) {
-          fx.lobbyChatChannelRequested = true;
-          this.activationTimer = 0;
-          return;
-        }
-      }
-      if (Date.now() - activationStartedAt >= 60000) {
-        this.activationTimer = 0;
-        console.warn("[ZFX Client LobbyChat] Native lobby chat subscription is unavailable.");
-        return;
-      }
-      this.activationTimer = window.setTimeout(tryActivateLobbyChat, 250);
-    };
-    tryActivateLobbyChat();
-    },
     formatMessageTime(value) {
       const date = new Date(Number(value));
       return Number.isNaN(date.getTime()) ? "" : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -135,10 +98,6 @@ export const LobbyChat = defineComponent({
   beforeUpdate() {
     const list = this.$refs.messages;
     this.stickToChatBottom = !list || list.scrollHeight - list.scrollTop - list.clientHeight < 32;
-  },
-  beforeUnmount() {
-    if (this.activationTimer) window.clearTimeout(this.activationTimer);
-    window.removeEventListener("fx-native-lobby-return-chat", this.handleLobbyChatReturn);
   },
   updated() {
     const list = this.$refs.messages;

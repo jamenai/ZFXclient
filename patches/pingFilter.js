@@ -3,19 +3,31 @@ import { definePatch } from "../modUtils.js";
 export default definePatch((modUtils) => {
     const { matchCode, replace } = modUtils;
 
+    let currentLanguageCodesHookInstalled = false;
+    const currentLanguageCodesHook = /this\.aKC=function\(s\)\{/g;
+    const beforeLanguageCodesHook = modUtils.script;
+    modUtils.script = modUtils.script.replace(currentLanguageCodesHook,
+        '$&window.__fx.getGameLanguageCodes=()=>Array.isArray(bA?.data?.h)?bA.data.h:null;');
+    currentLanguageCodesHookInstalled = modUtils.script !== beforeLanguageCodesHook;
+
     try {
         matchCode(`if (!isNaN(mentionIndex) && mentionIndex >= 0 && mentionIndex < languageHolder.languageData.languageCodes.length) {
             text = text.replace("@" + mention, "@" + languageHolder.languageData.languageCodes[mentionIndex])
         }`, { addToDictionary: ["languageHolder", "languageData", "languageCodes"] });
-    } catch { console.info("[ZFX Client] Native legacy mention normalization hook is absent in this game version."); }
+    } catch {
+        if (!currentLanguageCodesHookInstalled) console.info("[ZFX Client] Native language-code adapter hook is absent in this game version.");
+    }
 
-    // The current native build queues decoded messages in aGR.aIa as aHS.
-    // Filtering at the queue boundary also prevents muted mentions from
-    // opening a notification popup or playing its sound. When Vue owns the
-    // lobby, defer the native sound until its notification has been surfaced.
-    const nativeSoundHook = /aJX\.push\(aIJ\);!bm\.buffer\.data\[14\]\.value&&aIJ\.id!==7&&bt\.play\(\);?/g;
+    // In 2.17.9 the notification manager receives decoded entries through
+    // aHZ.aIK. Filter before it appends to the native popup queue or plays sound.
+    const currentNotificationHook = /this\.aIK=function\(pi\)\{/g;
     const before = modUtils.script;
-    replace(nativeSoundHook,
-        'if(window.__fx?.pingFilter?.isMuted?.(aIJ,"s"))return;aIJ.__fxSoundAllowed=!bm.buffer.data[14].value&&aIJ.id!==7;aJX.push(aIJ);if(aIJ.__fxSoundAllowed&&!aIJ.__fxSoundPlayed){aIJ.__fxSoundPlayed=true;bt.play();}');
-    if (modUtils.script === before) console.info("[ZFX Client] Native lobby notification sound hook is absent in this game version.");
+    replace(currentNotificationHook, 'this.aIK=function(pi){if(window.__fx?.pingFilter?.isMuted?.(pi,"s"))return;');
+    if (modUtils.script === before) {
+        // Older native bundles used aJX/aIJ instead.
+        const legacyNotificationHook = /aJX\.push\(aIJ\);!bm\.buffer\.data\[14\]\.value&&aIJ\.id!==7&&bt\.play\(\);?/g;
+        replace(legacyNotificationHook,
+            'if(window.__fx?.pingFilter?.isMuted?.(aIJ,"s"))return;aJX.push(aIJ);!bm.buffer.data[14].value&&aIJ.id!==7&&bt.play();');
+    }
+    if (modUtils.script === before) console.info("[ZFX Client] Native notification mute hook is absent in this game version.");
 })

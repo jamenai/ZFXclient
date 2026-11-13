@@ -3133,6 +3133,36 @@ html[data-fx-lobby-tab-labels="hidden"] .fx-custom-lobby-workspace-tabs button:n
 	font-size: .72em;
 }
 
+.fx-custom-lobby-workspace-tabs button[data-tab="zfx-chat"],
+.fx-custom-lobby-workspace-tabs button[data-tab="chat"] {
+	position: relative;
+}
+
+.fx-custom-lobby-workspace-tabs button .fx-custom-lobby-socket-status {
+	position: absolute;
+	top: 4px;
+	left: 33px;
+	width: 9px;
+	height: 9px;
+	box-sizing: border-box;
+	border: 1px solid rgba(5, 14, 22, .95);
+	border-radius: 50%;
+	background: #f06468;
+	box-shadow: 0 0 0 1px rgba(5, 14, 22, .55), 0 0 7px currentColor;
+	color: #f06468;
+	pointer-events: none;
+}
+
+.fx-custom-lobby-workspace-tabs button .fx-custom-lobby-socket-status.is-connected {
+	background: #4be18b;
+	color: #4be18b;
+}
+
+.fx-custom-lobby-workspace-tabs button .fx-custom-lobby-socket-status.is-connecting {
+	background: #ffc857;
+	color: #ffc857;
+}
+
 .fx-custom-lobby-roster-view,
 .fx-custom-lobby-clans-view,
 .fx-custom-lobby-chat-view {

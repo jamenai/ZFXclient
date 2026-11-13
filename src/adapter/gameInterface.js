@@ -86,6 +86,23 @@ export function createGameInterface(getTarget, getDictionary, onInvalidValue = (
 
     return {
         getVar: getValidatedVar,
+        getPlayerData(playerId) {
+            if (!Number.isInteger(Number(playerId)) || Number(playerId) < 0) return null;
+            const id = Number(playerId);
+            const read = name => {
+                const value = getValidatedVar(name)?.[id];
+                const number = Number(value);
+                return value == null || !Number.isFinite(number) ? null : number;
+            };
+            return {
+                id,
+                balance: read("playerBalances"),
+                territories: read("playerTerritories"),
+                committed: read("playerCommitted"),
+                alive: read("playerAlive"),
+                state: read("playerStates"),
+            };
+        },
         getUIGap() {
             return Math.floor(getPath("uiSizes", "gap") ?? 10);
         },
@@ -94,6 +111,8 @@ export function createGameInterface(getTarget, getDictionary, onInvalidValue = (
             return Array.isArray(names) && names.length ? names : null;
         },
         getLanguageCodes() {
+            const currentCodes = window.__fx?.getGameLanguageCodes?.();
+            if (Array.isArray(currentCodes)) return currentCodes;
             const codes = getPath("languageHolder", "languageData", "languageCodes");
             return Array.isArray(codes) ? codes : null;
         },
@@ -106,6 +125,7 @@ export function createGameInterface(getTarget, getDictionary, onInvalidValue = (
 const gameInterface = createGameInterface(() => window, () => dictionary);
 
 export const getVar = gameInterface.getVar;
+export const gameDataAdapter = gameInterface;
 export const getUIGap = gameInterface.getUIGap;
 export const getGameMapNames = gameInterface.getMapNames;
 export const getGameLanguageCodes = gameInterface.getLanguageCodes;

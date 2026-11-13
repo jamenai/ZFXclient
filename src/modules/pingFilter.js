@@ -35,7 +35,9 @@ function isMuted(message, textField) {
     if (!message || message.id !== chatMessageId || typeof message[textField] !== "string") return false;
     const mentions = message[textField].toLowerCase().match(mentionExpression);
     if (mentions === null) return false;
-    return mentions.every(isMentionMuted);
+    // A single muted category is enough to suppress the notification. Using
+    // every() let mixed mentions through (for example @all plus @room1).
+    return mentions.some(isMentionMuted);
 }
 
 export default { isMuted };

@@ -8,7 +8,7 @@ export default (/** @type {import('../modUtils.js').default} */ modUtils) => {
         );
         modUtils.replaceOne(
             /this\.yr=function\(\)\{if\(!this\.iT\(\)\)\{return;\}ys\.drawImage\(canvas,fn,this\.fp\);\};/g,
-            '$&if(window.__fx.settingsApi.getBoolean("keybindButtons")){var fxKeybindHeight=Math.max(1,Math.floor(this.k/2));window.__fx.mobileKeybinds.setSize(j,fxKeybindHeight,ys);window.__fx.mobileKeybinds.draw(ys,fn,this.fp);}'
+            'this.yr=function(){if(!this.iT()){return;}window.__fx.gameAttackSelectorAdapter.receiveNativeLayout(ys,fn,this.fp,j,this.k);window.__fx.gameAttackSelectorAdapter.receiveNativeState({unitsLabel:bD.pg.a3X(a8W),percentageLabel:bD.pg.a8P(100*jK,+(jK<.1)),percentage:jK});if(!window.__fx.gameAttackSelectorAdapter.isReady()){ys.drawImage(canvas,fn,this.fp);}if(window.__fx.settingsApi.getBoolean("keybindButtons")){var fxKeybindHeight=Math.max(1,Math.floor(this.k/2));window.__fx.mobileKeybinds.setSize(j,fxKeybindHeight,ys);window.__fx.mobileKeybinds.draw(ys,fn,this.fp);}};'
         );
         modUtils.replaceOne(
             /function a5y\(e\)\{if\(a61\(\)\)\{return;\}if\(i\.vF>0\)\{return;\}var code=e\.code;if\(!code\|\|!code\.length\)\{return;\}/g,

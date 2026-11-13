@@ -18,6 +18,8 @@ export const PlayerList = defineComponent({
     lobbyReadyFilter: String, affiliationFilter: String, entryFilter: String,
     currentEntryAvailable: Boolean, gameTab: String, lobbyTab: String,
     chatMessages: Array, chatStatus: String, teamClan: String,
+    zfxChatSocketStatus: { type: String, default: "offline" },
+    terriChatSocketStatus: { type: String, default: "disconnected" },
     clanCount: String, topReadyClan: Object, onlyReadyClans: Boolean,
     currentMap: String, nextMap: String, nextTeamCount: String,
   },
@@ -54,6 +56,18 @@ export const PlayerList = defineComponent({
         .sort((left, right) => (left.rank ?? Number.POSITIVE_INFINITY) - (right.rank ?? Number.POSITIVE_INFINITY)
           || left.name.localeCompare(right.name, undefined, { sensitivity: "base" }))
         .slice(0, 3);
+    },
+    zfxChatSocketStatusLabel() {
+      if (this.zfxChatSocketStatus === "connected") return this.labels?.zfxChatConnected || "Connected";
+      if (this.zfxChatSocketStatus === "connecting") return this.labels?.zfxChatConnecting || "Connecting";
+      if (this.zfxChatSocketStatus === "error") return this.labels?.zfxChatUnavailable || "Unavailable";
+      if (this.zfxChatSocketStatus === "disconnected") return this.labels?.zfxChatDisconnected || "Disconnected";
+      return this.labels?.zfxChatOffline || "Offline";
+    },
+    terriChatSocketStatusLabel() {
+      if (this.terriChatSocketStatus === "connected") return this.labels?.terriChatConnected || "Territorial.io chat socket connected";
+      if (this.terriChatSocketStatus === "connecting" || this.terriChatSocketStatus === "awaiting-data") return this.labels?.terriChatConnecting || "Territorial.io chat socket connecting";
+      return this.labels?.terriChatDisconnected || "Territorial.io chat socket disconnected";
     },
   },
   methods: {
@@ -133,8 +147,8 @@ export const PlayerList = defineComponent({
 
       <section class="fx-custom-lobby-player-panel fx-custom-lobby-workspace fx-custom-lobby-lobby-panel">
         <header class="fx-custom-lobby-panel-scope is-lobby"><span class="fx-custom-lobby-panel-scope-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M15 15.5a5 5 0 0 1 6.5 4.5"/></svg></span><span class="fx-custom-lobby-panel-scope-copy"><strong>{{ labels.lobbyPanel }}</strong><small>{{ labels.lobbyPanelHint }}</small></span><nav class="fx-custom-lobby-workspace-tabs" :aria-label="labels.lobbyViews">
-          <button type="button" data-tab="chat" :class="{ 'is-active': lobbyTab === 'chat' }" :aria-selected="lobbyTab === 'chat'" @click="$emit('select-lobby-tab', 'chat')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-5.5A7.5 7.5 0 1 1 20 11.5Z"/><path d="M8 10h8M8 14h5"/></svg><span class="fx-custom-lobby-tab-label">{{ labels.chat }}</span></button>
-          <button type="button" data-tab="zfx-chat" :class="{ 'is-active': lobbyTab === 'zfx-chat' }" :aria-selected="lobbyTab === 'zfx-chat'" @click="$emit('select-lobby-tab', 'zfx-chat')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4V5Z"/><path d="M8 9h8M8 12h5"/></svg><span class="fx-custom-lobby-tab-label">{{ labels.zfxChat }}</span></button>
+          <button type="button" data-tab="chat" :class="{ 'is-active': lobbyTab === 'chat' }" :aria-selected="lobbyTab === 'chat'" @click="$emit('select-lobby-tab', 'chat')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-5.5A7.5 7.5 0 1 1 20 11.5Z"/><path d="M8 10h8M8 14h5"/></svg><i class="fx-custom-lobby-socket-status" :class="terriChatSocketStatus === 'awaiting-data' ? 'is-connecting' : 'is-' + terriChatSocketStatus" :title="terriChatSocketStatusLabel" :aria-label="terriChatSocketStatusLabel" role="status"></i><span class="fx-custom-lobby-tab-label">{{ labels.chat }}</span></button>
+          <button type="button" data-tab="zfx-chat" :class="{ 'is-active': lobbyTab === 'zfx-chat' }" :aria-selected="lobbyTab === 'zfx-chat'" @click="$emit('select-lobby-tab', 'zfx-chat')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4V5Z"/><path d="M8 9h8M8 12h5"/></svg><i class="fx-custom-lobby-socket-status" :class="'is-' + zfxChatSocketStatus" :title="zfxChatSocketStatusLabel" :aria-label="zfxChatSocketStatusLabel" role="status"></i><span class="fx-custom-lobby-tab-label">{{ labels.zfxChat }}</span></button>
           <button type="button" data-tab="lobby" :class="{ 'is-active': lobbyTab === 'lobby' }" :aria-selected="lobbyTab === 'lobby'" @click="$emit('select-lobby-tab', 'lobby')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M15 15.5a5 5 0 0 1 6.5 4.5"/></svg><span class="fx-custom-lobby-tab-label">{{ labels.people }}</span> <span class="fx-custom-lobby-tab-count">{{ lobbyCount }}</span></button>
           <button type="button" data-tab="clan" :class="{ 'is-active': lobbyTab === 'clan' }" :aria-selected="lobbyTab === 'clan'" @click="$emit('select-lobby-tab', 'clan')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8 20 6v5.2c0 5-3.4 8.2-8 10-4.6-1.8-8-5-8-10V6Z"/><path d="M8 12h8M12 8v8"/></svg><span class="fx-custom-lobby-tab-label">{{ labels.clan }}</span> <span class="fx-custom-lobby-tab-count">{{ clanLobbyPlayers?.length || 0 }}</span></button>
           <button type="button" data-tab="clans" :class="{ 'is-active': lobbyTab === 'clans' }" :aria-selected="lobbyTab === 'clans'" @click="$emit('select-lobby-tab', 'clans')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8 20 6v5.2c0 5-3.4 8.2-8 10-4.6-1.8-8-5-8-10V6Z"/><path d="M8 12h8M12 8v8"/></svg><span class="fx-custom-lobby-tab-label">{{ labels.clans }}</span> <span class="fx-custom-lobby-tab-count">{{ clanCount }}</span></button><button v-if="lobbyTab === 'lobby'" type="button" class="fx-custom-lobby-filter-tab-toggle" :aria-expanded="!lobbyFiltersCollapsed" :aria-label="lobbyFiltersCollapsed ? labels.showFilters : labels.hideFilters" :title="lobbyFiltersCollapsed ? labels.showFilters : labels.hideFilters" @click="toggleFilterBar('lobby')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18l-7 8v5l-4 2v-7L3 5Z"/></svg></button></nav></header>

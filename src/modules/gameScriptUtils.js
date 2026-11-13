@@ -1,5 +1,5 @@
 import { settingsApi } from "./settings/settings.js";
-import { getVar } from "../adapter/gameInterface.js";
+import { gameDataAdapter, getVar } from "../adapter/gameInterface.js";
 import { escapeHtml } from "./utils.js";
 import { drawPlayerNameWithCountryFlags } from "./countryFlagRenderer.js";
 
@@ -8,9 +8,10 @@ import { drawPlayerNameWithCountryFlags } from "./countryFlagRenderer.js";
 function getMaxTroops(playerTerritories, playerID) {
     return (playerTerritories[playerID] * 150).toString();
 };
-function getDensity(playerID, playerBalances = getVar("playerBalances"), playerTerritories = getVar("playerTerritories")) {
-    const balanceValue = playerBalances?.[playerID];
-    const territoryValue = playerTerritories?.[playerID];
+function getDensity(playerID, playerBalances, playerTerritories) {
+    const data = gameDataAdapter.getPlayerData(playerID);
+    const balanceValue = playerBalances ? playerBalances?.[playerID] : data?.balance;
+    const territoryValue = playerTerritories ? playerTerritories?.[playerID] : data?.territories;
     const balance = Number(balanceValue);
     const territories = Number(territoryValue);
     if (balanceValue == null || territoryValue == null || !Number.isFinite(balance) || !Number.isFinite(territories)) return "";
@@ -25,14 +26,16 @@ function getLobbyPlayerRank(rankValue) {
 const estimatedAttackFormatter = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
 function getEstimatedEliminationAttackData(playerID, remainingBalance, remainingTerritories) {
     if (playerID === getVar("playerId")) return null;
-    const committedAttack = getVar("playerCommitted")?.[playerID] ?? 0;
+    const target = gameDataAdapter.getPlayerData(playerID);
+    if (Number.isFinite(target?.territories) && target.territories <= 0) return null;
+    const committedAttack = target?.committed ?? 0;
     const balance = Number.isFinite(remainingBalance)
         ? Math.max(0, remainingBalance)
-        : Math.max(0, (getVar("playerBalances")?.[playerID] ?? 0) - committedAttack);
+        : Math.max(0, (target?.balance ?? 0) - committedAttack);
     if (!Number.isFinite(balance) || balance <= 0) return null;
     const territoryCount = Number.isFinite(remainingTerritories)
         ? Math.max(0, remainingTerritories)
-        : getVar("playerTerritories")?.[playerID];
+        : target?.territories;
     // The multiplier estimates defender losses; the tile cost stays at two units per tile.
     const configuredMultiplier = settingsApi.getNumber("estimatedAttackTroopMultiplier");
     const troopMultiplier = Number.isFinite(configuredMultiplier)
@@ -40,8 +43,9 @@ function getEstimatedEliminationAttackData(playerID, remainingBalance, remaining
         : 2;
     const estimatedAttack = Math.ceil(balance * troopMultiplier + (Number.isFinite(territoryCount) ? territoryCount * 2 : 0));
     const ownPlayerID = getVar("playerId");
-    const ownBalance = getVar("playerBalances")?.[ownPlayerID];
-    const ownCommitted = getVar("playerCommitted")?.[ownPlayerID];
+    const ownData = gameDataAdapter.getPlayerData(ownPlayerID);
+    const ownBalance = ownData?.balance;
+    const ownCommitted = ownData?.committed;
     const ownAvailable = ownBalance - ownCommitted;
     const ownShare = Number.isFinite(ownCommitted) && Number.isFinite(ownAvailable) && ownAvailable > 0
         ? estimatedAttack / ownAvailable * 100
@@ -76,6 +80,30 @@ function drawEstimatedEliminationAttack(ctx, playerID, text, x, y) {
     ctx.fillText(text, x, y);
     ctx.restore();
 }
+function drawPlayerLabelMetrics(ctx, playerID, x, y, nativeFontSize) {
+    const showDensity = settingsApi.getBoolean("showPlayerDensity");
+    const showAttack = settingsApi.getBoolean("showEstimatedEliminationAttack");
+    if (!showDensity && !showAttack) return;
+    const baseSize = Number.isFinite(nativeFontSize) && nativeFontSize > 0 ? nativeFontSize : 10;
+    const densityScale = Math.max(50, Math.min(200, settingsApi.getNumber("playerDensityFontScale") || 100)) / 100;
+    const attackScale = Math.max(50, Math.min(200, settingsApi.getNumber("estimatedAttackFontScale") || 100)) / 100;
+    const oldFont = ctx.font;
+    const getFont = scale => oldFont.replace(/[\d.]+px/, `${Math.max(5, baseSize * scale)}px`);
+    ctx.save();
+    if (showDensity) {
+        ctx.font = getFont(densityScale);
+        if (settingsApi.getBoolean("coloredDensity")) ctx.fillStyle = textStyleBasedOnDensity(playerID);
+        ctx.fillText(getDensity(playerID), x, y + baseSize * 0.85);
+    }
+    if (showAttack) {
+        const attack = getEstimatedEliminationAttack(playerID);
+        if (attack) {
+            ctx.font = getFont(attackScale);
+            drawEstimatedEliminationAttack(ctx, playerID, attack, x, y + baseSize * (showDensity ? 1.65 : 0.85));
+        }
+    }
+    ctx.restore();
+}
 function isPointInRectangle(x, y, rectangleStartX, rectangleStartY, width, height) {
     return x >= rectangleStartX && x <= rectangleStartX + width && y >= rectangleStartY && y <= rectangleStartY + height;
 };
@@ -84,10 +112,10 @@ function fillTextMultiline(canvas, text, x, y, maxWidth) {
     const lineHeight = parseInt(canvas.font.split(" ").find(part => part.endsWith("px")).slice(0, -2));
     text.split("\n").forEach((line, index) => canvas.fillText(line, x, y + index * lineHeight, maxWidth));
 }
-function textStyleBasedOnDensity(playerID) {
-    const playerBalances = getVar("playerBalances"), playerTerritories = getVar("playerTerritories");
-    const balance = Number(playerBalances?.[playerID]);
-    const territories = Number(playerTerritories?.[playerID]);
+function textStyleBasedOnDensity(playerID, playerBalances, playerTerritories) {
+    const data = gameDataAdapter.getPlayerData(playerID);
+    const balance = Number(playerBalances ? playerBalances?.[playerID] : data?.balance);
+    const territories = Number(playerTerritories ? playerTerritories?.[playerID] : data?.territories);
     if (!Number.isFinite(balance) || !Number.isFinite(territories) || territories <= 0) {
         return "rgba(255, 255, 255, 1)";
     }
@@ -177,4 +205,4 @@ function parseAccountId(value) {
     return match ? match[0] : null;
 }
 
-export default { getMaxTroops, getDensity, getLobbyPlayerRank, getEstimatedEliminationAttack, drawEstimatedEliminationAttack, drawPlayerNameWithCountryFlags, isPointInRectangle, fillTextMultiline, textStyleBasedOnDensity, getDuplicateIpHighlightColor, escapeHtml, parseAccountId }
+export default { getMaxTroops, getDensity, getLobbyPlayerRank, getEstimatedEliminationAttack, drawEstimatedEliminationAttack, drawPlayerLabelMetrics, drawPlayerNameWithCountryFlags, isPointInRectangle, fillTextMultiline, textStyleBasedOnDensity, getDuplicateIpHighlightColor, escapeHtml, parseAccountId }

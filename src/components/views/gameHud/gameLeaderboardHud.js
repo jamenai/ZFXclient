@@ -3,6 +3,7 @@ import { saveSettings, settingsApi } from "../../../modules/settings/settings.js
 import { GameLeaderboardWidget } from "./gameLeaderboardWidget.js";
 import { GameStatusWidgets } from "./gameStatusWidgets.js";
 import { GameTeamChartWidget } from "./gameTeamChartWidget.js";
+import { GameTickCounterWidget } from "./gameTickCounterWidget.js";
 
 const numberFormat = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
 const LEADERBOARD_ROW_HEIGHT = 31;
@@ -13,7 +14,7 @@ const NATIVE_TEAM_COLOR_NAMES = ["Dunkelgrau", "Rot", "Grün", "Blau", "Oliv", "
 
 const GameLeaderboardHud = defineComponent({
   name: "FxGameLeaderboardHud",
-  components: { GameLeaderboardWidget, GameStatusWidgets, GameTeamChartWidget },
+  components: { GameLeaderboardWidget, GameStatusWidgets, GameTeamChartWidget, GameTickCounterWidget },
   setup() {
     const snapshot = ref(null);
     const now = ref(Date.now());
@@ -29,9 +30,20 @@ const GameLeaderboardHud = defineComponent({
     let rowsResizeObserver = null;
     const statusSnapshot = ref(null);
     const teamChartSnapshot = ref(null);
+    const tickHudSnapshot = ref(null);
+    let lastNativeDisplayTick = null;
+    let nativeDisplayCycles = 0;
+    const resolveTeamColor = (playerId, teamId, fx = window.__fx) => {
+      if (teamId === null || teamId === undefined) return null;
+      const nativeColor = fx?.getNativePlayerTeamColor?.(playerId);
+      if (nativeColor) return String(nativeColor);
+      const chartColor = teamChartSnapshot.value?.teams?.find(team => team.id === Number(teamId))?.color;
+      return chartColor ? String(chartColor) : null;
+    };
     const detailedTeamPercentage = ref(settingsApi.getBoolean("detailedTeamPercentage"));
     const leaderboardPanel = ref(null);
     const teamChartPosition = ref(null);
+    const tickHudPosition = ref(null);
     const statusCardLayouts = ref({});
     const statusCardsCollapsed = ref({});
     const lockedPlayerId = ref(null);
@@ -50,7 +62,7 @@ const GameLeaderboardHud = defineComponent({
     const gameHudSettingsStorageKey = "zfx.gameHud.settings.v1";
     const gameHudLayoutSlotsStorageKey = "zfx.gameHud.layoutSlots.v1";
     const gameMapSettingsSlotsStorageKey = "zfx.gameMap.settingsProfiles.v1";
-    const gameMapSettingKeys = ["showPlayerDensity", "coloredDensity", "densityDisplayStyle", "showEstimatedEliminationAttack", "estimatedAttackTroopMultiplier", "estimatedAttackGreenThreshold", "hoveringTooltip", "highlightSelfTerritory", "selfTerritoryOutlineWidth", "selfTerritoryGlow", "highlightClanSpawns", "showCountryFlagsOnLand", "hideBotNames"];
+    const gameMapSettingKeys = ["showPlayerDensity", "coloredDensity", "densityDisplayStyle", "displayTickNumber", "showEstimatedEliminationAttack", "estimatedAttackTroopMultiplier", "estimatedAttackGreenThreshold", "hoveringTooltip", "highlightSelfTerritory", "selfTerritoryOutlineWidth", "selfTerritoryGlow", "highlightClanSpawns", "showCountryFlagsOnLand", "hideBotNames"];
     const getGameMapProfileSettings = () => Object.fromEntries(gameMapSettingKeys.map(key => {
       if (["densityDisplayStyle"].includes(key)) return [key, settingsApi.getString(key, "absoluteQuotient")];
       if (["selfTerritoryOutlineWidth", "selfTerritoryGlow", "estimatedAttackTroopMultiplier", "estimatedAttackGreenThreshold"].includes(key)) return [key, settingsApi.getNumber(key, key === "selfTerritoryOutlineWidth" ? 3 : key === "selfTerritoryGlow" ? 6 : key === "estimatedAttackTroopMultiplier" ? 2 : 25)];
@@ -75,8 +87,12 @@ const GameLeaderboardHud = defineComponent({
     const legacyStatusCardLayoutsStorageKey = "zfx.gameStatusHud.cards.v1";
     const statusCardsCollapsedStorageKey = "zfx.gameStatusHud.collapsed.v1";
     const teamChartPositionStorageKey = "zfx.gameTeamChart.position.v1";
+    const tickHudPositionStorageKey = "zfx.gameTickHud.position.v1";
+    const attackSelectorPositionStorageKey = "zfx.gameAttackSelector.position.v1";
     const teamChartWidth = 168;
     const teamChartHeight = 190;
+    const tickHudWidth = 312;
+    const tickHudHeight = 60;
     const applyGameHudSettings = () => {
       const scale = clamp(Number(gameHudFontScale.value) || 100, 75, 150);
       const transparency = clamp(Number(gameHudTransparency.value) || 0, 0, 70);
@@ -112,7 +128,7 @@ const GameLeaderboardHud = defineComponent({
       applyGameMapSettings();
     };
     const getGameHudLayoutSnapshot = () => Object.fromEntries([
-      panelPositionStorageKey, sizeStorageKey, leaderboardCollapsedStorageKey, statusCardLayoutsStorageKey, statusCardsCollapsedStorageKey, teamChartPositionStorageKey, gameHudSettingsStorageKey, "zfx.gameMinimap.position.v1",
+      panelPositionStorageKey, sizeStorageKey, leaderboardCollapsedStorageKey, statusCardLayoutsStorageKey, statusCardsCollapsedStorageKey, teamChartPositionStorageKey, tickHudPositionStorageKey, attackSelectorPositionStorageKey, "zfx.gameKeybindHud.position.v1", gameHudSettingsStorageKey, "zfx.gameMinimap.position.v1",
     ].map(key => [key, window.localStorage.getItem(key)]));
     const saveGameHudLayout = () => {
       const slots = [...gameHudLayoutSlots.value];
@@ -145,12 +161,15 @@ const GameLeaderboardHud = defineComponent({
         if (Number.isFinite(savedSize?.width) && Number.isFinite(savedSize?.height)) panelSize.value = clampPanelSize(savedSize.width, savedSize.height);
         panelPosition.value = JSON.parse(window.localStorage.getItem(panelPositionStorageKey) || "null");
         teamChartPosition.value = JSON.parse(window.localStorage.getItem(teamChartPositionStorageKey) || "null");
+        tickHudPosition.value = JSON.parse(window.localStorage.getItem(tickHudPositionStorageKey) || "null");
         statusCardLayouts.value = JSON.parse(window.localStorage.getItem(statusCardLayoutsStorageKey) || "{}");
         statusCardsCollapsed.value = JSON.parse(window.localStorage.getItem(statusCardsCollapsedStorageKey) || "{}");
       } catch { /* Ignore invalid saved layouts. */ }
       window.__fx?.gameMinimapHud?.reloadPosition?.();
+      window.dispatchEvent(new Event("fx-game-hud-layout-loaded"));
     };
     let teamChartDrag = null;
+    let tickHudDrag = null;
     let statusCardDrag = null;
     const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
     const toPositionRatio = (value, max) => max <= 8 ? 0 : clamp((value - 8) / (max - 8), 0, 1);
@@ -205,6 +224,50 @@ const GameLeaderboardHud = defineComponent({
     const getDefaultTeamChartPosition = () => {
       const sidebarWidth = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--fx-sidebar-width")) || 0;
       return { x: Math.max(8, sidebarWidth + 14), y: Math.max(8, viewport.value.height - teamChartHeight - 14) };
+    };
+    const getDefaultTickHudPosition = () => ({ x: Math.max(8, Math.round((viewport.value.width - tickHudWidth) / 2)), y: 12 });
+    const resolveTickHudPosition = () => {
+      const saved = tickHudPosition.value;
+      const defaults = getDefaultTickHudPosition();
+      if (!saved) return defaults;
+      const { width: viewportWidth, height: viewportHeight } = viewport.value;
+      const maxX = Math.max(8, viewportWidth - tickHudWidth - 8);
+      const maxY = Math.max(8, viewportHeight - tickHudHeight - 8);
+      return {
+        x: Number.isFinite(saved.xRatio) ? fromPositionRatio(saved.xRatio, maxX) : clamp(saved.x ?? defaults.x, 8, maxX),
+        y: Number.isFinite(saved.yRatio) ? fromPositionRatio(saved.yRatio, maxY) : clamp(saved.y ?? defaults.y, 8, maxY),
+      };
+    };
+    const tickHudStyle = computed(() => {
+      const position = resolveTickHudPosition();
+      return { left: `${position.x}px`, top: `${position.y}px` };
+    });
+    const moveTickHud = event => {
+      if (!tickHudDrag) return;
+      const { width: viewportWidth, height: viewportHeight } = viewport.value;
+      const maxX = Math.max(8, viewportWidth - tickHudWidth - 8);
+      const maxY = Math.max(8, viewportHeight - tickHudHeight - 8);
+      const x = clamp(tickHudDrag.x + event.clientX - tickHudDrag.pointerX, 8, maxX);
+      const y = clamp(tickHudDrag.y + event.clientY - tickHudDrag.pointerY, 8, maxY);
+      tickHudPosition.value = { xRatio: toPositionRatio(x, maxX), yRatio: toPositionRatio(y, maxY) };
+    };
+    const stopTickHudMove = () => {
+      if (!tickHudDrag) return;
+      tickHudDrag = null;
+      window.removeEventListener("pointermove", moveTickHud);
+      window.removeEventListener("pointerup", stopTickHudMove);
+      window.removeEventListener("pointercancel", stopTickHudMove);
+      try { window.localStorage.setItem(tickHudPositionStorageKey, JSON.stringify(tickHudPosition.value)); } catch { /* Storage may be unavailable. */ }
+    };
+    const startTickHudMove = event => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const current = resolveTickHudPosition();
+      tickHudDrag = { ...current, pointerX: event.clientX, pointerY: event.clientY };
+      window.addEventListener("pointermove", moveTickHud);
+      window.addEventListener("pointerup", stopTickHudMove);
+      window.addEventListener("pointercancel", stopTickHudMove);
     };
     const resolveTeamChartPosition = () => {
       const saved = teamChartPosition.value;
@@ -266,7 +329,7 @@ const GameLeaderboardHud = defineComponent({
         const labelRadius = share > 0.7 ? 27 : 31;
         const label = `${(share * 100).toFixed(detailedTeamPercentage.value ? 2 : 0)}%`;
         const labelChord = Math.max(0, 2 * labelRadius * Math.sin(Math.min(Math.PI, share * Math.PI * 2) / 2) - 4);
-        const labelFontSize = Math.max(4.5, Math.min(8, labelChord / (label.length * 0.5)));
+        const labelFontSize = Math.max(4.5, Math.min(10.5, labelChord / (label.length * 0.46)));
         const result = {
           ...team,
           share,
@@ -314,6 +377,40 @@ const GameLeaderboardHud = defineComponent({
       };
       window.__fx.gameTeamChartReady = true;
     };
+    const receiveTickHud = value => {
+      if (!value || !Number.isFinite(Number(value.tick))) return;
+      const previous = tickHudSnapshot.value || {};
+      const nativeDisplayTick = Number(value.displayTick);
+      const hasNativeDisplayTick = Number.isInteger(nativeDisplayTick) && nativeDisplayTick >= 0 && nativeDisplayTick <= 9;
+      if (hasNativeDisplayTick) {
+        if (lastNativeDisplayTick !== null && nativeDisplayTick > lastNativeDisplayTick) nativeDisplayCycles += 1;
+        lastNativeDisplayTick = nativeDisplayTick;
+      }
+      const displayCycleLength = 10;
+      const cycleTick = hasNativeDisplayTick ? displayCycleLength - nativeDisplayTick : Number(previous.cycleTick ?? value.cycleTick ?? value.tick) || 0;
+      const totalCycles = hasNativeDisplayTick ? nativeDisplayCycles : Math.max(0, Number(previous.totalCycles ?? value.totalCycles) || 0);
+      const totalTicks = hasNativeDisplayTick
+        ? totalCycles * displayCycleLength + cycleTick
+        : Math.max(0, Number(previous.totalTicks ?? value.totalTicks ?? value.tick) || 0);
+      tickHudSnapshot.value = {
+        updatedAt: Number(value.updatedAt) || Date.now(),
+        tick: hasNativeDisplayTick ? cycleTick : Number(value.tick),
+        cycleTick,
+        cycle: displayCycleLength,
+        totalTicks,
+        totalCycles,
+        tickProgress: clamp(Number(value.tickProgress ?? previous.tickProgress) || 0, 0, 1),
+        balance: String(value.balance ?? previous.balance ?? "0"),
+        income: String(value.income ?? previous.income ?? "0"),
+        balanceRatio: clamp(Number(value.balanceRatio ?? previous.balanceRatio) || 0, 0, 1),
+        isGrowing: Boolean(value.isGrowing ?? previous.isGrowing),
+        visible: value.visible ?? previous.visible ?? true,
+      };
+      window.__fx.gameTickHudReady = inMatch.value && tickHudSnapshot.value.visible;
+    };
+    // The simulation's 30/40/50 update batches differ from the native ten-step
+    // indicator. Only the native displayTick snapshot drives the visible HUD.
+    const receiveTickCycle = () => {};
     const persistStatusCardLayouts = () => {
       try { window.localStorage.setItem(statusCardLayoutsStorageKey, JSON.stringify(statusCardLayouts.value)); } catch { /* Storage may be unavailable. */ }
     };
@@ -533,12 +630,16 @@ const GameLeaderboardHud = defineComponent({
         : value.players.filter(player => player.isAlive !== false && Boolean(player.isBot ?? isNativeBot(player.id)) === isBot).length;
       const normalizedPlayers = value.players.map(player => {
         const clanTag = parseClan(rawPlayerNames?.[player.id] ?? player.name);
+        const teamId = player.teamId ?? fx?.getNativePlayerTeamId?.(player.id) ?? null;
+        const teamColor = resolveTeamColor(player.id, teamId, fx);
         return {
           ...player,
           isBot: player.isBot ?? isNativeBot(player.id),
           isAlive: player.isAlive !== false,
-          teamId: player.teamId ?? fx?.getNativePlayerTeamId?.(player.id) ?? null,
-          color: player.color || fx?.gameLeaderboardAdapter?.getPlayerColor?.(player.id) || fx?.getNativePlayerColor?.(player.id) || fx?.getNativePlayerTeamColor?.(player.id) || null,
+          teamId,
+          // In team modes the native per-player color can be a stale territory
+          // color. Use the authoritative team palette for rows and aggregates.
+          color: teamColor || player.color || fx?.gameLeaderboardAdapter?.getPlayerColor?.(player.id) || fx?.getNativePlayerColor?.(player.id) || null,
           clanTag,
           isOwn: player.id === ownPlayerId,
           isClanMate: player.id !== ownPlayerId && ownClan !== null && clanTag === ownClan,
@@ -558,7 +659,7 @@ const GameLeaderboardHud = defineComponent({
         players: normalizedPlayers,
         ownPlayer: rankedOwnPlayer
           ? { ...rankedOwnPlayer, isOwn: true, clanTag: ownClan, isClanMate: false }
-          : value.ownPlayer ? { ...value.ownPlayer, color: value.ownPlayer.color || fx?.getNativePlayerTeamColor?.(ownPlayerId) || null, isAlive: value.ownPlayer.isAlive !== false, isOwn: true, clanTag: ownClan, isClanMate: false } : null,
+          : value.ownPlayer ? { ...value.ownPlayer, color: resolveTeamColor(ownPlayerId, value.ownPlayer.teamId, fx) || value.ownPlayer.color || null, isAlive: value.ownPlayer.isAlive !== false, isOwn: true, clanTag: ownClan, isClanMate: false } : null,
       };
       inMatch.value = true;
       window.__fx.gameLeaderboardHudReady = true;
@@ -677,6 +778,9 @@ const GameLeaderboardHud = defineComponent({
         eliminationSequence = 0;
         snapshot.value = null;
         statusSnapshot.value = null;
+        tickHudSnapshot.value = null;
+        lastNativeDisplayTick = null;
+        nativeDisplayCycles = 0;
         teamChartSnapshot.value = null;
         if (fx) {
           fx.gameLeaderboardHudReady = false;
@@ -709,7 +813,7 @@ const GameLeaderboardHud = defineComponent({
           territories: territoryValue,
           isAlive,
           teamId: fx?.getNativePlayerTeamId?.(id) ?? null,
-          color: fx?.gameLeaderboardAdapter?.getPlayerColor?.(id) || fx?.getNativePlayerColor?.(id) || fx?.getNativePlayerTeamColor?.(id) || null,
+          color: resolveTeamColor(id, fx?.getNativePlayerTeamId?.(id), fx) || fx?.gameLeaderboardAdapter?.getPlayerColor?.(id) || fx?.getNativePlayerColor?.(id) || null,
         });
       }
       if (!players.length) return;
@@ -991,6 +1095,9 @@ const GameLeaderboardHud = defineComponent({
         }
         const savedTeamChartPosition = JSON.parse(window.localStorage.getItem(teamChartPositionStorageKey) || "null");
         if (Number.isFinite(savedTeamChartPosition?.xRatio) && Number.isFinite(savedTeamChartPosition?.yRatio)) teamChartPosition.value = savedTeamChartPosition;
+        const savedTickHudPosition = JSON.parse(window.localStorage.getItem(tickHudPositionStorageKey) || "null");
+        if (Number.isFinite(savedTickHudPosition?.xRatio) && Number.isFinite(savedTickHudPosition?.yRatio)) tickHudPosition.value = savedTickHudPosition;
+        else if (Number.isFinite(savedTickHudPosition?.x) && Number.isFinite(savedTickHudPosition?.y)) tickHudPosition.value = savedTickHudPosition;
         const savedStatusCards = JSON.parse(window.localStorage.getItem(statusCardLayoutsStorageKey) || window.localStorage.getItem(legacyStatusCardLayoutsStorageKey) || "{}");
         const savedCollapsedCards = JSON.parse(window.localStorage.getItem(statusCardsCollapsedStorageKey) || "{}");
         if (savedCollapsedCards && typeof savedCollapsedCards === "object") statusCardsCollapsed.value = savedCollapsedCards;
@@ -1023,6 +1130,9 @@ const GameLeaderboardHud = defineComponent({
       window.__fx.gameLeaderboardAdapter.receiveNativeSnapshot = receive;
       window.__fx.gameStatusHudAdapter ||= {};
       window.__fx.gameStatusHudAdapter.receiveNativeSnapshot = receiveStatus;
+      window.__fx.gameTickHudAdapter ||= {};
+      window.__fx.gameTickHudAdapter.receiveNativeSnapshot = receiveTickHud;
+      window.__fx.gameTickHudAdapter.receiveCycleSnapshot = receiveTickCycle;
       window.__fx.gameTeamChartAdapter ||= {};
       window.__fx.gameTeamChartAdapter.receiveNativeSnapshot = receiveTeamChart;
       syncNativeGameData();
@@ -1044,12 +1154,20 @@ const GameLeaderboardHud = defineComponent({
       stopPanelResize();
       stopStatusCardMove();
       stopTeamChartMove();
+      stopTickHudMove();
       if (window.__fx?.gameLeaderboardAdapter?.receiveNativeSnapshot === receive) {
         delete window.__fx.gameLeaderboardAdapter.receiveNativeSnapshot;
       }
       if (window.__fx?.gameStatusHudAdapter?.receiveNativeSnapshot === receiveStatus) {
         delete window.__fx.gameStatusHudAdapter.receiveNativeSnapshot;
       }
+      if (window.__fx?.gameTickHudAdapter?.receiveNativeSnapshot === receiveTickHud) {
+        delete window.__fx.gameTickHudAdapter.receiveNativeSnapshot;
+      }
+      if (window.__fx?.gameTickHudAdapter?.receiveCycleSnapshot === receiveTickCycle) {
+        delete window.__fx.gameTickHudAdapter.receiveCycleSnapshot;
+      }
+      if (window.__fx) window.__fx.gameTickHudReady = false;
       if (window.__fx?.gameTeamChartAdapter?.receiveNativeSnapshot === receiveTeamChart) {
         delete window.__fx.gameTeamChartAdapter.receiveNativeSnapshot;
       }
@@ -1058,10 +1176,17 @@ const GameLeaderboardHud = defineComponent({
       if (window.__fx) window.__fx.gameTeamChartReady = false;
     });
 
-    return { snapshot, visible, dataReady, rows, visibleRows, topSpacerHeight, bottomSpacerHeight, updateVirtualWindow, collapsed, showEliminated, toggleEliminatedVisibility, showBots, toggleBotVisibility, activeTab, setActiveTab, ownClanRank, tabLabels, playerFilter, canFilterClan, canFilterTeam, setPlayerFilter, formatted, focusPlayer, toggleCollapsed, rowsContainer, aliveHumanCount, aliveBotCount, toggleOwnPlayerLock, goTop, panelStyle, startPanelMove, startPanelResize, handlePanelHeaderClick, setLeaderboardPanel, setRowsContainer, statusSnapshot, lockedPlayerId, togglePlayerLock, handleManualScroll, statusCardStyle, statusCardsCollapsed, toggleStatusCardCollapsed, startStatusCardMove, leaderboardPanel, teamChartVisible, teamChartStyle, teamChartSegments, detailedTeamPercentage, startTeamChartMove, gameHudSettingsOpen, gameHudSettingsTab, gameHudFontScale, gameHudTransparency, gameMapProfileSettings, gameMapSettingsSlots, gameMapSettingsSlot, applyGameMapSettings, saveGameMapSettings, deleteGameMapSettings, loadGameMapSettings, gameHudLayoutSlots, gameHudLayoutSlot, applyGameHudSettings, saveGameHudLayout, deleteGameHudLayout, loadGameHudLayout, gameHudAccentStyle };
+    return { snapshot, visible, dataReady, rows, visibleRows, topSpacerHeight, bottomSpacerHeight, updateVirtualWindow, collapsed, showEliminated, toggleEliminatedVisibility, showBots, toggleBotVisibility, activeTab, setActiveTab, ownClanRank, tabLabels, playerFilter, canFilterClan, canFilterTeam, setPlayerFilter, formatted, focusPlayer, toggleCollapsed, rowsContainer, aliveHumanCount, aliveBotCount, toggleOwnPlayerLock, goTop, panelStyle, startPanelMove, startPanelResize, handlePanelHeaderClick, setLeaderboardPanel, setRowsContainer, statusSnapshot, lockedPlayerId, togglePlayerLock, handleManualScroll, statusCardStyle, statusCardsCollapsed, toggleStatusCardCollapsed, startStatusCardMove, leaderboardPanel, teamChartVisible, teamChartStyle, teamChartSegments, detailedTeamPercentage, startTeamChartMove, tickHudSnapshot, tickHudStyle, startTickHudMove, gameHudSettingsOpen, gameHudSettingsTab, gameHudFontScale, gameHudTransparency, gameMapProfileSettings, gameMapSettingsSlots, gameMapSettingsSlot, applyGameMapSettings, saveGameMapSettings, deleteGameMapSettings, loadGameMapSettings, gameHudLayoutSlots, gameHudLayoutSlot, applyGameHudSettings, saveGameHudLayout, deleteGameHudLayout, loadGameHudLayout, gameHudAccentStyle };
   },
   template: `
     <div v-if="visible" class="fx-game-hud-container" :style="gameHudAccentStyle">
+      <GameTickCounterWidget
+        :snapshot="tickHudSnapshot"
+        :position-style="tickHudStyle"
+        :show-tick="Boolean(gameMapProfileSettings.displayTickNumber)"
+        :font-scale="gameHudFontScale"
+        @start-move="startTickHudMove"
+      />
       <button class="fx-game-settings-opener" type="button" aria-label="Game HUD settings" title="Game HUD settings" @pointerdown.stop @click.stop="gameHudSettingsOpen = !gameHudSettingsOpen; $event.currentTarget.blur()">⚙</button>
       <nav v-if="!gameHudSettingsOpen && gameHudLayoutSlots.some(slot => slot !== null)" class="fx-game-layout-quick-buttons" aria-label="Load saved Game HUD layout">
         <template v-for="(slot, index) in gameHudLayoutSlots" :key="index"><button v-if="slot" type="button" :aria-label="'Load Game HUD layout ' + (index + 1)" :title="'Load layout L' + (index + 1)" @pointerdown.prevent.stop @click.stop="gameHudLayoutSlot = index; loadGameHudLayout(); $event.currentTarget.blur()">L{{ index + 1 }}</button></template>
@@ -1079,6 +1204,7 @@ const GameLeaderboardHud = defineComponent({
           <div class="fx-game-settings-actions"><button type="button" @click="saveGameHudLayout(); $event.currentTarget.blur()">Save</button><button type="button" :disabled="!gameHudLayoutSlots[gameHudLayoutSlot]" @click="loadGameHudLayout(); $event.currentTarget.blur()">Load</button><button type="button" class="is-danger" :disabled="!gameHudLayoutSlots[gameHudLayoutSlot]" @click="deleteGameHudLayout(); $event.currentTarget.blur()">Delete</button></div>
         </div>
         <div v-else>
+          <label class="fx-game-settings-check"><span>Show tick number</span><input v-model="gameMapProfileSettings.displayTickNumber" type="checkbox" @change="applyGameMapSettings"></label>
           <label class="fx-game-settings-check"><span>Show player density</span><input v-model="gameMapProfileSettings.showPlayerDensity" type="checkbox" @change="applyGameMapSettings"></label>
           <label class="fx-game-settings-check"><span>Colored density</span><input v-model="gameMapProfileSettings.coloredDensity" type="checkbox" @change="applyGameMapSettings"></label>
           <label>Density display<select v-model="gameMapProfileSettings.densityDisplayStyle" @change="applyGameMapSettings"><option value="absoluteQuotient">Value</option><option value="percentage">Percentage</option></select></label>
@@ -1160,10 +1286,26 @@ export function createVueGameLeaderboardHud() {
     style.id = styleId;
     style.textContent = `
       .fx-game-hud-container,.fx-game-hud-container *{user-select:none!important;-webkit-user-select:none!important}
+      .fx-game-tick-hud{position:fixed;z-index:59;display:flex;align-items:stretch;gap:4px;width:312px;height:60px;pointer-events:none;user-select:none;-webkit-user-select:none}
+      .fx-game-tick-counter{display:grid;grid-template-rows:minmax(0,1fr) 20px;align-content:center;gap:0;flex:0 0 76px;min-width:0;box-sizing:border-box;padding:3px 5px;border:1px solid rgba(150,185,225,.17);border-radius:10px;background:linear-gradient(145deg,rgba(20,30,45,var(--fx-game-hud-panel-alpha,.81)),rgba(9,15,26,var(--fx-game-hud-panel-alpha,.81)));box-shadow:inset 0 1px rgba(255,255,255,.055),0 4px 12px rgba(0,0,0,.12);color:#fff;font-family:var(--fx-game-native-font-family,Arial,sans-serif);font-variant-numeric:tabular-nums;pointer-events:auto;cursor:move;touch-action:none}
+      .fx-game-tick-hud.is-growing .fx-game-tick-counter{border-color:rgba(80,238,125,.66);background:linear-gradient(145deg,color-mix(in srgb,#0bab43 42%,rgba(20,30,45,var(--fx-game-hud-panel-alpha,.81))),color-mix(in srgb,#087d37 34%,rgba(9,15,26,var(--fx-game-hud-panel-alpha,.81))));box-shadow:inset 0 1px rgba(190,255,203,.12),0 0 12px rgba(28,220,86,.12),0 4px 12px rgba(0,0,0,.12)}
+      .fx-game-tick-hud.is-falling .fx-game-tick-counter{border-color:rgba(255,105,105,.68);background:linear-gradient(145deg,color-mix(in srgb,#c51726 44%,rgba(20,30,45,var(--fx-game-hud-panel-alpha,.81))),color-mix(in srgb,#80111b 38%,rgba(9,15,26,var(--fx-game-hud-panel-alpha,.81))));box-shadow:inset 0 1px rgba(255,202,202,.12),0 0 12px rgba(235,44,58,.13),0 4px 12px rgba(0,0,0,.12)}
+      .fx-game-tick-cycle{display:grid;place-items:center;min-width:0;line-height:1}.fx-game-tick-cycle strong{font-weight:850}
+      .fx-game-tick-totals{display:grid;grid-template-columns:1fr 1fr;min-width:0;overflow:hidden;border-top:1px solid rgba(240,255,240,.2);color:rgba(240,255,240,.78);font-weight:700;line-height:1;text-align:center}.fx-game-tick-total{display:flex;min-width:0;flex-direction:column;align-items:center;justify-content:center;gap:1px;overflow:hidden}.fx-game-tick-total.is-cycles{border-left:1px solid rgba(240,255,240,.2)}.fx-game-tick-total small{color:rgba(240,255,240,.58);font-size:.58em;font-weight:650;line-height:1;white-space:nowrap}.fx-game-tick-total strong{max-width:100%;overflow:hidden;font-size:1em;line-height:1;white-space:nowrap}
+      .fx-game-tick-widget{position:relative;display:grid;grid-template-columns:6px minmax(0,1fr) 6px;grid-template-rows:minmax(0,1fr) 5px;gap:0;flex:1 1 0;min-width:0;height:60px;box-sizing:border-box;overflow:hidden;padding:0;border:1px solid rgba(150,185,225,.17);border-radius:10px;background:linear-gradient(145deg,rgba(20,30,45,var(--fx-game-hud-panel-alpha,.81)),rgba(9,15,26,var(--fx-game-hud-panel-alpha,.81)));box-shadow:inset 0 1px rgba(255,255,255,.055),0 4px 12px rgba(0,0,0,.12);color:#f7fff6;font:13px/1 var(--fx-game-native-font-family,Arial,sans-serif);font-variant-numeric:tabular-nums;pointer-events:auto;user-select:none;-webkit-user-select:none}
+      .fx-game-tick-hud.is-growing .fx-game-tick-widget{border-color:rgba(80,238,125,.66);background:linear-gradient(145deg,color-mix(in srgb,#0bab43 42%,rgba(20,30,45,var(--fx-game-hud-panel-alpha,.81))),color-mix(in srgb,#087d37 34%,rgba(9,15,26,var(--fx-game-hud-panel-alpha,.81))));box-shadow:inset 0 1px rgba(190,255,203,.12),0 0 12px rgba(28,220,86,.12),0 4px 12px rgba(0,0,0,.12)}
+      .fx-game-tick-hud.is-falling .fx-game-tick-widget{border-color:rgba(255,105,105,.68);background:linear-gradient(145deg,color-mix(in srgb,#c51726 44%,rgba(20,30,45,var(--fx-game-hud-panel-alpha,.81))),color-mix(in srgb,#80111b 38%,rgba(9,15,26,var(--fx-game-hud-panel-alpha,.81))));box-shadow:inset 0 1px rgba(255,202,202,.12),0 0 12px rgba(235,44,58,.13),0 4px 12px rgba(0,0,0,.12)}
+      .fx-game-tick-widget-head{position:relative;grid-column:2;grid-row:1;display:block;min-width:0;padding:2px 10px;cursor:move;touch-action:none;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.55)}
+      .fx-game-tick-number{color:#efffe9;font-size:calc(clamp(12px,1.25vw,18px) * var(--fx-game-hud-font-scale,1));font-weight:800}
+      .fx-game-tick-balance{position:absolute;top:56%;left:0;right:0;display:block;min-width:0;overflow:hidden;transform:translateY(-50%);font-size:calc(clamp(22px,2.1vw,32px) * var(--fx-game-hud-font-scale,1));font-weight:800;letter-spacing:.015em;line-height:1;text-align:center;white-space:nowrap}
+      .fx-game-tick-income{position:absolute;top:1px;right:5px;color:#e9ffe1;font-size:calc(clamp(11px,1.1vw,16px) * var(--fx-game-hud-font-scale,1));font-weight:750;line-height:1;white-space:nowrap}
+      .fx-game-tick-meter{grid-column:2;grid-row:2;position:relative;overflow:hidden;background:rgba(0,0,0,.45)}.fx-game-tick-meter span{display:block;height:100%;background:linear-gradient(90deg,rgba(120,245,126,.28),rgba(162,255,136,.9));box-shadow:0 0 8px rgba(138,255,145,.55);transition:width .2s linear}
+      .fx-game-tick-hud.is-falling .fx-game-tick-meter span{background:linear-gradient(90deg,rgba(255,95,95,.3),rgba(255,140,112,.9));box-shadow:0 0 8px rgba(255,100,90,.45)}
+      .fx-game-tick-rail{position:relative;grid-row:1/3;display:block;overflow:hidden;background:rgba(0,0,0,.14)}.fx-game-tick-rail i{position:absolute;right:0;bottom:0;left:0;display:block;background:rgba(225,255,214,.9);box-shadow:0 0 6px rgba(210,255,200,.5);transition:height .2s linear}
       .fx-game-leaderboard-hud{position:fixed;z-index:60;top:clamp(12px,2vh,24px);left:calc(var(--fx-sidebar-width, 0px) + 14px);width:min(278px,calc(100vw - var(--fx-sidebar-width, 0px) - 28px));max-height:min(90vh,900px);container-type:inline-size;container-name:fx-game-leaderboard;display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden;border:1px solid rgba(160,190,225,.24);border-radius:12px;background:linear-gradient(145deg,rgba(20,30,45,var(--fx-game-hud-panel-alpha,.81)),rgba(9,15,26,var(--fx-game-hud-panel-alpha,.81)));box-shadow:0 12px 36px rgba(0,0,0,.32),inset 0 1px rgba(255,255,255,.06);backdrop-filter:blur(14px);color:#eef4ff;font:13px/1.35 var(--fx-game-native-font-family,Arial,sans-serif);pointer-events:auto}
       .fx-game-leaderboard-hud{position:fixed;z-index:60;top:clamp(12px,2vh,24px);left:calc(var(--fx-sidebar-width, 0px) + 14px);width:min(278px,calc(100vw - var(--fx-sidebar-width, 0px) - 28px));max-height:min(90vh,900px);container-type:inline-size;container-name:fx-game-leaderboard;display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden;border:1px solid rgba(160,190,225,.24);border-radius:12px;background:linear-gradient(145deg,rgba(20,30,45,var(--fx-game-hud-panel-alpha,.81)),rgba(9,15,26,var(--fx-game-hud-panel-alpha,.81)));box-shadow:0 12px 36px rgba(0,0,0,.32),inset 0 1px rgba(255,255,255,.06);backdrop-filter:blur(14px);color:#eef4ff;font:13px/1.35 var(--fx-game-native-font-family,Arial,sans-serif);pointer-events:auto}
-      .fx-game-team-chart{position:fixed;z-index:58;display:flex;flex-direction:column;align-items:center;gap:5px;width:168px;box-sizing:border-box;padding:8px;border:1px solid rgba(160,190,225,.24);border-radius:12px;background:linear-gradient(145deg,rgba(20,30,45,var(--fx-game-hud-panel-alpha,.81)),rgba(9,15,26,var(--fx-game-hud-panel-alpha,.81)));box-shadow:0 12px 36px rgba(0,0,0,.32),inset 0 1px rgba(255,255,255,.06);backdrop-filter:blur(14px);color:#eef4ff;font:11px/1.2 var(--fx-game-native-font-family,Arial,sans-serif);pointer-events:none;user-select:none;-webkit-user-select:none}
-      .fx-game-team-chart header{display:flex;align-items:center;gap:7px;width:100%;color:#9fb2cb;font-size:10px;font-weight:750;letter-spacing:.08em;pointer-events:auto;touch-action:none;cursor:move}
+      .fx-game-team-chart{position:fixed;z-index:58;display:flex;flex-direction:column;align-items:center;gap:5px;width:168px;box-sizing:border-box;padding:10px 12px;border:1px solid rgba(150,185,225,.17);border-radius:10px;background:linear-gradient(145deg,rgba(20,30,45,var(--fx-game-hud-panel-alpha,.81)),rgba(9,15,26,var(--fx-game-hud-panel-alpha,.81)));box-shadow:inset 0 1px rgba(255,255,255,.055),0 4px 12px rgba(0,0,0,.12);backdrop-filter:blur(14px);color:#eef4ff;font:11px/1.2 var(--fx-game-native-font-family,Arial,sans-serif);pointer-events:none;user-select:none;-webkit-user-select:none}
+      .fx-game-team-chart header{display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;padding-bottom:6px;border-bottom:1px solid rgba(150,185,225,.14);color:#9fb2cb;font-size:10px;font-weight:750;letter-spacing:.08em;pointer-events:auto;touch-action:none;cursor:grab}.fx-game-team-chart header:active{cursor:grabbing}
       .fx-game-team-chart header span{display:grid;place-items:center;width:18px;height:18px;border-radius:5px;background:rgba(130,180,240,.13);color:#a8d0ff;font-size:13px}
       .fx-game-team-chart-pie{display:block;width:148px;height:148px;overflow:visible}
       .fx-game-team-chart-pie text{fill:#fff;font:700 7px/1 var(--fx-game-native-font-family,Arial,sans-serif);paint-order:stroke;stroke:rgba(0,0,0,.42);stroke-width:.75px;stroke-linejoin:round}

@@ -655,6 +655,10 @@ const settingsManager = new (function () {
       label: "Show player density",
     },
     {
+      for: "playerDensityFontScale", type: "rangeInput",
+      label: "Density font size", min: 50, max: 200, step: 5, unit: "%",
+    },
+    {
       for: "coloredDensity",
       type: "checkbox",
       label: "Colored density",
@@ -679,6 +683,10 @@ const settingsManager = new (function () {
       type: "checkbox",
       label: eliminationEstimateText.label,
       note: eliminationEstimateText.note,
+    },
+    {
+      for: "estimatedAttackFontScale", type: "rangeInput",
+      label: "Attack estimate font size", min: 50, max: 200, step: 5, unit: "%",
     },
     {
       for: "estimatedAttackTroopMultiplier",

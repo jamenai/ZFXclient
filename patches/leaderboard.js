@@ -9,7 +9,7 @@ export default definePatch((modUtils) => {
 	// the native team map and publish them when the territory map is mutated.
 	if (/function dS\(\)\{/.test(modUtils.script)) {
 		replaceOne(/function dS\(\)\{/g,
-			'function dS(){window.__fx.getNativePlayerTeamId=id=>Number.isInteger(Number(id))&&Number(id)>=0&&Number(id)<aE.fd?bj.lP[bj.fe[Number(id)]]:null;window.__fx.getNativePlayerTeamColor=id=>{var team=window.__fx.getNativePlayerTeamId(Number(id)),rgb=bj.aW6[team];return rgb?"rgb("+rgb[0]+","+rgb[1]+","+rgb[2]+")":null;};window.__fx.getNativePlayerColor=id=>{id=Number(id);if(!Number.isInteger(id)||id<0||id>=aE.fd)return null;if(aE.ib)return window.__fx.getNativePlayerTeamColor(id);var color=aE.data.colorsData?.[id];return Number.isInteger(color)?"rgb("+(((color>>12)&63)<<2)+","+(((color>>6)&63)<<2)+","+((color&63)<<2)+")":null;};window.__fx.publishNativeTeamChart=function(){var adapter=window.__fx?.gameTeamChartAdapter?.receiveNativeSnapshot;if(!aE.ib||aE.a4E===0||!adapter)return;var now=Date.now();if(now-(window.__fx.gameTeamChartLastSent||0)<180)return;window.__fx.gameTeamChartLastSent=now;var teams=[];for(var teamId=0;teamId<bj.aW6.length;teamId++){var pixels=0;for(var player=0;player<aE.fd;player++)if(window.__fx.getNativePlayerTeamId(player)===teamId)pixels+=Number(ah.hU[player])||0;var color=bj.aW6[teamId];teams.push({id:teamId,pixels:pixels,color:"rgb("+color[0]+","+color[1]+","+color[2]+")"});}adapter({updatedAt:now,teams:teams});};');
+			'function dS(){window.__fx.getNativePlayerTeamId=id=>Number.isInteger(Number(id))&&Number(id)>=0&&Number(id)<aE.fd?bj.fe[Number(id)]:null;window.__fx.getNativePlayerTeamColor=id=>{var team=window.__fx.getNativePlayerTeamId(Number(id)),rgb=bj.aW6[bj.lP[team]];return rgb?"rgb("+rgb[0]+","+rgb[1]+","+rgb[2]+")":null;};window.__fx.getNativePlayerColor=id=>{id=Number(id);if(!Number.isInteger(id)||id<0||id>=aE.fd)return null;if(aE.ib)return window.__fx.getNativePlayerTeamColor(id);var color=aE.data.colorsData?.[id];return Number.isInteger(color)?"rgb("+(((color>>12)&63)<<2)+","+(((color>>6)&63)<<2)+","+((color&63)<<2)+")":null;};window.__fx.publishNativeTeamChart=function(){var adapter=window.__fx?.gameTeamChartAdapter?.receiveNativeSnapshot;if(!aE.ib||aE.a4E===0||!adapter)return;var now=Date.now();if(now-(window.__fx.gameTeamChartLastSent||0)<180)return;window.__fx.gameTeamChartLastSent=now;var teams=[];for(var teamId=0;teamId<=aE.a1S;teamId++){var pixels=0;for(var player=0;player<aE.fd;player++)if(bj.fe[player]===teamId)pixels+=Number(ah.hU[player])||0;teams.push({id:teamId,pixels:pixels,color:bj.aag[bj.lP[teamId]]||"rgba(120,134,154,0.88)"});}adapter({updatedAt:now,teams:teams});};');
 		replaceOne(/function aMu\(fK\)\{/g,
 			'function aMu(fK){window.__fx?.publishNativeTeamChart?.();');
 		console.info("[ZFX Client] Installed native team chart and player team-color adapters.");
@@ -21,7 +21,7 @@ export default definePatch((modUtils) => {
 	// exists in this version.
 	if (/this\.el=function\(\)\{aFD\(\);aFE\(\);aFF\(\);aFG\(\);\};/.test(modUtils.script)) {
 		replaceOne(/this\.el=function\(\)\{aFD\(\);aFE\(\);aFF\(\);aFG\(\);\};/g,
-			'this.el=function(){aFD();aFE();if(window.__fx?.gameLeaderboardAdapter?.receiveNativeSnapshot){var fxNow=Date.now();if(fxNow-(window.__fx.gameLeaderboardLastSent||0)>180){window.__fx.gameLeaderboardLastSent=fxNow;var fxPlayers=md.slice(0,aE.fd).map(function(id,index){return{id:id,rank:index+1,name:ah.a4x[id]||("Player "+(id+1)),territories:Number(ah.hU[id])||0,isAlive:ah.ne[id]!==0,isBot:id>=aE.l2,teamId:window.__fx.getNativePlayerTeamId?.(id)??null,color:window.__fx.getNativePlayerColor?.(id)??null};});var fxOwn=fxPlayers.find(function(player){return player.id===aE.fQ})||null;window.__fx.gameLeaderboardAdapter.receiveNativeSnapshot({updatedAt:fxNow,total:aE.fd,humanCount:aE.l2,botCount:aE.lO,spectatorCount:0,ownPlayerId:aE.fQ,ownRank:kn[aE.fQ]+1,players:fxPlayers,ownPlayer:fxOwn});}}aFF();aFG();};');
+			'this.el=function(){aFD();aFE();if(window.__fx?.gameLeaderboardAdapter){window.__fx.gameLeaderboardAdapter.focusPlayer=function(playerId){var id=Number(playerId);if(!Number.isInteger(id)||id<0||id>=aE.fd)return false;aI.o0(id,800,false,0);bi.du=true;return true;};if(window.__fx.gameLeaderboardAdapter.receiveNativeSnapshot){var fxNow=Date.now();if(fxNow-(window.__fx.gameLeaderboardLastSent||0)>180){window.__fx.gameLeaderboardLastSent=fxNow;var fxPlayers=md.slice(0,aE.fd).map(function(id,index){return{id:id,rank:index+1,name:ah.a4x[id]||("Player "+(id+1)),territories:Number(ah.hU[id])||0,isAlive:ah.ne[id]!==0,isBot:id>=aE.l2,teamId:window.__fx.getNativePlayerTeamId?.(id)??null,color:window.__fx.getNativePlayerColor?.(id)??null};});var fxOwn=fxPlayers.find(function(player){return player.id===aE.fQ})||null;window.__fx.gameLeaderboardAdapter.receiveNativeSnapshot({updatedAt:fxNow,total:aE.fd,humanCount:aE.l2,botCount:aE.lO,spectatorCount:0,ownPlayerId:aE.fQ,ownRank:kn[aE.fQ]+1,players:fxPlayers,ownPlayer:fxOwn});}}}aFF();aFG();};');
 		replaceOne(/this\.yr=function\(\)\{ys\.drawImage\(aEc,bf\.gap,bf\.gap\);\};/g,
 			'this.yr=function(){if(window.__fx?.gameLeaderboardHudReady)return;ys.drawImage(aEc,bf.gap,bf.gap);};');
 		replaceOne(/this\.hu=function\(fn,fp\)\{if\(a3D\(fn,fp\)\)\{/g,
@@ -35,6 +35,16 @@ export default definePatch((modUtils) => {
 		console.info("[ZFX Client] Installed native in-game leaderboard snapshot adapter.");
 	} else {
 		console.info("[ZFX Client] Native in-game leaderboard update hook is absent in this game version.");
+	}
+
+	// dT owns the native team-share pie chart in the current game build. Hide
+	// only that canvas after the Vue chart has received its first snapshot.
+	try {
+		replaceOne(/this\.yr=function\(\)\{if\(aE\.ib\)\{if\(aE\.o8\)\{ys\.drawImage\(canvas,bf\.gap,bf\.gap\);\}else\{ys\.drawImage\(canvas,bf\.gap,aCT\+2\*bf\.gap\);\}\}\};/g,
+			'this.yr=function(){if(aE.ib&&!window.__fx?.gameTeamChartReady){if(aE.o8){ys.drawImage(canvas,bf.gap,bf.gap);}else{ys.drawImage(canvas,bf.gap,aCT+2*bf.gap);}}};');
+		console.info("[ZFX Client] Native team-share chart is suppressed when the Vue chart is ready.");
+	} catch (error) {
+		console.info("[ZFX Client] Native team-share chart renderer hook is absent.", error?.message || error);
 	}
 
 	// Current status panel cU owns the labels, visibility flags, and formatted

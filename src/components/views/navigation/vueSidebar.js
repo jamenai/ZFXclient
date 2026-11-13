@@ -146,8 +146,12 @@ const VueSidebar = defineComponent({
       getClockSlot: () => clockSlot.value,
       setEnabled() { enabled.value = true; setMode(mode.value); },
       isEnabled: () => enabled.value,
-      requestResize() {},
-      setResizeHandler() {},
+      requestResize() {
+        if (typeof window.__fx?.requestNativeResize === "function") window.__fx.requestNativeResize();
+      },
+      setResizeHandler(handler) {
+        if (typeof handler === "function") window.__fx.requestNativeResize = handler;
+      },
       isCollapsed: () => isCollapsed.value,
       refreshTranslations: refresh,
       getLobbyRating: () => lobbyRating.value,

@@ -1,15 +1,26 @@
 {
-    "version": "0.1.50",
-    "lastUpdated": "November 12, 2026",
+    "version": "0.1.51",
+    "lastUpdated": "November 13, 2026",
     "changes": [
-        "Render the own-territory outline over the live map and refresh it after territory changes",
-        "Highlight clan members during spawn selection with a soft glow",
-        "Keep attack estimates visible in compact map labels",
-        "Add a minimap HUD and independent map settings profiles",
-        "Show the dominant team color for clans in the Rivals leaderboard"
+        "Adapt patches and game data adapters to native game version 2.17.9",
+        "Restore lobby chat actions, player ranks, contest data, and transition handling",
+        "Add a dedicated Vue attack selector HUD and make keybind controls draggable",
+        "Keep attack selector and keybind HUD positions in saved Game HUD layouts",
+        "Improve density, attack estimate, tick counter, and team chart data feeds"
     ],
     "isSignificant": true,
     "history": [
+        {
+            "version": "0.1.51",
+            "lastUpdated": "November 13, 2026",
+            "changes": [
+                "Adapt patches and game data adapters to native game version 2.17.9",
+                "Restore lobby chat actions, player ranks, contest data, and transition handling",
+                "Add a dedicated Vue attack selector HUD and make keybind controls draggable",
+                "Keep attack selector and keybind HUD positions in saved Game HUD layouts",
+                "Improve density, attack estimate, tick counter, and team chart data feeds"
+            ]
+        },
         {
             "version": "0.1.49",
             "lastUpdated": "November 12, 2026",

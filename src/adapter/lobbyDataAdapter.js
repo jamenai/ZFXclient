@@ -29,6 +29,8 @@ const EMPTY_SNAPSHOT = Object.freeze({
 function normalizePlayer(player) {
   const participation = ["joined", "spectator", "none"].includes(player.participation) ? player.participation : "none";
   const readiness = ["ready", "not-ready"].includes(player.readiness) ? player.readiness : "unknown";
+  const rankValue = player.rank == null || player.rank === "" ? NaN : Number(player.rank);
+  const rankCodeValue = player.rankCode == null || player.rankCode === "" ? NaN : Number(player.rankCode);
   return {
     id: String(player.id ?? ""),
     name: String(player.name ?? ""),
@@ -41,8 +43,8 @@ function normalizePlayer(player) {
     readyEntryModeLabel: String(player.readyEntryModeLabel ?? ""),
     readyEntryMapName: String(player.readyEntryMapName ?? ""),
     readyEntryTeamCountLabel: String(player.readyEntryTeamCountLabel ?? ""),
-    rank: Number.isFinite(Number(player.rank)) && Number(player.rank) > 0 ? Number(player.rank)
-      : Number.isFinite(Number(player.rankCode)) && Number(player.rankCode) >= 0 ? Number(player.rankCode) + 1 : null,
+    rank: Number.isFinite(rankValue) && rankValue > 0 ? rankValue
+      : Number.isFinite(rankCodeValue) && rankCodeValue >= 0 ? rankCodeValue + 1 : null,
     rankText: String(player.rankText ?? ""),
     followed: player.followed === true,
     self: player.self === true,
@@ -78,7 +80,8 @@ function normalizeSnapshot(snapshot, source, previousSnapshot = EMPTY_SNAPSHOT) 
         return normalizePlayer({
           ...player,
           clan,
-          rank: player.rank ?? (Number.isFinite(Number(player.rankCode)) && Number(player.rankCode) >= 0
+          rank: player.rank ?? (player.rankCode != null && player.rankCode !== ""
+            && Number.isFinite(Number(player.rankCode)) && Number(player.rankCode) >= 0
             ? Number(player.rankCode) + 1 : null),
           readiness: player.readiness ?? (player.ready === true ? "ready" : player.ready === false ? "not-ready" : "unknown"),
         });

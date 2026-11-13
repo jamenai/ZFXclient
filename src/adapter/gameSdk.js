@@ -175,7 +175,12 @@ export function createGameSdk({ getMapNames = () => null } = {}) {
 
   function receiveNativePlayers(players, entries = latestNativeEntries, selectedId = selectedEntryId, sequence = null) {
     if (!Array.isArray(players)) return false;
-    const normalizedPlayers = players.map((player, index) => Object.freeze({
+    const normalizedPlayers = players.map((player, index) => {
+      // In the current native lobby player record, a84 is the zero-based
+      // global rank code. The older a7W/a7T/a7G fields no longer exist.
+      const nativeRankCode = player?.a84 == null || player?.a84 === "" ? NaN : Number(player.a84);
+      const rankAvailable = Number.isFinite(nativeRankCode) && nativeRankCode >= 0 && nativeRankCode !== 1234566;
+      return Object.freeze({
       id: Number.isInteger(Number(player?.uu ?? player?.ur ?? player?.ue ?? player?.pk)) ? Number(player.uu ?? player.ur ?? player.ue ?? player.pk) : null,
       accountCode: formatLobbyAccountCode(player?.uu ?? player?.ur ?? player?.ue ?? player?.pk),
       name: String(player?.username ?? ""),
@@ -184,15 +189,14 @@ export function createGameSdk({ getMapNames = () => null } = {}) {
         ? Number(player.x8 ?? player.x5 ?? player.ws ?? player.xi) : null,
       participation: Number(player?.x8 ?? player?.x5 ?? player?.ws ?? player?.xi) > 0
         ? (Number(player?.xB ?? player?.x8Mode ?? player?.wv ?? player?.xl) === 0 ? "joined" : "spectator") : "none",
-      rankCode: Number.isFinite(Number(player?.a7W ?? player?.a7T ?? player?.a7G)) && Number(player?.a7W ?? player?.a7T ?? player?.a7G) >= 0
-        && Number(player?.a7W ?? player?.a7T ?? player?.a7G) !== 1234566 ? Number(player.a7W ?? player.a7T ?? player.a7G) : null,
-      rank: Number.isFinite(Number(player?.a7W ?? player?.a7T ?? player?.a7G)) && Number(player?.a7W ?? player?.a7T ?? player?.a7G) >= 0
-        && Number(player?.a7W ?? player?.a7T ?? player?.a7G) !== 1234566 ? Number(player.a7W ?? player.a7T ?? player.a7G) + 1 : null,
+      rankCode: rankAvailable ? nativeRankCode : null,
+      rank: rankAvailable ? nativeRankCode + 1 : null,
       rankText: String(window.__fx?.getNativeLobbyPlayerRankText?.(player) ?? ""),
       colorCode: Number.isFinite(Number(player?.color)) ? Number(player.color) : null,
       color: String(window.__fx?.getNativeLobbyPlayerColor?.(player) ?? ""),
       territoryBorderColor: String(window.__fx?.getNativeLobbyPlayerTerritoryBorderColor?.(player) ?? ""),
-    }));
+      });
+    });
     const entryList = Array.isArray(entries) ? entries : latestNativeEntries;
     for (const entry of entryList) {
       const id = Number(entry?.id);

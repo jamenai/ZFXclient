@@ -209,6 +209,15 @@ function formatLobbyNotification(text) {
   return { senderName: "", senderId: null, senderColor: "", ...makeBody(source), kind: isFollowerNotice ? "followers" : "default" };
 }
 
+function stripNativeChatSenderPrefix(text, senderName) {
+  const value = String(text ?? "");
+  const name = String(senderName ?? "");
+  if (!name || value.slice(0, name.length).toLocaleLowerCase() !== name.toLocaleLowerCase()) return value;
+  const rest = value.slice(name.length);
+  const separator = rest.match(/^\s*:\s*/);
+  return separator ? rest.slice(separator[0].length).trim() : value;
+}
+
 function getFollowNoticeKey(text) {
   const ids = [...String(text ?? "").matchAll(/@[a-zA-Z0-9_-]{5}/g)]
     .map(match => match[0].toLocaleLowerCase());
@@ -443,7 +452,7 @@ const getLobbyLabels = (language = window.__fx?.getGameLanguage?.() || "en") => 
     chatEmpty: "Noch keine Nachrichten", mention: "Erwähnen", dismiss: "Schließen",
     playersCount: "Spieler", noClan: "Kein eigener Clan erkannt", lobbyUnavailable: "Lobby wird geladen …",
     chatUnavailable: "Lobby-Chat konnte nicht geöffnet werden",
-    zfxChat: "ZFX Chat", zfxChatPlaceholder: "Nachricht im ZFX Chat …", zfxChatConnected: "Mit ZFX Chat verbunden", zfxChatConnecting: "Verbinde mit ZFX Chat …", zfxChatDisconnected: "Verbindung zum ZFX Chat getrennt", zfxChatOffline: "ZFX Chat nicht verbunden", zfxChatUnavailable: "ZFX Chat ist nicht erreichbar",
+    zfxChat: "ZFX Chat", zfxChatPlaceholder: "Nachricht im ZFX Chat …", zfxChatConnected: "Mit ZFX Chat verbunden", zfxChatConnecting: "Verbinde mit ZFX Chat …", zfxChatDisconnected: "Verbindung zum ZFX Chat getrennt", zfxChatOffline: "ZFX Chat nicht verbunden", zfxChatUnavailable: "ZFX Chat ist nicht erreichbar", terriChatConnected: "Terri-Chat-Datenstrom aktiv", terriChatConnecting: "Warte auf Terri-Chat-Daten …", terriChatDisconnected: "Terri-Chat-Socket getrennt",
   } : {
     viewGrid: "Grid", viewTable: "Table", viewList: "List",
     title: "Lobby overview", currentMap: "Current map", nextMap: "Your selection", selectedGame: "Your selection", joinedGame: "Joined game", spectatingGame: "Spectating game", spectateGame: "Watch", spectatingActive: "Spectating", active: "ACTIVE", stopSpectating: "Stop spectating", selectGame: "Select game", noGameSelected: "No game selected", chooseGameHint: "Choose an upcoming game above.", modes: "Game modes", upcomingGames: "Upcoming games", noOtherUpcomingGames: "No other upcoming games", gameEntry: "Game", map: "Map", modeTeamGame: "Team", modeTeams: "Teams", modeBattleRoyale: "Battle Royale", modeDuel: "1v1", modeZombie: "Zombie", modeUnknown: "Game mode", selected: "Selected", joinGame: "Join", leaveGame: "Leave", joinSelected: "Selected · join", copyGameLink: "Copy game link", linkCopied: "Link copied", waitingForGames: "Waiting for upcoming games …", unknownPlayer: "Unknown player", clans: "Clans",
@@ -470,7 +479,7 @@ const getLobbyLabels = (language = window.__fx?.getGameLanguage?.() || "en") => 
     chatEmpty: "No messages yet", mention: "Mention", dismiss: "Close",
     playersCount: "Players", noClan: "No own clan detected", lobbyUnavailable: "Loading lobby …",
     chatUnavailable: "Could not open lobby chat",
-    zfxChat: "ZFX Chat", zfxChatPlaceholder: "Message in ZFX chat …", zfxChatConnected: "Connected to ZFX chat", zfxChatConnecting: "Connecting to ZFX chat …", zfxChatDisconnected: "Disconnected from ZFX chat", zfxChatOffline: "ZFX chat is offline", zfxChatUnavailable: "ZFX chat is unavailable",
+    zfxChat: "ZFX Chat", zfxChatPlaceholder: "Message in ZFX chat …", zfxChatConnected: "Connected to ZFX chat", zfxChatConnecting: "Connecting to ZFX chat …", zfxChatDisconnected: "Disconnected from ZFX chat", zfxChatOffline: "ZFX chat is offline", zfxChatUnavailable: "ZFX chat is unavailable", terriChatConnected: "Terri chat data stream active", terriChatConnecting: "Waiting for Terri chat data …", terriChatDisconnected: "Terri chat socket disconnected",
   };
 };
 
@@ -484,8 +493,14 @@ const LobbyView = defineComponent({
     const snapshot = shallowRef(adapter.getSnapshot());
     const resolvedChatMessages = computed(() => {
       const messages = Array.isArray(snapshot.value?.chatMessages) ? snapshot.value.chatMessages : [];
-      return messages.filter(Boolean).map(message => {
-        const rawText = String(message.rawText || message.text || "");
+      const resolved = [];
+      for (const message of messages.filter(Boolean)) {
+        const sdkPlayer = window.__fx?.gameSdk?.lobby?.getSnapshot?.()?.players
+          ?.find(player => Number(player.id) === Number(message.senderId));
+        const senderName = message.system ? "" : window.__fx?.getLobbyChatSenderName?.(message.senderId)
+          || sdkPlayer?.name
+          || message.senderName;
+        const rawText = stripNativeChatSenderPrefix(message.rawText || message.text || "", senderName);
         let segments;
         try {
           segments = resolveLobbyChatSegments(rawText);
@@ -493,19 +508,34 @@ const LobbyView = defineComponent({
           console.warn("[ZFX Client LobbyChat] Could not format message; showing plain text:", error);
           segments = [{ text: rawText }];
         }
-        const sdkPlayer = window.__fx?.gameSdk?.lobby?.getSnapshot?.()?.players
-          ?.find(player => Number(player.id) === Number(message.senderId));
-        return {
+        const resolvedMessage = {
           ...message,
-          senderName: message.system ? "" : window.__fx?.getLobbyChatSenderName?.(message.senderId)
-            || sdkPlayer?.name
-            || message.senderName,
+          rawText,
+          senderName,
           senderColor: sdkPlayer?.color || message.senderColor || window.__fx?.getLobbyChatSenderColor?.(message.senderId) || "",
           senderTerritoryColor: sdkPlayer?.territoryBorderColor || message.senderTerritoryColor,
           text: segments.map(segment => String(segment?.text ?? "")).join(""),
           segments: segments.filter(segment => segment && typeof segment.text === "string"),
         };
-      });
+        const queueIndex = String(message.id).match(/^native:queue:(\d+):/)?.[1];
+        const duplicate = resolved.some(existing => {
+          const sameSender = String(existing.senderId ?? "") === String(message.senderId ?? "")
+            || Boolean(senderName && existing.senderName === senderName);
+          if (existing.nativeType !== message.nativeType || !sameSender) return false;
+          if (existing.rawText !== rawText) return false;
+          const receivedAt = Number(message.receivedAt);
+          const existingReceivedAt = Number(existing.receivedAt);
+          const samePayloadNearInTime = Number.isFinite(receivedAt) && Number.isFinite(existingReceivedAt)
+            && Math.abs(receivedAt - existingReceivedAt) < 5000;
+          const existingQueueIndex = String(existing.id).match(/^native:queue:(\d+):/)?.[1];
+          const sameQueueEntry = queueIndex != null && queueIndex === existingQueueIndex;
+          const liveQueuePair = (String(message.id).includes(":live:") && String(existing.id).startsWith("native:queue:"))
+            || (String(existing.id).includes(":live:") && String(message.id).startsWith("native:queue:"));
+          return sameQueueEntry || liveQueuePair || samePayloadNearInTime;
+        });
+        if (!duplicate) resolved.push(resolvedMessage);
+      }
+      return resolved;
     });
     const lobbyBackgroundStyle = computed(() => ({
       "--fx-custom-lobby-map-background": snapshot.value.currentMapImage || snapshot.value.lobbyBackgroundImage
@@ -635,6 +665,8 @@ const LobbyView = defineComponent({
     };
     const gameTab = ref(readSavedLobbyTab("fx_lobby_game_tab", ["overview", "players", "watchers", "clan", "calls"], "overview"));
     const lobbyTab = ref(readSavedLobbyTab("fx_lobby_people_tab", ["chat", "zfx-chat", "lobby", "clan", "clans"], "chat"));
+    const zfxChatSocketStatus = ref("offline");
+    const terriChatSocketStatus = ref("disconnected");
     const currentSelectionOverride = ref(undefined);
     const joinLinkCopied = ref(false);
     let joinLinkCopyTimer = 0;
@@ -954,11 +986,13 @@ const LobbyView = defineComponent({
     let unsubscribe = () => {};
     let unsubscribeGameSdk = () => {};
     let unsubscribeLobbyChat = () => {};
+    let unsubscribeZfxLobbyChat = () => {};
     let getLobbyDataDiagnostics = null;
     let chatReplayTimer = 0;
     let missingLobbyTimer = 0;
     let readinessRefreshTimer = 0;
     let ratingRefreshTimer = 0;
+    let terriChatSocketStatusTimer = 0;
 
     function refreshLobbyRating() {
       lobbyRating.value = calculateLobbyRating(
@@ -1162,7 +1196,7 @@ const LobbyView = defineComponent({
               ...current,
               chatMessages: current.chatMessages,
             }), "native-lobby-bridge");
-            revealLobbyWhenDataReady(nextSnapshot);
+            if (active.value || revealLobbyWhenDataReady(nextSnapshot)) suppressNativeRoot(root);
             return;
           }
         }
@@ -1182,8 +1216,13 @@ const LobbyView = defineComponent({
             missingLobbyTimer = 0;
             if (nativeRoot && !nativeRoot.isConnected) {
               restoreNativeRoot();
-              active.value = false;
-              adapter.clear();
+              // The native client may replace its lobby DOM when switching
+              // panels (including the Terri chat tab). Keep the Vue lobby and
+              // its last snapshot mounted while Multiplayer is still active.
+              if (!window.__fx?.isCustomLobbyViewRequested?.()) {
+                active.value = false;
+                adapter.clear();
+              }
             }
           }, 1400);
         }
@@ -1533,6 +1572,7 @@ const LobbyView = defineComponent({
       lobbyTab.value = tab;
       saveLobbyTab("fx_lobby_people_tab", tab);
       if (tab === "zfx-chat") zfxLobbyChat.connect();
+      else if (tab === "chat") window.__fx?.lobbyChatAdapter?.retryLobbyStream?.();
     }
 
     function openPlayerContextMenu(player, event) {
@@ -1628,6 +1668,7 @@ const LobbyView = defineComponent({
     function handleNativeMenuStateChange(event) {
       const nextState = Number(event.detail?.nextState);
       if (nextState === 5) {
+        if (window.__fx?.isCustomLobbyViewRequested?.()) return;
         active.value = false;
         restoreNativeRoot();
         return;
@@ -1877,14 +1918,14 @@ const LobbyView = defineComponent({
     }
 
     function sendMessage(message, callback) {
-      const sendLobbyMessage = window.__fx?.sendLobbyMessage;
-      if (typeof sendLobbyMessage !== "function") {
+      const chatAdapter = window.__fx?.lobbyChatAdapter;
+      if (typeof chatAdapter?.sendMessage !== "function") {
         chatStatus.value = labels.chatUnavailable;
         callback(false);
         return;
       }
       try {
-        const sent = sendLobbyMessage(message);
+        const sent = chatAdapter.sendMessage(message);
         chatStatus.value = sent ? "" : labels.chatUnavailable;
         callback(sent);
       } catch (error) {
@@ -1898,10 +1939,7 @@ const LobbyView = defineComponent({
       const clan = String(clanTag ?? "").trim();
       const text = String(message ?? "").trim();
       if (!clan || !text) return false;
-      const sendClanMessage = window.__fx?.sendClanMessage;
-      if (typeof sendClanMessage === "function") return sendClanMessage(clan, text) === true;
-      const sendLobbyMessage = window.__fx?.sendLobbyMessage;
-      return typeof sendLobbyMessage === "function" && sendLobbyMessage(`@[${clan}] ${text}`) === true;
+      return window.__fx?.lobbyChatAdapter?.sendClanMessage?.(clan, text) === true;
     }
 
     function sendSpawnCall(direction) {
@@ -1951,6 +1989,7 @@ const LobbyView = defineComponent({
           id: message.id, senderId: message.senderId, senderName: message.senderName, text: message.text,
         })),
         feed: window.__fx?.lobbyChatFeed?.getDiagnostics?.() ?? null,
+        socketAdapter: window.__fx?.lobbyChatAdapter?.getDiagnostics?.() ?? null,
         native: window.__fx?.getNativeLobbyChatState?.() ?? null,
         subscriptionRequested: window.__fx?.lobbyChatChannelRequested === true,
         subscriptionStatus: window.__fx?.lobbyChatActivationStatus ?? null,
@@ -1986,7 +2025,9 @@ const LobbyView = defineComponent({
         const type = Number(message?.id);
         if (!text) continue;
         const senderId = type === 0 ? message.senderId : null;
-        const messageId = `native:${message.index}:${type}:${senderId ?? ""}:${text}`;
+        // Match the socket queue observer's stable ID so the 1s snapshot
+        // fallback cannot publish a second copy of the same native entry.
+        const messageId = `native:queue:${message.index}:${type}:${senderId ?? ""}:${text}`;
         const exists = adapter.getSnapshot().chatMessages.some(entry => entry.id === messageId);
         if (exists) continue;
         window.__fx?.lobbyChatFeed?.publish?.({
@@ -2009,6 +2050,19 @@ const LobbyView = defineComponent({
 
     onMounted(() => {
       console.log("[ZFX Client LobbyView] Vue route mounted; waiting for native lobby data.");
+      unsubscribeZfxLobbyChat = zfxLobbyChat.subscribe(state => { zfxChatSocketStatus.value = state.status; });
+      const refreshTerriChatSocketStatus = () => {
+        const fx = window.__fx;
+        if (fx?.isMultiplayerConnected?.() !== true) {
+          terriChatSocketStatus.value = fx?.isSocketActive?.(0) === true ? "connecting" : "disconnected";
+          return;
+        }
+        const requestAt = Number(fx.lobbyChatAdapter?.getDiagnostics?.()?.requestedAt || 0);
+        const receivedAt = Number(fx.lobbyChatFeed?.getDiagnostics?.()?.lastSocketEntryAt || 0);
+        terriChatSocketStatus.value = requestAt > 0 && receivedAt >= requestAt ? "connected" : "awaiting-data";
+      };
+      refreshTerriChatSocketStatus();
+      terriChatSocketStatusTimer = window.setInterval(refreshTerriChatSocketStatus, 500);
       if (lobbyTab.value === "zfx-chat") zfxLobbyChat.connect();
       void loadPersistentMapImages().then(() => {
         publishSdkLobbySnapshot();
@@ -2089,16 +2143,29 @@ const LobbyView = defineComponent({
           ?.find(player => Number(player.id) === Number(message.senderId));
         const playerName = message.system ? "" : socketPlayerName || sdkPlayer?.name
           || (message.senderId != null ? `Player ${message.senderId}` : labels.unknownPlayer);
+        const messageText = stripNativeChatSenderPrefix(message.text, playerName);
+        const queueIndex = message.id.match(/^native:queue:(\d+):/)?.[1];
+        const duplicate = current.chatMessages.some(existing => {
+          if (existing.nativeType !== message.nativeType || Number(existing.senderId) !== Number(message.senderId)) return false;
+          const existingText = stripNativeChatSenderPrefix(existing.rawText || existing.text, existing.senderName);
+          if (existingText !== messageText) return false;
+          const existingQueueIndex = String(existing.id).match(/^native:queue:(\d+):/)?.[1];
+          const sameQueueEntry = queueIndex != null && queueIndex === existingQueueIndex;
+          const liveQueuePair = (message.id.includes(":live:") && String(existing.id).startsWith("native:queue:"))
+            || (String(existing.id).includes(":live:") && message.id.startsWith("native:queue:"));
+          return sameQueueEntry || liveQueuePair;
+        });
+        if (duplicate) return;
         adapter.publish({
           ...current,
           chatChannel: "lobby",
           chatMessages: [...current.chatMessages, {
             ...message,
-            rawText: message.text,
+            rawText: messageText,
             senderName: playerName,
             senderColor: sdkPlayer?.color || window.__fx?.getLobbyChatSenderColor?.(message.senderId) || "",
             senderTerritoryColor: sdkPlayer?.territoryBorderColor || "",
-            text: message.text,
+            text: messageText,
             segments: [],
           }].slice(-60),
         }, current.source === "none" ? "lobby-socket" : current.source);
@@ -2143,6 +2210,7 @@ const LobbyView = defineComponent({
       clearNotificationAutoMinimizeTimer();
       if (readinessRefreshTimer) window.clearInterval(readinessRefreshTimer);
       if (ratingRefreshTimer) window.clearInterval(ratingRefreshTimer);
+      if (terriChatSocketStatusTimer) window.clearInterval(terriChatSocketStatusTimer);
       if (chatReplayTimer) window.clearInterval(chatReplayTimer);
       if (frame) cancelAnimationFrame(frame);
       if (missingLobbyTimer) window.clearTimeout(missingLobbyTimer);
@@ -2163,12 +2231,13 @@ const LobbyView = defineComponent({
       if (activeLobbyDataDiagnostics === getLobbyDataDiagnostics) activeLobbyDataDiagnostics = null;
       unsubscribeGameSdk();
       unsubscribeLobbyChat();
+      unsubscribeZfxLobbyChat();
       restoreNativeRoot();
       adapter.clear();
     });
 
     return {
-      active, labels, snapshot, lobbyRating, lobbyBackgroundStyle, scale, gameQuery, lobbyQuery, sortBy, lobbyReadyFilter, affiliationFilter, entryFilter, filteredPlayers, lobbyPlayers, ownClanPlayers, filteredClanPlayers, clanGroups, topReadyClan, readyClanSlices, readyClanTotal, gameTab, lobbyTab,
+      active, labels, snapshot, lobbyRating, lobbyBackgroundStyle, scale, gameQuery, lobbyQuery, sortBy, lobbyReadyFilter, affiliationFilter, entryFilter, filteredPlayers, lobbyPlayers, ownClanPlayers, filteredClanPlayers, clanGroups, topReadyClan, readyClanSlices, readyClanTotal, gameTab, lobbyTab, zfxChatSocketStatus, terriChatSocketStatus,
       lobbyNotifications, notificationIndex, notificationPanelOpen, notificationPanelMinimized, showLobbyNotificationCloseButton, currentLobbyNotification,
       formatLobbyNotificationTime,
       propagandaDialog, propagandaMessage, closePropagandaMessage,
@@ -2243,7 +2312,7 @@ const LobbyView = defineComponent({
       </div>
       <MapHeader :map="selectedGameEntry?.mapName || snapshot.currentMap" :map-image="selectedGameEntry?.mapImage || snapshot.currentMapImage" :next-map="joinCardEntry?.mapName || ''" :next-map-image="joinCardEntry?.mapImage || ''" :next-team-count-label="joinCardEntry?.teamCountLabel || ''" :next-game-mode-label="joinCardEntry?.modeLabel || ''" :game-mode-key="selectedGameEntry?.modeKey || snapshot.currentGameModeKey" :next-game-mode-key="joinCardEntry?.modeKey || ''" :next-game-meta="nextGameMeta" :is-contest="selectedGameEntry ? selectedGameEntry.isContest : snapshot.isContest" :next-is-contest="joinCardEntry ? joinCardEntry.isContest : null" :no-fullsend="selectedGameEntry ? Number(selectedGameEntry.modeCode) === 10 : snapshot.noFullsend" :next-no-fullsend="Number(joinCardEntry?.modeCode) === 10" :labels="labels" :entries="displayedUpcomingGames" :current-map-entry-id="snapshot.currentMapEntryId" :selected-game-participation="selectedGameParticipation" :selection-disabled="!joinCardEntry" :entry-title="getEntryTitle" :ready-count="selectedEntryReadyCount" :ready-clans="readyClanSlices" :ready-clan-total="readyClanTotal" :team-count="selectedGameEntry?.teamCountLabel || snapshot.currentTeamCountLabel" :game-mode-label="selectedGameEntry?.modeLabel || snapshot.currentGameModeLabel" :lobby-rating="lobbyRating" :share-entry-id="joinCardEntry?.id ?? null" :link-copied="joinLinkCopied" @select-entry="selectUpcomingGame" @join-selected="toggleSelectedGameJoin" @restore-selection="restoreJoinCardPreview" @share-join-link="copyGameJoinLink" />
       <main class="fx-custom-lobby-content">
-        <PlayerList ref="playerListComponent" :players="filteredPlayers" :clan-game-players="filteredClanPlayers" :lobby-players="lobbyPlayers" :clan-lobby-players="ownClanPlayers" :all-players="snapshot.players" :clans="visibleClanGroups" :labels="labels" :player-count-label="playerCountLabel" :watcher-count="watcherCount" :lobby-count="lobbyCount" :game-clan-count="gameClanCount" :game-query="gameQuery" :lobby-query="lobbyQuery" :sort-by="sortBy" :lobby-ready-filter="lobbyReadyFilter" :affiliation-filter="affiliationFilter" :entry-filter="entryFilter" :current-entry-available="selectedGameEntry?.id != null" :game-tab="gameTab" :lobby-tab="lobbyTab" :chat-messages="resolvedChatMessages" :chat-status="chatStatus" :team-clan="ownClan" :clan-count="clanCount" :top-ready-clan="topReadyClan" :only-ready-clans="onlyReadyClans" :current-map="snapshot.currentMap" :next-map="snapshot.nextMap" :next-team-count="snapshot.nextTeamCountLabel" @update:game-query="gameQuery = $event" @update:lobby-query="lobbyQuery = $event" @update:sort="setSort" @update:lobby-ready-filter="setLobbyReadyFilter" @update:affiliation-filter="setAffiliationFilter" @update:entry-filter="setEntryFilter" @reset-filter-groups="resetFilterGroups" @reset-filters="resetFilters" @filter-ready-clans="onlyReadyClans = $event" @select-player="selectPlayer" @select-game-tab="selectGameTab" @select-lobby-tab="selectLobbyTab" @send-chat="sendChat" @send-call="sendCall" @send-join="sendJoin" @send-team-message="sendTeamMessage" />
+        <PlayerList ref="playerListComponent" :players="filteredPlayers" :clan-game-players="filteredClanPlayers" :lobby-players="lobbyPlayers" :clan-lobby-players="ownClanPlayers" :all-players="snapshot.players" :clans="visibleClanGroups" :labels="labels" :player-count-label="playerCountLabel" :watcher-count="watcherCount" :lobby-count="lobbyCount" :game-clan-count="gameClanCount" :game-query="gameQuery" :lobby-query="lobbyQuery" :sort-by="sortBy" :lobby-ready-filter="lobbyReadyFilter" :affiliation-filter="affiliationFilter" :entry-filter="entryFilter" :current-entry-available="selectedGameEntry?.id != null" :game-tab="gameTab" :lobby-tab="lobbyTab" :chat-messages="resolvedChatMessages" :chat-status="chatStatus" :zfx-chat-socket-status="zfxChatSocketStatus" :terri-chat-socket-status="terriChatSocketStatus" :team-clan="ownClan" :clan-count="clanCount" :top-ready-clan="topReadyClan" :only-ready-clans="onlyReadyClans" :current-map="snapshot.currentMap" :next-map="snapshot.nextMap" :next-team-count="snapshot.nextTeamCountLabel" @update:game-query="gameQuery = $event" @update:lobby-query="lobbyQuery = $event" @update:sort="setSort" @update:lobby-ready-filter="lobbyReadyFilter = $event" @update:affiliation-filter="setAffiliationFilter" @update:entry-filter="setEntryFilter" @reset-filter-groups="resetFilterGroups" @reset-filters="resetFilters" @filter-ready-clans="onlyReadyClans = $event" @select-player="selectPlayer" @select-game-tab="selectGameTab" @select-lobby-tab="selectLobbyTab" @send-chat="sendChat" @send-call="sendCall" @send-join="sendJoin" @send-team-message="sendTeamMessage" />
       </main>
     </section>`,
 });
@@ -2271,7 +2340,10 @@ let nativeLobbyReturnPending = false;
 let nativeLobbyReturnUntil = 0;
 let customLobbyReturnLatched = false;
 let multiplayerLobbyRequested = false;
-let multiplayerLobbyStateObserved = false;
+// Once the custom lobby is explicitly opened, native lobby subviews must not
+// be allowed to route the app back to /classic. Native menu state can change
+// while switching tabs even though the multiplayer lobby session is unchanged.
+let customLobbyRoutePinned = false;
 let nativeMatchActive = false;
 let joinLinkPollTimer = 0;
 let activeLobbyDataDiagnostics = null;
@@ -2399,6 +2471,10 @@ export function initializeCustomLobbyView() {
       return "/game";
     }
     if (nativeMatchActive) return "/game";
+    // Native menu state is not a reliable route signal while the custom lobby
+    // is open: changing a native lobby tab can temporarily report a non-lobby
+    // state and used to make the old lobby flash over the Vue view.
+    if (customLobbyRoutePinned) return "/lobby";
     // The visible native lobby is the strongest signal. Menu/game state can
     // lag during startup, which used to route to the empty in-game view.
     const nativeLobbyConfirmed = !matchActive && (nativeMenuState === 0 || nativeLobbyVisible);
@@ -2450,7 +2526,7 @@ export function initializeCustomLobbyView() {
   unsubscribeMatchStarted = window.__fx?.gameSdk?.on?.("match.started", match => {
     nativeMatchActive = true;
     multiplayerLobbyRequested = false;
-    multiplayerLobbyStateObserved = false;
+    customLobbyRoutePinned = false;
     customLobbyReturnLatched = false;
     nativeLobbyReturnPending = false;
     nativeLobbyReturnUntil = 0;
@@ -2461,7 +2537,7 @@ export function initializeCustomLobbyView() {
   window.__fx.navigateFxView = path => router.push(path);
   window.__fx.requestCustomLobbyView = () => {
     multiplayerLobbyRequested = true;
-    multiplayerLobbyStateObserved = false;
+    customLobbyRoutePinned = true;
     nativeMatchActive = false;
     classicSessionDisabled = false;
     router.replace("/lobby").catch(error => console.error("[ZFX Client] Multiplayer lobby navigation failed:", error));
@@ -2469,12 +2545,13 @@ export function initializeCustomLobbyView() {
   };
   window.__fx.isCustomLobbyViewVisible = () => router.currentRoute.value.path === "/lobby"
     && Boolean(mount.querySelector("#fx-custom-lobby-view"));
-  window.__fx.isCustomLobbyViewRequested = () => multiplayerLobbyRequested || customLobbyReturnLatched;
+  window.__fx.isCustomLobbyViewRequested = () => multiplayerLobbyRequested
+    || customLobbyReturnLatched || customLobbyRoutePinned;
   window.__fx.hideCustomLobbyView = () => {
     if (!window.__fx.isCustomLobbyViewVisible()) return false;
     customLobbyReturnLatched = false;
     multiplayerLobbyRequested = false;
-    multiplayerLobbyStateObserved = false;
+    customLobbyRoutePinned = false;
     classicSessionDisabled = true;
     nativeLobbySuppressionRoot = findLobbyRoot(shell);
     nativeLobbySuppressionSawDeparture = false;
@@ -2487,7 +2564,7 @@ export function initializeCustomLobbyView() {
   window.__fx.showCustomLobbyView = () => {
     customLobbyReturnLatched = false;
     multiplayerLobbyRequested = false;
-    multiplayerLobbyStateObserved = false;
+    customLobbyRoutePinned = true;
     nativeMatchActive = false;
     classicSessionDisabled = false;
     nativeLobbySuppressionRoot = null;
@@ -2497,6 +2574,7 @@ export function initializeCustomLobbyView() {
   };
   window.__fx.onGameReturnedToLobby = () => {
     nativeMatchActive = false;
+    customLobbyRoutePinned = true;
     classicSessionDisabled = false;
     customLobbyReturnLatched = true;
     nativeLobbyReturnPending = true;
@@ -2551,13 +2629,7 @@ export function initializeCustomLobbyView() {
       nativeLobbyBackgroundImage = captureGameCanvasImage() || nativeLobbyBackgroundImage;
     }
     window.dispatchEvent(new CustomEvent("fx-native-menu-state-change", { detail: { previousState, nextState } }));
-    if (multiplayerLobbyRequested) {
-      if (nextState === 0) multiplayerLobbyStateObserved = true;
-      else if (multiplayerLobbyStateObserved) {
-        multiplayerLobbyRequested = false;
-        multiplayerLobbyStateObserved = false;
-      }
-    }
+    // Explicit Multiplayer entry remains latched until Home navigation or a match start.
     // Returning from a match can reach the native lobby through a different
     // menu path than the patched game-end handler. State 0 is the game's
     // original lobby; use that transition as a second, native return signal.
@@ -2566,7 +2638,7 @@ export function initializeCustomLobbyView() {
       && !nativeLobbyReturnPending && !multiplayerLobbyRequested) {
       window.__fx.onGameReturnedToLobby?.();
     }
-    if (nextState === 0) syncRoute();
+    if (nextState === 0 || nextState === 5) syncRoute();
     else if (multiplayerLobbyRequested) syncRoute();
     if (!classicSessionDisabled) return;
     const returnedToOriginalLobbyState = nativeLobbySuppressionReturnState !== null
@@ -2664,6 +2736,7 @@ export function initializeCustomLobbyView() {
     nativeLobbyReturnPending = false;
     nativeLobbyReturnUntil = 0;
     customLobbyReturnLatched = false;
+    customLobbyRoutePinned = false;
     previousGameState = null;
   };
 }

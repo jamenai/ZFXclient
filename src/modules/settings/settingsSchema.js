@@ -7,7 +7,9 @@ const defaultValues = Object.freeze({
   hoveringTooltip: true,
   realisticNames: false,
   showPlayerDensity: true,
+  playerDensityFontScale: 100,
   showEstimatedEliminationAttack: false,
+  estimatedAttackFontScale: 100,
   estimatedAttackTroopMultiplier: 2,
   estimatedAttackGreenThreshold: 25,
   coloredDensity: true,
@@ -61,6 +63,8 @@ const schemaEntries = Object.fromEntries(
 
 schemaEntries.estimatedAttackGreenThreshold = { type: "number", min: 5, max: 75 };
 schemaEntries.estimatedAttackTroopMultiplier = { type: "number", min: 1, max: 4 };
+schemaEntries.playerDensityFontScale = { type: "number", min: 50, max: 200 };
+schemaEntries.estimatedAttackFontScale = { type: "number", min: 50, max: 200 };
 schemaEntries.selfTerritoryOutlineWidth = { type: "number", min: 1, max: 6 };
 schemaEntries.selfTerritoryGlow = { type: "number", min: 0, max: 12 };
 schemaEntries.startingPercentage = { type: "number", min: 0, max: 100 };

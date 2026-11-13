@@ -5,6 +5,22 @@ import ModUtils, { insert } from "../modUtils.js"
 export default (/** @type {ModUtils} */ modUtils) => {
   const { modifyCode, waitForMinification, matchCode, replaceOne } = modUtils;
 
+  // Current native renderer (2.18.x): the map label's native balance is drawn
+  // by aPj and the current territory/balance arrays are ah.hU / ah.hi. The
+  // older density code relied on the previous gameInterface mapping and was
+  // silently reading undefined arrays after the native update.
+  if (/function aPj\(il,aC,fontSize,aPd,aPe,aPf\)\{var a7o=ah\.a7o\[aC\];/.test(modUtils.script)) {
+    replaceOne(/function aPk\(aC,fontSize,fn,fp,il\)\{/g,
+      '$&if(aC>=aE.l2&&window.__fx?.settingsApi?.getBoolean("hideBotNames"))return;');
+    replaceOne(
+      /function aPj\(il,aC,fontSize,aPd,aPe,aPf\)\{var a7o=ah\.a7o\[aC\];var aPp=bD\.pg\.a3X\(ah\.hi\[aC\]-a7o\);if\(a7o\)\{var eh=il\.fillStyle;il\.fillStyle=aPi\(fontSize,2\+aPf%2\);il\.fillText\(aPp,aPd,aPe\);il\.fillStyle=eh;return;\}if\(\(\(aPf>>1\)&1\)\)\{il\.lineWidth=0\.05\*fontSize;il\.strokeStyle=aPi\(fontSize,aPf%2\);il\.strokeText\(aPp,aPd,aPe\);return;\}if\(aPf>1\)\{il\.lineWidth=0\.12\*fontSize;il\.strokeStyle=aPi\(fontSize,aPf\);il\.strokeText\(aPp,aPd,aPe\);\}il\.fillText\(aPp,aPd,aPe\);\}/g,
+      'function aPj(il,aC,fontSize,aPd,aPe,aPf){var a7o=ah.a7o[aC];var aPp=bD.pg.a3X(ah.hi[aC]-a7o);if(a7o){var eh=il.fillStyle;il.fillStyle=aPi(fontSize,2+aPf%2);il.fillText(aPp,aPd,aPe);il.fillStyle=eh;return;}if(((aPf>>1)&1)){il.lineWidth=0.05*fontSize;il.strokeStyle=aPi(fontSize,aPf%2);il.strokeText(aPp,aPd,aPe);return;}if(aPf>1){il.lineWidth=0.12*fontSize;il.strokeStyle=aPi(fontSize,aPf);il.strokeText(aPp,aPd,aPe);}il.fillText(aPp,aPd,aPe);}'
+    );
+    replaceOne(/if\(aPQ\)\{aPk\(aC,aPg,aPd,aPe,il\);\}else\{aPj\(il,aC,aPg,aPd,aPe,aPf\);\}\}\}/g,
+      'if(aPQ){aPk(aC,aPg,aPd,aPe,il);}else{aPj(il,aC,aPg,aPd,aPe,aPf);}window.__fx?.utils?.drawPlayerLabelMetrics?.(il,aC,aPd,aPe,fontSize);}}');
+    return;
+  }
+
   // Territorial.io 2.17.9 renamed the map-label data model and split the
   // native name/balance drawing into aPk/aPj.
   if (/function aPk\(aC,fontSize,fn,fp,il\)\{il\.fillText\(ah\.a2j\[aC\],fn,fp\);/.test(modUtils.script)) {

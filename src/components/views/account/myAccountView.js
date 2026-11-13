@@ -11,6 +11,30 @@ function normalizeAccountText(value) {
 export const myAccountAdapter = {
   setNativeProfile(data) {
     if (!data || typeof data !== "object") return;
+    // 2.17.9's profile response uses this compact schema. Only fields whose
+    // meaning is confirmed by the native profile renderer are projected here.
+    if (data.pk != null && ("aUY" in data || "a06" in data || "a07" in data)) {
+      const emptyStats = { elo: null, rank: null, totalPlayers: null, games: null };
+      nativeProfileSnapshot = {
+        accountName: String(data.username || ""),
+        balance: null,
+        accountRank: null,
+        emailVerified: null,
+        online: null,
+        activityEn: "",
+        activityDe: "",
+        bio: String(data.aUY || "").trim(),
+        supporter: null,
+        oneVsOne: { ...emptyStats },
+        battleRoyale: { rating: null, rank: null, totalPlayers: null },
+        zombies: { rating: null, rank: null },
+        primaryClan: { tag: String(data.a06 || "").trim(), monthly: null, rank: null, total: null, wins: null },
+        secondaryClan: { tag: String(data.a07 || "").trim(), total: null, wins: null },
+        clanLeadership: { rating: null, clan: "" },
+      };
+      window.dispatchEvent(new Event("fx-my-account-profile-update"));
+      return;
+    }
     const numeric = value => Number.isFinite(Number(value)) ? Number(value) : null;
     const rank = value => numeric(value) === null ? null : numeric(value) + 1;
     const activity = ["Browsing the menus", "Watching a replay", "Playing a team game", "Playing a battle royale game", "Playing a 1v1 match", "Fighting zombies", "In the lobby", "Playing in single player"];
@@ -352,8 +376,8 @@ const MyAccountView = defineComponent({
             <button type="button" :disabled="!accountId" @click="copyId">{{ labels.copy }}</button>
           </article>
           <section v-if="gameProfile" class="fx-my-account-data">
-            <header><div><small>ZFX CLIENT · LIVE</small><h2>{{ labels.overview }}</h2></div><span :class="gameProfile.emailVerified ? 'is-verified' : 'is-unverified'">{{ gameProfile.emailVerified ? labels.verified : labels.notVerified }}</span></header>
-            <div class="fx-my-account-native-status"><strong>{{ labels.accountName }}:</strong> {{ gameProfile.accountName || labels.unavailable }} <span :class="gameProfile.online ? 'is-online' : 'is-offline'">{{ gameProfile.online ? labels.online : labels.offline }}</span><small v-if="gameProfile.activityEn">{{ labels.currentActivity }}: {{ isGerman ? gameProfile.activityDe : gameProfile.activityEn }}</small></div>
+            <header><div><small>ZFX CLIENT · LIVE</small><h2>{{ labels.overview }}</h2></div><span :class="gameProfile.emailVerified == null ? '' : gameProfile.emailVerified ? 'is-verified' : 'is-unverified'">{{ gameProfile.emailVerified == null ? labels.unavailable : gameProfile.emailVerified ? labels.verified : labels.notVerified }}</span></header>
+            <div class="fx-my-account-native-status"><strong>{{ labels.accountName }}:</strong> {{ gameProfile.accountName || labels.unavailable }} <span :class="gameProfile.online == null ? '' : gameProfile.online ? 'is-online' : 'is-offline'">{{ gameProfile.online == null ? labels.unavailable : gameProfile.online ? labels.online : labels.offline }}</span><small v-if="gameProfile.activityEn">{{ labels.currentActivity }}: {{ isGerman ? gameProfile.activityDe : gameProfile.activityEn }}</small></div>
             <div class="fx-my-account-metrics">
               <article><small>{{ labels.balance }}</small><strong>{{ gameProfile.balance?.toLocaleString() ?? '—' }} <i>Gold</i></strong></article>
               <article><small>{{ labels.accountRank }}</small><strong>{{ gameProfile.accountRank ?? '—' }}</strong></article>
@@ -371,7 +395,7 @@ const MyAccountView = defineComponent({
               <article v-if="gameProfile.clanLeadership.clan"><small>{{ labels.clanLeadership }} · [{{ gameProfile.clanLeadership.clan }}]</small><strong>{{ gameProfile.clanLeadership.rating ?? '—' }} <i>{{ labels.rating }}</i></strong></article>
             </div>
             <h3>{{ labels.supporter }}</h3>
-            <div class="fx-my-account-clans"><article><small>{{ labels.supporter }}</small><strong>{{ gameProfile.supporter ? labels.supporterActive : labels.supporterInactive }}</strong></article></div>
+            <div class="fx-my-account-clans"><article><small>{{ labels.supporter }}</small><strong>{{ gameProfile.supporter == null ? labels.unavailable : gameProfile.supporter ? labels.supporterActive : labels.supporterInactive }}</strong></article></div>
             <article v-if="gameProfile.bio" class="fx-my-account-bio"><small>{{ labels.bio }}</small><p>{{ gameProfile.bio }}</p></article>
           </section>
           </section>

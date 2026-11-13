@@ -12,7 +12,7 @@ import winCounter from "./winCounter.js";
 import playerList from "./playerList.js";
 import gameScriptUtils from "./gameScriptUtils.js";
 import hoveringTooltip from "./hoveringTooltip.js";
-import { keybindFunctions, keybindHandler, mobileKeybinds } from "./keybinds.js";
+import { gameAttackSelectorAdapter, keybindFunctions, keybindHandler, mobileKeybinds } from "./keybinds.js";
 import customLobby from './customLobby.js';
 import { displayChangelog, initializeChangelogView } from '../components/views/changelog/changelog.js';
 import { reportError } from './debugging.js';
@@ -36,19 +36,22 @@ import { createVueLeaderboardsView } from "../components/views/leaderboards/lead
 import { createVueLogsView } from "../components/views/logs/logsView.js";
 import { createVueGameLeaderboardHud } from "../components/views/gameHud/gameLeaderboardHud.js";
 import { createVueGameKeybindHud } from "../components/views/gameHud/gameKeybindHud.js";
+import { createVueGameAttackSelectorWidget } from "../components/views/gameHud/gameAttackSelectorWidget.js";
 import { createVueGameDebugHud } from "../components/views/gameHud/gameDebugHud.js";
 import { createVueGameMinimapWidget } from "../components/views/gameHud/gameMinimapWidget.js";
 import { createVueMyAccountView, myAccountAdapter } from "../components/views/account/myAccountView.js";
 import { createVueGoldTransferView } from "../components/views/goldTransfer/goldTransferView.js";
 import { createVueLoginView } from "../components/views/login/loginView.js";
 import { initializeUpdatePromptView } from "../components/views/update/updatePromptView.js";
-import { getVar, getGameMapNames } from "../adapter/gameInterface.js";
+import { gameDataAdapter, getVar, getGameMapNames } from "../adapter/gameInterface.js";
 import { publishFxBridge } from "../adapter/fxBridge.js";
 import { createGameSdk } from "../adapter/gameSdk.js";
+import { createLobbyChatSocketAdapter } from "../adapter/lobbyChatSocketAdapter.js";
 import { createNativeStartup } from "./nativeStartup.js";
 import { networkDebug } from "./networkDebug.js";
 
 const gameSdk = createGameSdk({ getMapNames: getGameMapNames });
+const lobbyChatAdapter = createLobbyChatSocketAdapter(gameSdk);
 const nativeStartup = createNativeStartup();
 
 // Stable bridge used by injected game patches. Keep this surface explicit:
@@ -57,12 +60,14 @@ const fxBridge = publishFxBridge(window, {
   version: version + " " + lastUpdated,
   isCustomLobbyVersion: window.location.href.startsWith("https://fxclient.github.io/custom-lobbies"),
   settingsManager,
+  gameDataAdapter,
   leaderboardFilter,
   utils: gameScriptUtils,
   WindowManager,
   keybindFunctions,
   keybindHandler,
   mobileKeybinds,
+  gameAttackSelectorAdapter,
   donationsTracker,
   reportError,
   playerList,
@@ -74,6 +79,7 @@ const fxBridge = publishFxBridge(window, {
   replay,
   lobbyReminders,
   lobbyChatFeed,
+  lobbyChatAdapter,
   pingFilter,
   nameFilter,
   followedAccounts,
@@ -109,6 +115,7 @@ const fxBridge = publishFxBridge(window, {
 // not ready yet.
 initializeSettingsProfiles();
 
+lobbyChatAdapter.start();
 gameSdk.lobby.subscribe(snapshot => lobbyReminders.setLobbySnapshot(snapshot));
 
 initializeChangelogView();
@@ -130,6 +137,8 @@ try { createVueGameLeaderboardHud(); }
 catch (error) { console.error("[ZFX Client] Game leaderboard HUD failed to initialize:", error); }
 try { createVueGameKeybindHud(); }
 catch (error) { console.error("[ZFX Client] Game keybind HUD failed to initialize:", error); }
+try { createVueGameAttackSelectorWidget(); }
+catch (error) { console.error("[ZFX Client] Game attack selector HUD failed to initialize:", error); }
 try { createVueGameDebugHud(); }
 catch (error) { console.error("[ZFX Client] Game debug HUD failed to initialize:", error); }
 try { createVueGameMinimapWidget(); }

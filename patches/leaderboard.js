@@ -2,6 +2,22 @@ import { definePatch, insert } from "../modUtils.js";
 
 export default definePatch((modUtils) => {
 	const { safeDictionary: dict, modifyCode, waitForMinification, matchCode, matchRawCode, replaceOne, replace, replaceRawCode } = modUtils;
+	// The current Native build keeps the live player model in ah (territory
+	// counts hY, balances hm, names a2G, alive flags ni) and player counts in
+	// aE. Publish a sorted snapshot from that live model. Polling here replaces
+	// the removed canvas leaderboard callback while preserving the HUD API.
+	const playerModelCtor = /function cO\(\)\{/g;
+	if (playerModelCtor.test(modUtils.script)) {
+		playerModelCtor.lastIndex = 0;
+		replaceOne(playerModelCtor,
+			'function cO(){if(!window.__fxNativeLeaderboardTimer){window.__fxNativeLeaderboardTimer=setInterval(function(){var adapter=window.__fx?.gameLeaderboardAdapter?.receiveNativeSnapshot;if(!adapter||!aE||!ah)return;var now=Date.now(),players=[];for(var id=0;id<aE.fh;id++){players.push({id:id,name:ah.a2G[id]||("Player "+(id+1)),territories:Number(ah.hY[id])||0,units:Number(ah.hm[id])||0,isAlive:ah.ni[id]!==0&&ah.a7G[id]!==2,isBot:id>=aE.l6,teamId:null,color:window.__fx.gameMinimapAdapter?.getPlayerColor?.(id)||null});}players.sort(function(a,b){return b.territories-a.territories||a.id-b.id;});players.forEach(function(player,index){player.rank=index+1;});var own=players.find(function(player){return player.id===aE.fU})||null;adapter({updatedAt:now,total:players.length,humanCount:aE.l6,botCount:Math.max(0,players.length-aE.l6),spectatorCount:Math.max(0,aE.fh-players.length),ownPlayerId:aE.fU,ownRank:own?.rank||null,players:players,ownPlayer:own});},250);}');
+		// The current Native team model is bj.fi (player to team), bj.lT
+		// (team palette index), and bj.acP (CSS colors); aE.ih marks team mode.
+		replaceOne(/function cO\(\)\{/g,
+			'function cO(){window.__fx.isTeamGame=()=>Boolean(aE?.ih);window.__fx.getNativePlayerTeamId=id=>{id=Number(id);return aE?.ih&&Number.isInteger(id)&&id>=0&&id<aE.fh?bj.fi[id]:null;};window.__fx.getNativePlayerTeamColor=id=>{id=Number(id);if(!aE?.ih||!Number.isInteger(id)||id<0||id>=aE.fh)return null;return bj.acP[bj.lT[bj.fi[id]]]||null;};window.__fx.getNativePlayerColor=id=>{id=Number(id);if(!Number.isInteger(id)||id<0||id>=aE.fh)return null;if(aE.ih)return window.__fx.getNativePlayerTeamColor(id);var color=aE.data.colorsData?.[id];return Number.isInteger(color)?"rgb("+(((color>>12)&63)<<2)+","+(((color>>6)&63)<<2)+","+((color&63)<<2)+")":null;};if(!window.__fxNativeTeamChartTimer){window.__fxNativeTeamChartTimer=setInterval(function(){var adapter=window.__fx?.gameTeamChartAdapter?.receiveNativeSnapshot;if(!adapter||!aE?.ih||aE.a3m===0||!ah||!bj)return;var now=Date.now(),teams=[];for(var teamId=0;teamId<=aE.a0y;teamId++){var pixels=0;for(var playerId=0;playerId<aE.fh;playerId++)if(bj.fi[playerId]===teamId)pixels+=Number(ah.hY[playerId])||0;teams.push({id:teamId,pixels:pixels,color:bj.acP[bj.lT[teamId]]||"rgba(120,134,154,0.88)"});}adapter({updatedAt:now,teams:teams});},250);}');
+		console.info("[ZFX Client] Connected leaderboard HUD to current native player model.");
+		return;
+	}
 	let currentNativeLeaderboardAdapterInstalled = false;
 	if (/this\.a9s=function\(player\)\{return aH8\[player\+2\*aE\.fd\]===255;\};/.test(modUtils.script)) {
 		replaceOne(/this\.a9s=function\(player\)\{return aH8\[player\+2\*aE\.fd\]===255;\};/g,
@@ -17,8 +33,12 @@ export default definePatch((modUtils) => {
 	if (/function dS\(\)\{/.test(modUtils.script)) {
 		replaceOne(/function dS\(\)\{/g,
 			'function dS(){window.__fx.isTeamGame=()=>Boolean(aE.ib);window.__fx.getNativePlayerTeamId=id=>Number.isInteger(Number(id))&&Number(id)>=0&&Number(id)<aE.fd?bj.fe[Number(id)]:null;window.__fx.getNativePlayerAllyStatus=id=>Number.isInteger(Number(id))&&Number(id)>=0&&Number(id)<aE.fd?(ag?.getAllyStatus?.(Number(id))??null):null;window.__fx.isNativePlayerAlly=id=>window.__fx.getNativePlayerAllyStatus(id)==="allied";window.__fx.getNativePlayerTeamColor=id=>{var team=window.__fx.getNativePlayerTeamId(Number(id)),rgb=bj.aW6[bj.lP[team]];return rgb?"rgb("+rgb[0]+","+rgb[1]+","+rgb[2]+")":null;};window.__fx.getNativePlayerColor=id=>{id=Number(id);if(!Number.isInteger(id)||id<0||id>=aE.fd)return null;if(aE.ib)return window.__fx.getNativePlayerTeamColor(id);var color=aE.data.colorsData?.[id];return Number.isInteger(color)?"rgb("+(((color>>12)&63)<<2)+","+(((color>>6)&63)<<2)+","+((color&63)<<2)+")":null;};window.__fx.publishNativeTeamChart=function(){var adapter=window.__fx?.gameTeamChartAdapter?.receiveNativeSnapshot;if(!aE.ib||aE.a4E===0||!adapter)return;var now=Date.now();if(now-(window.__fx.gameTeamChartLastSent||0)<180)return;window.__fx.gameTeamChartLastSent=now;var teams=[];for(var teamId=0;teamId<=aE.a1S;teamId++){var pixels=0;for(var player=0;player<aE.fd;player++)if(bj.fe[player]===teamId)pixels+=Number(ah.hU[player])||0;teams.push({id:teamId,pixels:pixels,color:bj.aag[bj.lP[teamId]]||"rgba(120,134,154,0.88)"});}adapter({updatedAt:now,teams:teams});};');
-		replaceOne(/function aMu\(fK\)\{/g,
-			'function aMu(fK){window.__fx?.publishNativeTeamChart?.();');
+		const teamChartRefresh = /function aMu\(fK\)\{/g;
+		if (teamChartRefresh.test(modUtils.script)) {
+			replaceOne(teamChartRefresh, 'function aMu(fK){window.__fx?.publishNativeTeamChart?.();');
+		} else {
+			console.info("[ZFX Client] Team chart refresh function changed; player color adapter remains installed.");
+		}
 		console.info("[ZFX Client] Installed native team chart and player team-color adapters.");
 	}
 

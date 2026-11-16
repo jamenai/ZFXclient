@@ -1,17 +1,16 @@
 import { definePatch } from "../modUtils.js";
 
-export default definePatch(({ replaceOne }) => {
-  // The replay serializer/decoder moved under d8 in 2.17.9. Install the Vue
-  // history bridge there, while all native replay APIs are in scope.
-  replaceOne(
-    /function d8\(\)\{/g,
-    '$&if(window.__fx){var fxReplayHistory=window.__fx.replayHistory;fxReplayHistory.load=function(saved,timestamp){var encoded=String(saved||"").trim();if(!encoded)return false;u.y();var loaded=bC.aOS.a0Z(bC.aY0(encoded));if(!loaded&&aE.data.mapType!==2)return false;fxReplayHistory.setActiveReplay(timestamp);if(loaded)bC.aY1();return true;};window.__fx.getNativeReplayTickStats=function(){var flags=bC?.so?.abG,counts=bC?.so?.abH,total=0;if(flags&&counts){for(var index=0;index<counts.length;index++)total+=counts[index]||0;}var cursor=bi?.a4O?.fxGetReplayCursor;return{flags:flags||null,counts:counts||null,totalTicks:total,currentTick:typeof cursor===\"function\"?cursor():0};};}',
-  );
+export default definePatch((modUtils) => {
+  // Native replay sharing now validates text through bC.aOc.a0c, normalizes it
+  // with bC.aZk, and starts playback through bC.aZl. Bind the history loader
+  // from the native replay dialog where those APIs are in scope.
+  modUtils.replaceOne(/function aZg\(\)\{/g,
+    'function aZg(){if(window.__fx){var fxReplayHistory=window.__fx.replayHistory;fxReplayHistory.load=function(saved,timestamp){var code=bC.aZk(String(saved||""));if(!code||!bC.aOc.a0c(code))return false;u.y();bC.aZl();fxReplayHistory.setActiveReplay(timestamp);return true;};}');
 
-  // On match exit the game has the complete native replay string available
-  // as a8s. Store that exact string in the rolling local history.
-  replaceOne(
-    /this\.a5d=function\(ef\)\{if\(!bC\.so\.a95\.length\)\{this\.a8s=bC\.a96\.a3i\(\);\}else\{this\.a8s=bC\.so\.a95;\}/g,
-    '$&window.__fx?.replayHistory?.save?.(this.a8s);',
+  // Match teardown copies the finished native recording to a8T. Save that
+  // exact share code into ZFX history before the native UI leaves the match.
+  modUtils.replaceOne(
+    /this\.a5C=function\(ej\)\{if\(!bC\.sk\.a8g\.length\)\{this\.a8T=bC\.a8h\.a3G\(\);\}else\{this\.a8T=bC\.sk\.a8g;\}/g,
+    '$&window.__fx?.replayHistory?.save?.(this.a8T);',
   );
 });

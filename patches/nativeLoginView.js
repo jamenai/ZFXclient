@@ -1,11 +1,11 @@
 import { definePatch } from "../modUtils.js";
 
 export default definePatch(({ replaceOne }) => {
-  // The account view now opens login as a nested native view (vY(18)). Keep
-  // authentication and error handling native, while exposing that action to
-  // the Vue login screen.
+  // Current build login lives in vY(18). Saved-account login fills protocol
+  // fields 105/106 through bm.rv.q1 before opening that native view; reuse
+  // the same path for the Vue login form.
   replaceOne(
-    /function aT7\(data\)\{/g,
-    "$&if(window.__fx)window.__fx.nativeLoginAdapter={login:function(accountName,password){var loginMenu=u.a5T();if(!loginMenu||loginMenu.a5U==null)return false;bm.rz.q5(105,bJ.f7.a0P(String(accountName||\"\"),5));bm.rz.q5(106,bJ.f7.a0P(String(password||\"\"),15));u.v(8,loginMenu.a5U,new vY(18));return true;},cancel:function(){var loginMenu=u.a5T();if(!loginMenu||loginMenu.a5U==null)return false;u.v(6,loginMenu.a5U);return true;}};",
+    /function vY\(id,a7l,aXo\)\{/g,
+    "$&if(window.__fx)window.__fx.nativeLoginAdapter={login:function(accountName,password){var menu=u.a52();if(!menu||menu.a53==null)return false;bm.rv.q1(105,String(accountName||\"\"));bm.rv.q1(106,String(password||\"\"));u.v(8,menu.a53,new vY(18));return true;},cancel:function(){var menu=u.a52();if(!menu||menu.a53==null)return false;u.v(6,menu.a53);return true;}};",
   );
 });

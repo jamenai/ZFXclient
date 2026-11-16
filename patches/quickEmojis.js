@@ -1,31 +1,31 @@
 import { definePatch } from "../modUtils.js";
 
-export default definePatch((modUtils) => {
-  const { replaceRawCode, replaceOne } = modUtils;
-  // The native emoji catalog moved to a2k in 2.17.9. Publish its current
-  // emoji list and code range for the settings UI.
-  if (/this\.a32=1024;/g.test(modUtils.script)) {
-    replaceOne(/this\.a32=1024;/g,
-      'this.a32=1024;window.__fx.quickEmojis=window.__fx.quickEmojis||{};window.__fx.quickEmojis.emojiList=this.emojis;window.__fx.quickEmojis.emojiBaseCode=this.a34;');
-  } else {
-    try { replaceRawCode("this.a2T=1024;", "this.a2T=1024;window.__fx.quickEmojis=window.__fx.quickEmojis||{};window.__fx.quickEmojis.emojiList=this.emojis;window.__fx.quickEmojis.emojiBaseCode=this.a2T;"); }
-    catch { console.info("[ZFX Client] Native emoji catalog hook is absent in this game version."); }
+export default definePatch(({ replaceOne }) => {
+  // Publish the current native emoji list from the manager that owns the
+  // catalog. The current catalog starts after the 676 flag glyphs.
+  try {
+    replaceOne(
+      /this\.q7=new a2H\(\);this\.a2I=new a2J\(\);/g,
+      'this.q7=new a2H();window.__fx.quickEmojis=window.__fx.quickEmojis||{};window.__fx.quickEmojis.emojiList=this.q7.emojis;window.__fx.quickEmojis.emojiBaseCode=this.q7.a2c;this.a2I=new a2J();',
+    );
+    console.info("[ZFX Client] Mapped the current native emoji catalog and base code.");
+  } catch (error) {
+    console.info("[ZFX Client] Native emoji catalog hook is absent in this game version.", error.message);
   }
 
-  // Native quick slots are stored in setting 120. When the custom profile
-  // option is enabled, populate the current nine slots from the ZFX setting.
-  if (/function a2Y\(\)\{/g.test(modUtils.script)) {
+  // The native quick bar persists nine emoji codes in setting 120. Preserve
+  // the native full picker list, then substitute the chosen ZFX slots.
+  try {
     replaceOne(
-      /function a2Y\(\)\{/g,
-      "$&if(__fx.settingsApi.getBoolean(\"customQuickEmojisEnabled\")){var customEmojis=__fx.settingsApi.getArray(\"customQuickEmojis\");for(var q=0;q<9;q++){var code=parseInt(customEmojis[q],10);a2J[q]={rF:isNaN(code)?1015+q:code,l3:0};}return;}",
+      /function a2f\(\)\{var aC;var pY=bm\.buffer\.data\[120\]\.value;/g,
+      'function a2f(){if(__fx.settingsApi.getBoolean("customQuickEmojisEnabled")){var customEmojis=__fx.settingsApi.getArray("customQuickEmojis");for(var fxEmojiIndex=0;fxEmojiIndex<9;fxEmojiIndex++){var fxEmojiCode=parseInt(customEmojis[fxEmojiIndex],10);a2Q[fxEmojiIndex]={s9:Number.isInteger(fxEmojiCode)&&fxEmojiCode>=0&&fxEmojiCode<1024?fxEmojiCode:1015+fxEmojiIndex,lB:0};}return;}var aC;var pY=bm.buffer.data[120].value;',
     );
-  }
-
-  // Keep the chosen custom slots fixed when a player uses an emoji.
-  if (/function a2a\(rF\)\{/g.test(modUtils.script)) {
     replaceOne(
-      /function a2a\(rF\)\{/g,
-      "$&if(__fx.settingsApi.getBoolean(\"customQuickEmojisEnabled\"))return;",
+      /function a2h\(s9\)\{var aC;/g,
+      'function a2h(s9){if(__fx.settingsApi.getBoolean("customQuickEmojisEnabled"))return;var aC;',
     );
+    console.info("[ZFX Client] Connected custom quick emojis to the current native picker state.");
+  } catch (error) {
+    console.info("[ZFX Client] Native quick emoji state hook is absent in this game version.", error.message);
   }
 });

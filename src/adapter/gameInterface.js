@@ -62,6 +62,8 @@ export function createGameInterface(getTarget, getDictionary, onInvalidValue = (
 
     const getValidatedVar = varName => {
         if (varName === "gIsTeamGame") {
+            const nativeTeamFlag = getPath("game", "gIsTeamGame");
+            if (typeof nativeTeamFlag === "boolean") return nativeTeamFlag;
             const gameType = getPath("game", "gGameType");
             return Number.isFinite(gameType) ? gameType < 7 || gameType === 9 : undefined;
         }

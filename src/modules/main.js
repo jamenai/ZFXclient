@@ -102,7 +102,13 @@ const fxBridge = publishFxBridge(window, {
   gameSdk,
   networkDebug,
   nativeStartup,
-  startMultiplayer: (...args) => nativeStartup.requestMultiplayer(...args),
+  startMultiplayer: (...args) => {
+    if (fxBridge.isCustomLobbyVersion) {
+      window.alert("This version is for custom lobbies only. For normal multiplayer, use https://jamenai.github.io/ZFXclient/");
+      return false;
+    }
+    return nativeStartup.requestMultiplayer(...args);
+  },
   getCustomLobbyDataDiagnostics: () => ({
     gameState: getVar("gameState") ?? null,
     matchState: getVar("gMatchState") ?? null,
@@ -113,6 +119,10 @@ const fxBridge = publishFxBridge(window, {
   }),
   myAccountAdapter,
 });
+
+// The map renderer asks for followed-account labels while drawing. Keep its
+// lookup index synchronized with the current Native account-name array.
+followedAccounts.setAccountNamesProvider(() => getVar("rawPlayerNames") || []);
 
 // Publish the bridge before settings initialization: profile activation can
 // touch the native settings adapter and must be reportable if that adapter is

@@ -5,6 +5,16 @@ import ModUtils, { insert } from "../modUtils.js"
 export default (/** @type {ModUtils} */ modUtils) => {
   const { modifyCode, waitForMinification, matchCode, replaceOne } = modUtils;
 
+  // Current Native map labels use aPv (names) and aPu (remaining balance).
+  // Their source arrays are ah.a2G, ah.hm and ah.a7P, with human count aE.l6.
+  if (/function aPv\(aC,fontSize,fr,ft,iq\)\{iq\.fillText\(ah\.a2G\[aC\],fr,ft\);/.test(modUtils.script)
+      && /function aPu\(iq,aC,fontSize,aPo,aPp,aPq\)\{var a7P=ah\.a7P\[aC\];/.test(modUtils.script)) {
+    replaceOne(/function aPv\(aC,fontSize,fr,ft,iq\)\{iq\.fillText\(ah\.a2G\[aC\],fr,ft\);if\(aC<aE\.l6&&ah\.a7G\[aC\]!==2\)\{return;\}var aPz=fontSize\/aPD\[aC\];iq\.fillRect\(fr-0\.5\*aPz,ft\+bD\.tO\.a2p\*fontSize,aPz,Math\.max\(1,0\.1\*fontSize\)\);\}/g,
+      'function aPv(aC,fontSize,fr,ft,iq){var fxName=String(ah.a2G[aC]||""),fxAccountName=String(ah.a4W[aC]||fxName);if(aC>=aE.l6&&window.__fx?.settingsApi?.getBoolean("hideBotNames"))return;var fxDetails=window.__fx?.followedAccounts?.getLobbyDetails?.(fxAccountName)||{},fxDisplayName=window.__fx?.nameFilter?.filter?.(fxDetails.nickname||fxName)||fxName,fxOldColor=iq.fillStyle;if(fxDetails.color)iq.fillStyle=fxDetails.color;if(!window.__fx?.settingsApi?.getBoolean("showCountryFlagsOnLand")||!window.__fx?.utils?.drawPlayerNameWithCountryFlags?.(iq,fxDisplayName,fr,ft))iq.fillText(fxDisplayName,fr,ft);iq.fillStyle=fxOldColor;window.__fx?.utils?.drawPlayerLabelMetrics?.(iq,aC,fr,ft,fontSize);if(aC<aE.l6&&ah.a7G[aC]!==2)return;var aPz=fontSize/aPD[aC];iq.fillRect(fr-0.5*aPz,ft+bD.tO.a2p*fontSize,aPz,Math.max(1,0.1*fontSize));}');
+    console.info("[ZFX Client] Connected the complete native aPv map-name renderer to labels, flags, and player metrics.");
+    return;
+  }
+
   // Current native renderer (2.18.x): the map label's native balance is drawn
   // by aPj and the current territory/balance arrays are ah.hU / ah.hi. The
   // older density code relied on the previous gameInterface mapping and was

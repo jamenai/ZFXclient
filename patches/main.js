@@ -1,7 +1,6 @@
 import ModUtils from "../modUtils.js";
 import customLobby from "./customLobby.js";
 import contestTimers from "./contestTimers.js";
-import followedAccounts from "./followedAccounts.js";
 import gameSdk from "./gameSdk.js";
 import highlightSpawnpoints from "./highlightSpawnpoints.js";
 import hoveringTooltip from "./hoveringTooltip.js";
@@ -19,7 +18,6 @@ import pingFilter from "./pingFilter.js";
 import quickEmojis from "./quickEmojis.js";
 import replayHistory from "./replayHistory.js";
 import replayTimebar from "./replayTimebar.js";
-import savedAccounts from "./savedAccounts.js";
 import selfTerritoryHighlight from "./selfTerritoryHighlight.js";
 
 // Preserve the current application order explicitly. Patch dependencies and
@@ -27,7 +25,6 @@ import selfTerritoryHighlight from "./selfTerritoryHighlight.js";
 export const patchRegistry = [
     ["customLobby.js", customLobby],
     ["contestTimers.js", contestTimers],
-    ["followedAccounts.js", followedAccounts],
     ["gameSdk.js", gameSdk],
     ["highlightSpawnpoints.js", highlightSpawnpoints],
     ["hoveringTooltip.js", hoveringTooltip],
@@ -45,7 +42,6 @@ export const patchRegistry = [
     ["quickEmojis.js", quickEmojis],
     ["replayHistory.js", replayHistory],
     ["replayTimebar.js", replayTimebar],
-    ["savedAccounts.js", savedAccounts],
     ["selfTerritoryHighlight.js", selfTerritoryHighlight],
 ];
 

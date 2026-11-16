@@ -178,11 +178,12 @@ export function createGameSdk({ getMapNames = () => null } = {}) {
     const normalizedPlayers = players.map((player, index) => {
       // In the current native lobby player record, a84 is the zero-based
       // global rank code. The older a7W/a7T/a7G fields no longer exist.
-      const nativeRankCode = player?.a84 == null || player?.a84 === "" ? NaN : Number(player.a84);
+      const nativeRankValue = player?.a84 ?? player?.xo;
+      const nativeRankCode = nativeRankValue == null || nativeRankValue === "" ? NaN : Number(nativeRankValue);
       const rankAvailable = Number.isFinite(nativeRankCode) && nativeRankCode >= 0 && nativeRankCode !== 1234566;
       return Object.freeze({
-      id: Number.isInteger(Number(player?.uu ?? player?.ur ?? player?.ue ?? player?.pk)) ? Number(player.uu ?? player.ur ?? player.ue ?? player.pk) : null,
-      accountCode: formatLobbyAccountCode(player?.uu ?? player?.ur ?? player?.ue ?? player?.pk),
+      id: Number.isInteger(Number(player?.uu ?? player?.ur ?? player?.ue ?? player?.pk ?? player?.pg)) ? Number(player.uu ?? player.ur ?? player.ue ?? player.pk ?? player.pg) : null,
+      accountCode: formatLobbyAccountCode(player?.uu ?? player?.ur ?? player?.ue ?? player?.pk ?? player?.pg),
       name: String(player?.username ?? ""),
       ready: Number(player?.x8 ?? player?.x5 ?? player?.ws ?? player?.xi) > 0 && Number(player?.xB ?? player?.x8Mode ?? player?.wv ?? player?.xl) === 0,
       entryId: Number.isInteger(Number(player?.x8 ?? player?.x5 ?? player?.ws ?? player?.xi)) && Number(player?.x8 ?? player?.x5 ?? player?.ws ?? player?.xi) > 0

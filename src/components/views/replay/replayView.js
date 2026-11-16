@@ -40,11 +40,12 @@ const ReplayView = defineComponent({
     function refresh() { savedReplays.value = window.__fx?.replayHistory?.getAll?.() ?? []; }
     function open() { refresh(); status.value = ""; visible.value = true; window.requestAnimationFrame(() => textarea.value?.focus()); }
     function close() { visible.value = false; }
-    function launch(data = replayText.value) {
+    function launch(data = replayText.value, timestamp = null) {
       const clean = String(data || "").trim();
       if (!clean || typeof window.__fx?.replayHistory?.load !== "function") { status.value = labels.value.invalid; return; }
+      const loaded = window.__fx.replayHistory.load(clean, timestamp);
+      if (!loaded) { status.value = labels.value.invalid; return; }
       visible.value = false;
-      window.__fx.replayHistory.load(clean, null);
       replayText.value = "";
     }
     function copy(text = replayText.value) {
@@ -98,7 +99,7 @@ const ReplayView = defineComponent({
             <p v-if="!savedReplays.length" class="fx-replay-empty">{{ labels.empty }}</p>
             <div v-else class="fx-replay-list"><article v-for="(replay, index) in savedReplays" :key="replay.timestamp" class="fx-replay-row">
               <div class="fx-replay-index">{{ String(index + 1).padStart(2, '0') }}</div><div class="fx-replay-meta"><strong>{{ labels.game }} {{ savedReplays.length - index }}</strong><small>{{ formatDate(replay.timestamp) }}</small></div>
-              <button type="button" class="fx-replay-button is-primary is-small" @click="launch(replay.data)">{{ labels.load }}</button><button type="button" class="fx-replay-icon-button" :aria-label="labels.remove" :title="labels.remove" @click="removeReplay(replay.timestamp)">×</button>
+              <button type="button" class="fx-replay-button is-primary is-small" @click="launch(replay.data, replay.timestamp)">{{ labels.load }}</button><button type="button" class="fx-replay-icon-button" :aria-label="labels.remove" :title="labels.remove" @click="removeReplay(replay.timestamp)">×</button>
             </article></div>
           </section>
         </div>

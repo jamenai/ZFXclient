@@ -32,8 +32,8 @@ function decorate(listEntries, listAccountNames) {
   render();
 }
 
-function edit(selectedIndex) {
-  const accountName = accountNames[Math.min(selectedIndex, accountNames.length - 1)];
+function editAccount(accountName) {
+  if (typeof accountName !== "string" || !accountName) return;
   if (accountName === undefined) return;
   openLabelEditor({
     title: "Saved Account Label",
@@ -48,8 +48,13 @@ function edit(selectedIndex) {
       settingsApi.set("savedAccountLabels", labels);
       saveSettings();
       render();
+      window.dispatchEvent(new Event("fx-saved-account-labels-update"));
     }
   });
 }
 
-export default { decorate, edit };
+function edit(selectedIndex) {
+  editAccount(accountNames[Math.min(selectedIndex, accountNames.length - 1)]);
+}
+
+export default { decorate, edit, editAccount, getDetails };

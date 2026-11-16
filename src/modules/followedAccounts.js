@@ -84,6 +84,12 @@ function getLobbyDetails(accountName) {
 function edit(selectedIndex) {
   const accountName = accountNames[selectedIndex];
   if (accountName === undefined) return;
+  editAccount(accountName);
+}
+
+function editAccount(accountName) {
+  if (typeof accountName !== "string" || !accountName.trim()) return false;
+  accountName = accountName.trim();
   openLabelEditor({
     title: "Followed Account Nickname",
     accountName,
@@ -96,8 +102,10 @@ function edit(selectedIndex) {
       setStored("followedAccountColors", accountName, color);
       saveSettings();
       render();
+      window.dispatchEvent(new Event("fx-followed-account-labels-updated"));
     }
   });
+  return true;
 }
 
-export default { decorate, syncAccountNames, setAccountNamesProvider, edit, isFollowed, getLobbyDetails };
+export default { decorate, syncAccountNames, setAccountNamesProvider, edit, editAccount, isFollowed, getLobbyDetails };

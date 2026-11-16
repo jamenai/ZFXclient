@@ -40,7 +40,7 @@ const ChangelogView = defineComponent({
         <div class="fx-changelog-mark" aria-hidden="true">Z</div>
         <div class="fx-changelog-content">
           <header class="fx-changelog-heading">
-          <span class="fx-changelog-eyebrow">ZFX CLIENT Â· RELEASE NOTES</span>
+          <span class="fx-changelog-eyebrow">ZFX CLIENT - RELEASE NOTES</span>
           <h2 id="fx-changelog-title">What's new in {{ version }}</h2>
           <p class="fx-changelog-date">{{ lastUpdated }}</p>
           </header>

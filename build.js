@@ -101,10 +101,13 @@ async function patchGameCode(buildTimestamp) {
 	if (stringArrayRaw === undefined) throw new Error("cannot find the string array");
 	const stringArray = JSON.parse(stringArrayRaw);
 	script = script.replace(/\bS\[(\d+)\]/g, (_match, index) => `"${stringArray[index]}"`);
-	const nativeLogoAssetLoader = /function aLa\(eL,name,aLb,sA\)\{a42\[eL\]=name;/;
-	if (nativeLogoAssetLoader.test(script)) {
-		script = script.replace(nativeLogoAssetLoader,
-			"$&if(name===\"territorial.io\"||name===\"logo\"){canvas[eL]=aLU;return;}");
+	const nativeLogoAssetLoaders = [
+		{ pattern: /function aLa\(eL,name,aLb,sA\)\{a42\[eL\]=name;/, replacement: "$&if(name===\"territorial.io\"||name===\"logo\"){canvas[eL]=aLU;return;}" },
+		{ pattern: /function aML\(eT,name,aMM,pY\)\{a49\[eT\]=name;/, replacement: "$&if(name===\"territorial.io\"||name===\"logo\"){canvas[eT]=aMF;aMO();return;}" },
+	];
+	const nativeLogoAssetLoader = nativeLogoAssetLoaders.find(({ pattern }) => pattern.test(script));
+	if (nativeLogoAssetLoader) {
+		script = script.replace(nativeLogoAssetLoader.pattern, nativeLogoAssetLoader.replacement);
 	} else {
 		console.warn("Native logo asset loader changed; skipping logo suppression.");
 	}
@@ -136,12 +139,12 @@ async function patchGameCode(buildTimestamp) {
 
 	// Current native game data layout shared by patches and adapters.
 	Object.assign(modUtils.dictionary, {
-		game: "aE", playerId: "fQ", playerData: "ah", rawPlayerNames: "a4x", playerNames: "a2j",
-		playerTerritories: "hU", playerBalances: "hi", playerBalance: "hi", playerCommitted: "a7o",
-		playerAlive: "ne", playerStates: "a7f", gHumans: "l2", gBots: "lO",
-		gMaxPlayers: "a1L", gLobbyMaxJoin: "fd", gameState: "a4E", gMatchState: "a4E",
-		gIsSingleplayer: "lM", gIsReplay: "hp", gGameType: "lK",
-		gSelectableSpawn: "i5",
+		game: "aE", playerId: "fU", playerData: "ah", rawPlayerNames: "a4W", playerNames: "a2G",
+		playerTerritories: "hY", playerBalances: "hm", playerBalance: "hm", playerCommitted: "a7P",
+		playerAlive: "ni", playerStates: "a7G", gHumans: "l6", gBots: "lS",
+		gMaxPlayers: "fh", gLobbyMaxJoin: "a0r", gameState: "a3m", gMatchState: "a3m",
+		gIsSingleplayer: "lQ", gIsReplay: "ht", gGameType: "lO",
+		gSelectableSpawn: "i9",
 	});
 
 	const { default: applyPatches } = await import('./patches/main.js');

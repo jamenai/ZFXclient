@@ -442,7 +442,7 @@ const getLobbyLabels = (language = window.__fx?.getGameLanguage?.() || "en") => 
     onlyReadyClans: "Nur Clans mit Bereiten", noReadyClans: "Keine Clans mit bereiten Spielern",
     readinessFilters: "Bereitschaftsfilter", affiliationFilters: "Zugehörigkeitsfilter", gameFilters: "Spielauswahl", resetFilters: "Filter zurücksetzen",
     filters: "Filter", showFilters: "Filter anzeigen", hideFilters: "Filter ausblenden",
-    rank: "Rang", status: "Status", online: "Online", followJoin: "Mitbeitreten", showGame: "Spiel anzeigen", sendGold: "Gold senden", noPlayers: "Keine Spieler gefunden",
+    rank: "Rang", status: "Status", online: "Online", followJoin: "Mitbeitreten", showGame: "Spiel anzeigen", sendGold: "Gold senden", editAccountLabel: "Folgename/Farbe bearbeiten", noPlayers: "Keine Spieler gefunden",
     sort: "Sortierung", sortRankDesc: "Rang absteigend", sortRankAsc: "Rang aufsteigend", sortName: "Name (A–Z)",
     clanTitle: "Clan-Übersicht", chat: "Chat", calls: "Calls", joinCont: "Join Cont", join: "Join", joinNext: "Join {map} {count} teams", nextGame: "nächstes Spiel", chatPlaceholder: "Nachricht an die Lobby …", clear: "Leeren",
     teamMessagePlaceholder: "Nachricht ans Team schreiben …", messageSent: "Clan-Nachricht gesendet", messageSendFailed: "Clan-Nachricht konnte nicht gesendet werden",
@@ -473,7 +473,7 @@ const getLobbyLabels = (language = window.__fx?.getGameLanguage?.() || "en") => 
     onlyReadyClans: "Only clans with ready players", noReadyClans: "No clans with ready players",
     readinessFilters: "Readiness filters", affiliationFilters: "Affiliation filters", gameFilters: "Game selection", resetFilters: "Reset filters",
     filters: "Filters", showFilters: "Show filters", hideFilters: "Hide filters",
-    rank: "Rank", status: "Status", online: "Online", followJoin: "Follow join", showGame: "Show Game", sendGold: "Send Gold", noPlayers: "No players found",
+    rank: "Rank", status: "Status", online: "Online", followJoin: "Follow join", showGame: "Show Game", sendGold: "Send Gold", editAccountLabel: "Edit followed name/color", noPlayers: "No players found",
     sort: "Sort", sortRankDesc: "Rank descending", sortRankAsc: "Rank ascending", sortName: "Name (A–Z)",
     clanTitle: "Clan overview", chat: "Chat", calls: "Calls", joinCont: "Join Cont", join: "Join", joinNext: "Join {map} {count} teams", nextGame: "next game", chatPlaceholder: "Message the lobby …", clear: "Clear",
     teamMessagePlaceholder: "Write a message to your team …", messageSent: "Clan message sent", messageSendFailed: "Could not send clan message",
@@ -574,6 +574,7 @@ const LobbyView = defineComponent({
     let notificationAutoMinimizeTimer = null;
     const propagandaDialog = ref(null);
     const propagandaMessage = shallowRef(null);
+    let propagandaDismissCallback = null;
     let nativePropagandaObserver = null;
 
     function propagandaRgb(colors, index, fallback) {
@@ -600,12 +601,16 @@ const LobbyView = defineComponent({
       };
     }
 
-    function closePropagandaMessage() {
+    function closePropagandaMessage(acknowledge = true) {
       propagandaMessage.value = null;
       if (propagandaDialog.value?.open) propagandaDialog.value.close();
+      const onDismiss = propagandaDismissCallback;
+      propagandaDismissCallback = null;
+      if (acknowledge) onDismiss?.();
     }
 
-    function showPropagandaInVue(message, colors, id, suppliedTheme = null) {
+    function showPropagandaInVue(message, colors, id, suppliedTheme = null, onDismiss = null) {
+      propagandaDismissCallback = typeof onDismiss === "function" ? onDismiss : null;
       propagandaMessage.value = {
         text: String(message ?? "").trim(),
         id: Number(id),
@@ -1620,6 +1625,13 @@ const LobbyView = defineComponent({
       return selectUpcomingGame({ id: player.entryId });
     }
 
+    function editAccountLabelFromContextMenu() {
+      const player = playerContextMenu.value;
+      playerContextMenu.value = null;
+      if (!player?.senderName) return false;
+      return window.__fx?.followedAccounts?.editAccount?.(player.senderName) ?? false;
+    }
+
     function followJoinFromContextMenu() {
       const player = playerContextMenu.value;
       playerContextMenu.value = null;
@@ -2262,7 +2274,7 @@ const LobbyView = defineComponent({
       if (window.__fx?.replayNativeLobbyChat === replayNativeLobbyChat) delete window.__fx.replayNativeLobbyChat;
       nativePropagandaObserver?.disconnect();
       nativePropagandaObserver = null;
-      closePropagandaMessage();
+      closePropagandaMessage(false);
       unsubscribe();
       if (window.__fx?.getCustomLobbyClanDiagnostics === getClanDiagnostics) delete window.__fx.getCustomLobbyClanDiagnostics;
       if (activeLobbyDataDiagnostics === getLobbyDataDiagnostics) activeLobbyDataDiagnostics = null;
@@ -2283,7 +2295,7 @@ const LobbyView = defineComponent({
       displayedUpcomingGames, selectedGameEntry, joinedGameEntry, joinCardEntry, joinLinkCopied, selectedEntryReadyCount,
       currentMapEntry,
       selectedGameParticipation,
-      playerContextMenu, playerListComponent, mentionPlayerFromContextMenu, followJoinFromContextMenu, showPlayerGameFromContextMenu, sendGoldFromContextMenu,
+      playerContextMenu, playerListComponent, mentionPlayerFromContextMenu, followJoinFromContextMenu, showPlayerGameFromContextMenu, editAccountLabelFromContextMenu, sendGoldFromContextMenu,
       selectUpcomingGame,
       restoreJoinCardPreview,
       copyGameJoinLink,
@@ -2349,6 +2361,7 @@ const LobbyView = defineComponent({
           <button v-if="playerContextMenu.entryId != null && ['joined', 'spectator'].includes(playerContextMenu.participation)" type="button" role="menuitem" @click="showPlayerGameFromContextMenu">{{ labels.showGame }}</button>
           <button v-if="playerContextMenu.ready && !playerContextMenu.self && playerContextMenu.entryId != null" type="button" role="menuitem" @click="followJoinFromContextMenu">{{ labels.followJoin }}</button>
           <button v-if="!playerContextMenu.self" type="button" role="menuitem" @click="sendGoldFromContextMenu">{{ labels.sendGold }}</button>
+          <button v-if="!playerContextMenu.self" type="button" role="menuitem" @click="editAccountLabelFromContextMenu">{{ labels.editAccountLabel }}</button>
           <button type="button" role="menuitem" @click="mentionPlayerFromContextMenu">@ {{ labels.mention }}</button>
         </div>
       </div>

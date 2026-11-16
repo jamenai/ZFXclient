@@ -1,4 +1,15 @@
 export default (/** @type {import('../modUtils.js').default} */ modUtils) => {
+    if (/function cR\(\)/.test(modUtils.script)) {
+        // Current Native attack selector is cR. Keep its authoritative geometry
+        // and percentage in sync with the Vue HUD and use the native setter for
+        // percentage changes so Native's redraw and limits remain in force.
+        modUtils.replaceOne(
+            /yw\.drawImage\(\s*canvas\s*,\s*fr\s*,\s*this\.ft\s*\)/g,
+            'window.__fx.keybindFunctions.setRelative=value=>{var factor=Number(value);if(Number.isFinite(factor)&&factor>0)this.a5s(factor);};window.__fx.keybindFunctions.setAbsolute=value=>{var percentage=Number(value);if(Number.isFinite(percentage)&&percentage>0&&percentage<=100&&jO>0)this.a5s((percentage/100)/jO);};window.__fx.keybindFunctions.repaintAttackPercentageBar=()=>{bi.e2=true;};window.__fx?.gameAttackSelectorAdapter?.receiveNativeLayout(yw,fr,this.ft,j,this.k);window.__fx?.gameAttackSelectorAdapter?.receiveNativeState({unitsLabel:bD.pc.a35(bD.h6.jN(aE.fU,this.iF())),percentageLabel:bD.pc.a80(100*jO,+(jO<.1)),percentage:jO});if(!window.__fx?.gameAttackSelectorAdapter?.isReady?.())yw.drawImage(canvas,fr,this.ft)'
+        );
+        console.info("[ZFX Client] Connected the Vue attack selector to Native cR geometry and percentage state.");
+        return;
+    }
     if (/function cP\(\)\{var j,fn;var aCq;var canvas;var p4;var iT;var jK;/.test(modUtils.script)) {
         // 2.17.9 keeps the troop percentage and native attack controls in cP.
         // Bridge the same setters used by its keyboard controls to the Vue HUD.

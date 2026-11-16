@@ -20,12 +20,12 @@ export default (/** @type {ModUtils} */ modUtils) => {
         '$&window.__fx?.customLobby?.setJoinFunction?.(()=>this.a0());'
     );
 
-    // In the current socket wrapper aaP opens each native channel. Route only
-    // lobby channel 1 to ZFX while preserving native local and regional paths.
-    const currentSocketRoute = /function aaP\(aYz\)\{var mN;if\(m\.e4\)\{/g;
+    // ac8 opens each native channel. Route only lobby channel 1 to ZFX while
+    // preserving the native local and regional paths.
+    const currentSocketRoute = /function ac8\(aaj\)\{var mR;if\(m\.e8\)\{/g;
     if ([...modUtils.script.matchAll(currentSocketRoute)].length === 1) {
         replaceOne(currentSocketRoute,
-            'function aaP(aYz){var mN;if(window.__fx?.customLobby?.isActive()&&aaL===1){mN=window.__fx.customLobby.getSocketURL();}else if(m.e4){');
+            'function ac8(aaj){var mR;if(window.__fx?.customLobby?.isActive?.()&&ac4===1){mR=window.__fx.customLobby.getSocketURL();}else if(m.e8){');
     } else {
         // Compatibility matcher for earlier native socket wrappers.
         const socketRoute = /function (?<fn>\w+)\((?<serverArg>\w+)\)\{var (?<url>\w+);if\(m\.e0\)\{\k<url>="ws:\/\/localhost:"\+\(7130\+(?<socketId>\w+)\)\+"\/";\}else\{if\((?<direct>\w+)\)\{/g;
@@ -39,30 +39,11 @@ export default (/** @type {ModUtils} */ modUtils) => {
         }
     }
 
-    // Count native game WebSocket traffic only while the diagnostics HUD is
-    // open. The socket index is kept so the HUD can distinguish channels.
-    if ([...modUtils.script.matchAll(/b\.onmessage=aaR;/g)].length === 1) {
-        replaceOne(/b\.onmessage=aaR;/g,
-            'b.onmessage=function(fxEvent){window.__fx?.networkDebug?.record(aaL,"in",fxEvent.data);aaR(fxEvent)};');
-    } else {
-        replaceOnce('network packet receive', /b\.onmessage=aZn/g,
-            'b.onmessage=function(fxEvent){window.__fx?.networkDebug?.record(aZh,"in",fxEvent.data);aZn(fxEvent)}');
-    }
-    if ([...modUtils.script.matchAll(/this\.send=function\(aD\)\{if\(this\.em\(\)\)\{b\.send\(aD\);\}\};/g)].length === 1) {
-        replaceOne(/this\.send=function\(aD\)\{if\(this\.em\(\)\)\{b\.send\(aD\);\}\};/g,
-            'this.send=function(aD){if(this.em()){window.__fx?.networkDebug?.record(aaL,"out",aD);b.send(aD);}};');
-    }
-    if (!modUtils.script.includes('networkDebug?.record(aaL,"out"')) {
-        const nativeSocketSend = /this\.send=function\((?<data>\w+)\)\{if\(this\.ei\(\)\)\{b\.send\(\k<data>\);\}\}/g;
-        const nativeSocketSendCount = [...modUtils.script.matchAll(nativeSocketSend)].length;
-        if (nativeSocketSendCount === 1) {
-            const { data } = matchOne(nativeSocketSend).groups;
-            replaceOne(nativeSocketSend,
-                `this.send=function(${data}){this.ei()&&(window.__fx?.networkDebug?.record(aZh,"out",${data}),b.send(${data}))}`);
-        } else {
-            console.info(`[ZFX Client] Native network packet send hook ${nativeSocketSendCount ? 'is ambiguous' : 'is absent'} in this game version.`);
-        }
-    }
+    // Record current native per-socket traffic for the diagnostics HUD.
+    replaceOnce('network packet receive', /function acA\(e\)\{b1\.aAa\.aM9\(ac4,new Uint8Array\(e\.data\)\);\}/g,
+        'function acA(e){window.__fx?.networkDebug?.record(ac4,"in",e.data);b1.aAa.aM9(ac4,new Uint8Array(e.data));}');
+    replaceOnce('network packet send', /this\.send=function\(aD\)\{if\(this\.eq\(\)\)\{b\.send\(aD\);\}\};/g,
+        'this.send=function(aD){if(this.eq()){window.__fx?.networkDebug?.record(ac4,"out",aD);b.send(aD);}};');
 
     // Reuse the native socket manager's send path so the custom lobby bridge
     // can send through the socket which was opened above.

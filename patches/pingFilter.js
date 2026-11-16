@@ -4,10 +4,10 @@ export default definePatch((modUtils) => {
     const { matchCode, replace } = modUtils;
 
     let currentLanguageCodesHookInstalled = false;
-    const currentLanguageCodesHook = /this\.aKC=function\(s\)\{/g;
+    const currentLanguageCodesHook = /this\.aGg=function\(\)\{/g;
     const beforeLanguageCodesHook = modUtils.script;
     modUtils.script = modUtils.script.replace(currentLanguageCodesHook,
-        '$&window.__fx.getGameLanguageCodes=()=>Array.isArray(bA?.data?.h)?bA.data.h:null;');
+        '$&window.__fx.getGameLanguageCodes=()=>Array.isArray(this.h)?this.h:null;');
     currentLanguageCodesHookInstalled = modUtils.script !== beforeLanguageCodesHook;
 
     try {
@@ -18,12 +18,12 @@ export default definePatch((modUtils) => {
         if (!currentLanguageCodesHookInstalled) console.info("[ZFX Client] Native language-code adapter hook is absent in this game version.");
     }
 
-    // aHZ.aIK receives both server entries and local chat confirmation prompts.
-    // Forward them through one adapter before native popup filtering/rendering.
-    const currentNotificationHook = /this\.aIK=function\(pi\)\{/g;
+    // aHC.aHx receives Native Terri notification entries. Adapt confirmations
+    // and clan pings before native queueing and sound playback.
+    const currentNotificationHook = /this\.aHx=function\(pe\)\{/g;
     const before = modUtils.script;
     replace(currentNotificationHook,
-        'this.aIK=function(pi){var fxNativeNotificationHandled=false;if(window.__fx){var fxNativeNotificationText=bq.lr?.q2?.(pi,bq.lr?.q3?.(pi))?.s||pi?.s||"";fxNativeNotificationHandled=window.__fx.nativeNotificationAdapter?.receive?.(pi,fxNativeNotificationText)===true;}if(Number(pi?.id)===6&&fxNativeNotificationHandled)return;if(window.__fx?.pingFilter?.isMuted?.(pi,"s"))return;');
+        'this.aHx=function(pe){var fxNativeNotificationHandled=false;if(window.__fx){var fxNativeNotificationText=bq.lv.py(pe,bq.lv.pz(pe))||pe?.s||"";fxNativeNotificationHandled=window.__fx.nativeNotificationAdapter?.receive?.(pe,fxNativeNotificationText)===true;}if(Number(pe?.id)===6&&fxNativeNotificationHandled)return;if(window.__fx?.pingFilter?.isMuted?.(pe,"s"))return;');
     if (modUtils.script === before) {
         // Older native bundles used aJX/aIJ instead.
         const legacyNotificationHook = /aJX\.push\(aIJ\);!bm\.buffer\.data\[14\]\.value&&aIJ\.id!==7&&bt\.play\(\);?/g;

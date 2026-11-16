@@ -7,8 +7,8 @@ export default (/** @type {ModUtils} */ { replaceOne, waitForMinification }) => 
   waitForMinification(() => {
     try {
       replaceOne(
-        /this\.a9w\s*=\s*function\s*\((?<cell>\w+)\)\s*\{/g,
-        `$&if(window.__fx?.hoveringTooltip?.showNativeTerritory?.(ad.hG($<cell>)?ad.fY($<cell>):-1,bP.fo($<cell>>>2),bP.fq($<cell>>>2)))return;`,
+        /this\.a9X\s*=\s*function\s*\((?<cell>\w+)\)\s*\{/g,
+        `$&if(window.__fx?.hoveringTooltip?.showNativeTerritory?.(ad.ff($<cell>)&&!ad.fb($<cell>)?ad.fc($<cell>):-1,bP.fs($<cell>>>2),bP.fu($<cell>>>2)))return;`,
       );
       console.info("[ZFX Client] Native territory info now uses the ZFX tooltip on right-click.");
     } catch (error) {

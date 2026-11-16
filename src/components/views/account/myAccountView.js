@@ -1,8 +1,11 @@
 import { computed, createApp, defineComponent, onBeforeUnmount, onMounted, ref } from "vue/dist/vue.esm-bundler.js";
+import savedAccountsModule from "../../../modules/savedAccounts.js";
+import passwordReset from "../../../modules/passwordReset.js";
 
 let nativeProfileSnapshot = null;
 let savedAccountSnapshot = [];
 let savedAccountActions = null;
+
 function normalizeAccountText(value) {
   if (typeof value !== "string") return value;
   try { return decodeURIComponent(escape(value)); } catch { return value; }
@@ -70,7 +73,7 @@ export const myAccountAdapter = {
   getSavedAccounts() {
     // Keep the UI snapshot from setSavedAccounts. The native selector's
     // `oS` array is mutable and can be temporarily reset while it refreshes.
-    return savedAccountSnapshot.map(entry => ({ ...entry }));
+    return savedAccountSnapshot.map(entry => ({ ...entry, ...savedAccountsModule.getDetails(entry.name) }));
   },
   useSavedAccount(index) {
     if (!this.getSavedAccounts().some(item => item.index === index) || !savedAccountActions) return false;
@@ -99,6 +102,7 @@ const MyAccountView = defineComponent({
     const bioDraft = ref("");
     const emailDraft = ref("");
     const verificationCode = ref("");
+    const customPasswordDraft = ref("");
     const status = ref("");
     let refreshTimer = 0;
     let statusTimer = 0;
@@ -220,6 +224,10 @@ const MyAccountView = defineComponent({
       window.__fx?.myAccountAdapter?.useSavedAccount?.(index);
       close();
     }
+
+    function editSavedAccount(accountName) {
+      savedAccountsModule.editAccount(accountName);
+    }
     function removeSavedAccount(index) { window.__fx?.myAccountAdapter?.removeSavedAccount?.(index); refresh(); }
     async function copyId() {
       if (!accountId.value) return;
@@ -244,6 +252,12 @@ const MyAccountView = defineComponent({
     function changeName() {
       close();
       window.requestAnimationFrame(() => window.__fx?.openPlayerNameView?.());
+    }
+    function openPasswordReset() {
+      if (!passwordReset.setCustomPassword(customPasswordDraft.value)) return;
+      handedOffToNative.value = true;
+      close();
+      window.requestAnimationFrame(() => handoffToNative({ labelId: 200, prefix: true }));
     }
     function openLoginView() {
       handedOffToNative.value = true;
@@ -330,6 +344,7 @@ const MyAccountView = defineComponent({
       window.addEventListener("keydown", onKeyDown);
       window.addEventListener("fx-my-account-profile-update", refresh);
       window.addEventListener("fx-my-account-saved-accounts-update", refresh);
+      window.addEventListener("fx-saved-account-labels-update", refresh);
       window.__fx.openVueMyAccount = open;
       window.__fx.closeVueMyAccount = close;
     });
@@ -341,13 +356,14 @@ const MyAccountView = defineComponent({
       window.removeEventListener("fx-my-account-profile-update", refresh);
       if (profileHydrationListener) window.removeEventListener("fx-my-account-profile-update", profileHydrationListener);
       window.removeEventListener("fx-my-account-saved-accounts-update", refresh);
+      window.removeEventListener("fx-saved-account-labels-update", refresh);
       if (window.__fx?.openVueMyAccount === open) delete window.__fx.openVueMyAccount;
       if (window.__fx?.closeVueMyAccount === close) delete window.__fx.closeVueMyAccount;
     });
     return {
       visible, activeSection, navigation, playerName, accountId, gameProfile, savedAccounts, status, isGerman,
-      bioDraft, emailDraft, verificationCode, labels: extendedLabels, close, copyId, changeName,
-      handoffToNative, requestEmailCode, submitEmailCode, saveBio, useSavedAccount, removeSavedAccount, openLoginView, createNativeAccount,
+      bioDraft, emailDraft, verificationCode, customPasswordDraft, labels: extendedLabels, close, copyId, changeName, openPasswordReset,
+      handoffToNative, requestEmailCode, submitEmailCode, saveBio, useSavedAccount, removeSavedAccount, editSavedAccount, openLoginView, createNativeAccount,
     };
   },
   template: `
@@ -402,7 +418,7 @@ const MyAccountView = defineComponent({
             <header><div><small>ZFX CLIENT · ACCOUNT ACCESS</small><h2>{{ labels.savedAccounts }}</h2></div><span>{{ savedAccounts.length }}</span></header>
             <p v-if="!savedAccounts.length" class="fx-my-account-empty">{{ gameProfile ? labels.noSavedAccounts : labels.unavailable }}</p>
             <article v-for="account in savedAccounts" :key="account.index" class="fx-my-account-saved-row">
-              <div><span class="fx-my-account-saved-icon" aria-hidden="true">◉</span><strong>{{ account.name }}</strong></div>
+              <div><span class="fx-my-account-saved-icon" aria-hidden="true">◉</span><strong :style="{ color: account.color || undefined }">{{ account.label || account.name }}</strong><button type="button" @click="editSavedAccount(account.name)">Edit label</button></div>
               <button type="button" @click="useSavedAccount(account.index)">{{ labels.useAccount }}</button>
               <button type="button" class="is-remove" @click="removeSavedAccount(account.index)">{{ labels.removeAccount }}</button>
             </article>
@@ -417,7 +433,8 @@ const MyAccountView = defineComponent({
             <header class="fx-my-account-section-heading"><small>ZFX CLIENT / SECURITY</small><h2>{{ labels.security }}</h2></header>
             <article class="fx-my-account-action-card">
               <div><strong>{{ labels.password }}</strong><p>{{ isGerman ? 'Fordere einen sicheren Link zum Zuruecksetzen deines Passworts an.' : 'Request a secure link to reset your password.' }}</p></div>
-              <button type="button" @click="handoffToNative({ labelId: 200, prefix: true })">{{ labels.resetPassword }} <span>&rsaquo;</span></button>
+              <label><span>{{ isGerman ? 'Neues Passwort (optional)' : 'New password (optional)' }}</span><input v-model="customPasswordDraft" type="password" autocomplete="new-password" maxlength="15" placeholder="A–Z, 0–9, _ -"></label>
+              <button type="button" @click="openPasswordReset">{{ labels.resetPassword }} <span>&rsaquo;</span></button>
             </article>
             <article class="fx-my-account-form-card">
               <div><strong>{{ labels.email }}</strong><p>{{ isGerman ? 'E-Mail-Adresse aktualisieren und mit einem Code bestaetigen.' : 'Update your email address and verify it with a code.' }}</p></div>
